@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # incoming 
+alias ..="cd .."
+alias ~~="cd -"
 alias sxhkdrc="vim $HOME/.config/sxhkd"
 #alias bspwmrc="vim $HOME/.config/bspwm"
 alias wmrc="vim $HOME/.config/herbstluftwm/autostart"
