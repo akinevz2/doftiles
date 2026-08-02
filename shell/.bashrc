@@ -61,6 +61,22 @@ case $- in
         if [ -x /usr/bin/dircolors ]; then
             eval "$(dircolors -b)"
         fi
+
+        # Git prompt helper (__git_ps1) from git's bash-completion contrib.
+        # Try common locations across distros before falling back to a no-op.
+        if ! type __git_ps1 >/dev/null 2>&1; then
+            for _f in \
+                /usr/lib/git-core/git-sh-prompt \
+                /usr/share/git/completion/git-prompt.sh \
+                /usr/share/git-core/git-prompt.sh \
+                /usr/share/bash-completion/completions/git-prompt
+            do
+                [ -r "$_f" ] && source "$_f" && break
+            done
+        fi
+        # Fall back to an empty string if still unavailable (don't error).
+        type __git_ps1 >/dev/null 2>&1 || __git_ps1() { :; }
+
         PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$(__git_ps1 " (%s)")\$ '
 
         # Color aliases (harmless if .aliases already set them).
