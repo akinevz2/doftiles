@@ -9,6 +9,7 @@ alias sxhkdrc="vim $HOME/.config/sxhkd"
 alias wmrc="vim $HOME/.config/herbstluftwm/autostart"
 alias sx="sxhkd"
 alias bs="bspwm"
+alias dots="cd $HOME/dots && vim $HOME/dots && source $HOME/.bashrc"
 alias aliases="vim $HOME/.config/aliases && source $HOME/.config/aliases"
 alias alisa=aliases
 alias rc="vim $HOME/.config/rc"
