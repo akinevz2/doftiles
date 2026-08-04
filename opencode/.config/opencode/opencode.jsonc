@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "disabled_providers": [],
+  "provider": {
+    "ollama": {
+      "name": "WS-RAREBOX",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://ws-rarebox:11434/v1"
+      },
+      "models": {
+        "glm-5.2:cloud": {
+          "name": "GLM"
+        },
+        "laguna-xs-2.1:latest": {
+          "name": "MAI"
+        }
+      }
+    }
+  }
+}
