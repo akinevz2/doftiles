@@ -21,7 +21,7 @@ $
 
 # Command Line History (newest to oldest):
 :wq
-|2,0,1785875372,,"wq"
+|2,0,1785875420,,"wq"
 :w ! sudo tee > /dev/null '%' 
 |2,0,1652224647,,"w ! sudo tee > /dev/null '%' "
 :set clipboard=unnamed
@@ -153,8 +153,8 @@ $
 	Q
 |3,0,35,0,1,0,1562301574,"Q"
 ""-	CHAR	0
-	MAI
-|3,1,36,0,1,0,1785875368,"MAI"
+	/
+|3,1,36,0,1,0,1785875417,"/"
 
 # File marks:
 'A  1478  21  ~/cartographer-gl/map-widget/node_modules/@types/mapbox-gl/index.d.ts
@@ -167,18 +167,18 @@ $
 |4,78,151,0,1554901471,"~/task_launch"
 'Z  2  34  ~/cartographer-gl/map-widget/src/mapboxTerrainV2.ts
 |4,90,2,34,1568110507,"~/cartographer-gl/map-widget/src/mapboxTerrainV2.ts"
-'0  16  31  ~/dots/opencode/.config/opencode/opencode.jsonc
-|4,48,16,31,1785875372,"~/dots/opencode/.config/opencode/opencode.jsonc"
-'1  12  66  ~/.config/aliases
-|4,49,12,66,1785875356,"~/.config/aliases"
-'2  12  43  ~/.config/aliases
-|4,50,12,43,1785875328,"~/.config/aliases"
-'3  8  0  ~/doftiles/.gitignore
-|4,51,8,0,1654317182,"~/doftiles/.gitignore"
-'4  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,52,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
-'5  1  0  ~/.config/aliases
-|4,53,1,0,1653927925,"~/.config/aliases"
+'0  1  0  ~/dots/.gitignore
+|4,48,1,0,1785875420,"~/dots/.gitignore"
+'1  16  31  ~/dots/opencode/.config/opencode/opencode.jsonc
+|4,49,16,31,1785875372,"~/dots/opencode/.config/opencode/opencode.jsonc"
+'2  12  66  ~/.config/aliases
+|4,50,12,66,1785875356,"~/.config/aliases"
+'3  12  43  ~/.config/aliases
+|4,51,12,43,1785875328,"~/.config/aliases"
+'4  8  0  ~/doftiles/.gitignore
+|4,52,8,0,1654317182,"~/doftiles/.gitignore"
+'5  1  22  ~/doftiles/.git/COMMIT_EDITMSG
+|4,53,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
 '6  1  0  ~/.config/aliases
 |4,54,1,0,1653927925,"~/.config/aliases"
 '7  1  0  ~/.config/aliases
@@ -189,22 +189,46 @@ $
 |4,57,1,0,1653927925,"~/.config/aliases"
 
 # Jumplist (newest first):
+-'  1  0  ~/dots/.gitignore
+|4,39,1,0,1785875420,"~/dots/.gitignore"
+-'  5  19  ~/dots/.gitignore
+|4,39,5,19,1785875414,"~/dots/.gitignore"
+-'  16  31  ~/dots/opencode/.config/opencode/opencode.jsonc
+|4,39,16,31,1785875372,"~/dots/opencode/.config/opencode/opencode.jsonc"
 -'  16  31  ~/dots/opencode/.config/opencode/opencode.jsonc
 |4,39,16,31,1785875372,"~/dots/opencode/.config/opencode/opencode.jsonc"
 -'  10  0  ~/dots/opencode/.config
 |4,39,10,0,1785875363,"~/dots/opencode/.config"
+-'  10  0  ~/dots/opencode/.config
+|4,39,10,0,1785875363,"~/dots/opencode/.config"
 -'  10  0  ~/dots/opencode
 |4,39,10,0,1785875362,"~/dots/opencode"
+-'  10  0  ~/dots/opencode
+|4,39,10,0,1785875362,"~/dots/opencode"
+-'  1  0  ~/dots
+|4,39,1,0,1785875359,"~/dots"
 -'  1  0  ~/dots
 |4,39,1,0,1785875359,"~/dots"
 -'  12  66  ~/.config/aliases
 |4,39,12,66,1785875356,"~/.config/aliases"
 -'  12  66  ~/.config/aliases
 |4,39,12,66,1785875356,"~/.config/aliases"
+-'  12  66  ~/.config/aliases
+|4,39,12,66,1785875356,"~/.config/aliases"
+-'  12  66  ~/.config/aliases
+|4,39,12,66,1785875356,"~/.config/aliases"
 -'  1  0  ~/.config/aliases
 |4,39,1,0,1785875339,"~/.config/aliases"
 -'  1  0  ~/.config/aliases
 |4,39,1,0,1785875339,"~/.config/aliases"
+-'  1  0  ~/.config/aliases
+|4,39,1,0,1785875339,"~/.config/aliases"
+-'  1  0  ~/.config/aliases
+|4,39,1,0,1785875339,"~/.config/aliases"
+-'  1  0  ~/dots
+|4,39,1,0,1785875330,"~/dots"
+-'  1  0  ~/dots
+|4,39,1,0,1785875330,"~/dots"
 -'  1  0  ~/dots
 |4,39,1,0,1785875330,"~/dots"
 -'  1  0  ~/dots
@@ -217,6 +241,14 @@ $
 |4,39,12,43,1785875328,"~/.config/aliases"
 -'  12  43  ~/.config/aliases
 |4,39,12,43,1785875328,"~/.config/aliases"
+-'  12  43  ~/.config/aliases
+|4,39,12,43,1785875328,"~/.config/aliases"
+-'  12  43  ~/.config/aliases
+|4,39,12,43,1785875328,"~/.config/aliases"
+-'  12  43  ~/.config/aliases
+|4,39,12,43,1785875328,"~/.config/aliases"
+-'  12  43  ~/.config/aliases
+|4,39,12,43,1785875328,"~/.config/aliases"
 -'  5  0  ~/.config/aliases
 |4,39,5,0,1785875296,"~/.config/aliases"
 -'  5  0  ~/.config/aliases
@@ -229,6 +261,26 @@ $
 |4,39,5,0,1785875296,"~/.config/aliases"
 -'  5  0  ~/.config/aliases
 |4,39,5,0,1785875296,"~/.config/aliases"
+-'  5  0  ~/.config/aliases
+|4,39,5,0,1785875296,"~/.config/aliases"
+-'  5  0  ~/.config/aliases
+|4,39,5,0,1785875296,"~/.config/aliases"
+-'  5  0  ~/.config/aliases
+|4,39,5,0,1785875296,"~/.config/aliases"
+-'  5  0  ~/.config/aliases
+|4,39,5,0,1785875296,"~/.config/aliases"
+-'  5  0  ~/.config/aliases
+|4,39,5,0,1785875296,"~/.config/aliases"
+-'  5  0  ~/.config/aliases
+|4,39,5,0,1785875296,"~/.config/aliases"
+-'  1  0  ~/.config/aliases
+|4,39,1,0,1785875289,"~/.config/aliases"
+-'  1  0  ~/.config/aliases
+|4,39,1,0,1785875289,"~/.config/aliases"
+-'  1  0  ~/.config/aliases
+|4,39,1,0,1785875289,"~/.config/aliases"
+-'  1  0  ~/.config/aliases
+|4,39,1,0,1785875289,"~/.config/aliases"
 -'  1  0  ~/.config/aliases
 |4,39,1,0,1785875289,"~/.config/aliases"
 -'  1  0  ~/.config/aliases
@@ -269,6 +321,38 @@ $
 |4,39,8,0,1654317182,"~/doftiles/.gitignore"
 -'  8  0  ~/doftiles/.gitignore
 |4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
+-'  8  0  ~/doftiles/.gitignore
+|4,39,8,0,1654317182,"~/doftiles/.gitignore"
 -'  1  0  ~/doftiles/.gitignore
 |4,39,1,0,1654317176,"~/doftiles/.gitignore"
 -'  1  0  ~/doftiles/.gitignore
@@ -301,98 +385,26 @@ $
 |4,39,1,0,1654317176,"~/doftiles/.gitignore"
 -'  1  0  ~/doftiles/.gitignore
 |4,39,1,0,1654317176,"~/doftiles/.gitignore"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  22  ~/doftiles/.git/COMMIT_EDITMSG
-|4,39,1,22,1654316912,"~/doftiles/.git/COMMIT_EDITMSG"
--'  1  0  ~/.config/aliases
-|4,39,1,0,1653927925,"~/.config/aliases"
--'  1  0  ~/.config/aliases
-|4,39,1,0,1653927925,"~/.config/aliases"
--'  1  0  ~/.config/aliases
-|4,39,1,0,1653927925,"~/.config/aliases"
--'  1  0  ~/.config/aliases
-|4,39,1,0,1653927925,"~/.config/aliases"
--'  1  0  ~/.config/aliases
-|4,39,1,0,1653927925,"~/.config/aliases"
--'  1  0  ~/.config/aliases
-|4,39,1,0,1653927925,"~/.config/aliases"
--'  1  0  ~/.config/aliases
-|4,39,1,0,1653927925,"~/.config/aliases"
--'  1  0  ~/.config/aliases
-|4,39,1,0,1653927925,"~/.config/aliases"
--'  1  0  ~/.config/aliases
-|4,39,1,0,1653927925,"~/.config/aliases"
--'  1  0  ~/.config/aliases
-|4,39,1,0,1653927925,"~/.config/aliases"
--'  1  0  ~/.config/aliases
-|4,39,1,0,1653927925,"~/.config/aliases"
+-'  1  0  ~/doftiles/.gitignore
+|4,39,1,0,1654317176,"~/doftiles/.gitignore"
+-'  1  0  ~/doftiles/.gitignore
+|4,39,1,0,1654317176,"~/doftiles/.gitignore"
 
 # Buffer list:
-%~/dots	1	0
-%~/dots/opencode/.config/opencode/opencode.jsonc	16	31
+%~/dots/.gitignore	1	0
 
 # History of marks within files (newest to oldest):
+
+> ~/dots/.gitignore
+	*	1785875417	0
+	"	1	0
+	^	4	25
+	.	1	0
+	+	4	0
+	+	5	0
+	+	6	0
+	+	7	0
+	+	1	0
 
 > ~/dots/opencode/.config/opencode/opencode.jsonc
 	*	1785875371	0

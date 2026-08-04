@@ -1,8 +1,9 @@
-/shell/.cache/
+shell/.cache/
 *.swp
 *.un~
-/vim/.vim/bundle/
-/vim/.vim/.netrwhist
-/vim/.vim/spell/en.utf-8.add
-/vim/.vim/spell/en.utf-8.add.spl
+vim/.vim/bundle/
+vim/.vim/.netrwhist
+vim/.vim/spell/en.utf-8.add
+vim/.vim/spell/en.utf-8.add.spl
 viminfo
+vim/.vim/.netrwhist
