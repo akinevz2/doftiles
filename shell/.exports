@@ -1,18 +1,1 @@
-export TASKRC=${HOME}/.config/taskrc
-export XDG_CONFIG_HOME=~/.config
-export MOZ_WEBRENDER=1
-export MOZ_X11_EGL=1
-
-export VISUAL=vim
-
-export LOCAL_BIN=~/.local/bin
-
-if [ -x "$HOME/.local/bin/check-wsl" ] && "$HOME/.local/bin/check-wsl"; then
-    export DISPLAY=$(ip route list default | awk '{print $3}'):0
-    export LIBGL_ALWAYS_INDIRECT=1
-fi
-
-# IDE viewing shortcuts (for opencode agents)
-export VIEW="code -r"
-export NEW_WINDOW="code --wait --new-window"
-export EDITOR="code --wait"
+.config/exports

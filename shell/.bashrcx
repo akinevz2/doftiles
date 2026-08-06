@@ -1,52 +1,10 @@
-# ~/.bashrc — sourced by interactive bash shells.
+# ~/.bashrcx — extensions sourced by ~/.bashrc (see Makefile "bash" rule).
 # Portable across WSL host, devcontainers, and bare arch.
-# Stowed from arch-dots/shell/.bashrc.
+# Stowed from arch-dots/shell/.bashrcx.
 
-# ─── early: ssh-agent bootstrap ───────────────────────────────────────────────
-# On the WSL host we start a local agent and load the key so its socket can be
-# forwarded into devcontainers. Inside a devcontainer, SSH_AUTH_SOCK is already
-# set to the forwarded socket (/ssh-agent) by devcontainer.json remoteEnv, so
-# we leave it alone.
-_ssh_agent_bootstrap() {
-    # If a forwarded socket is already set and live, use it as-is.
-    if [ -n "${SSH_AUTH_SOCK:-}" ] && [ -S "$SSH_AUTH_SOCK" ]; then
-        # Verify the agent actually responds before trusting it.
-        if ssh-add -l >/dev/null 2>&1 || [ $? -eq 1 ]; then
-            return 0
-        fi
-    fi
-
-    # Otherwise start a per-user agent. Reuse an existing one if present.
-    local agent_env="$HOME/.ssh/agent-env"
-    if [ -f "$agent_env" ]; then
-        # shellcheck disable=SC1090
-        source "$agent_env" 2>/dev/null
-    fi
-    if [ -z "${SSH_AUTH_SOCK:-}" ] || [ ! -S "$SSH_AUTH_SOCK" ] || ! ssh-add -l >/dev/null 2>&1; then
-        local started
-        started=$(ssh-agent -s 2>/dev/null)
-        if [ -n "$started" ]; then
-            echo "$started" > "$agent_env"
-            chmod 600 "$agent_env"
-            # shellcheck disable=SC1090
-            source "$agent_env" >/dev/null 2>&1
-        fi
-    fi
-
-    # Load the default key if the agent has no identities.
-    if [ -n "${SSH_AUTH_SOCK:-}" ] && [ -S "$SSH_AUTH_SOCK" ]; then
-        if ! ssh-add -l >/dev/null 2>&1; then
-            ssh-add ~/.ssh/id_ed25519 ~/.ssh/id_rsa 2>/dev/null
-        fi
-    fi
-}
-_ssh_agent_bootstrap
-unset -f _ssh_agent_bootstrap
-
-# ─── exports & aliases ───────────────────────────────────────────────────────
-[ -f "$HOME/.exports"  ] && source "$HOME/.exports"
-[ -f "$HOME/.aliases"  ] && source "$HOME/.aliases"
-[ -f "$HOME/.config/aliases" ] && source "$HOME/.config/aliases"
+# Guard against double-sourcing.
+[ -n "${_DOTS_BASHRCX_LOADED:-}" ] && return 0
+_DOTS_BASHRCX_LOADED=1
 
 # ─── interactive-only niceties ────────────────────────────────────────────────
 case $- in
@@ -74,20 +32,57 @@ case $- in
                 [ -r "$_f" ] && source "$_f" && break
             done
         fi
-        # Fall back to an empty string if still unavailable (don't error).
-        type __git_ps1 >/dev/null 2>&1 || __git_ps1() { :; }
+        # If git's bash-completion helper never loaded, fall back to a bare,
+        # non-coloured prompt and skip the fancy two-line setup entirely.
+        if ! type __git_ps1 >/dev/null 2>&1; then
+            PS1='\w::\u> '
+        else
+        # Modern two-line prompt: status line above, input below.
+        #   line 1: user@host  ~/path   branch   ⟨rc⟩  (rc only when non-zero)
+        #   line 2: >
+        #
+        # Built via PROMPT_COMMAND so all colour escapes live in the literal
+        # PS1 string (where bash actually interprets them).  Output from
+        # $() substitutions is NOT re-scanned for \[ \] \033 escapes, so we
+        # interpolate dynamic values as plain text instead.
+        __ps1_build() {
+            local rc=$? pwd_display b colour git_info exit_info
+            pwd_display="${PWD/#$HOME/~}"
 
-        PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$(__git_ps1 " (%s)")\$ '
+            git_info=""
+            b="$(__git_ps1 '%s')"
+            if [ -n "$b" ]; then
+                if git diff --quiet --cached 2>/dev/null && git diff --quiet 2>/dev/null; then
+                    colour='\[\033[01;32m\]'   # green = clean
+                else
+                    colour='\[\033[01;33m\]'   # yellow = dirty
+                fi
+                git_info=" ${colour}(git branch ${b})\[\033[00m\]"
+            fi
+
+            exit_info=""
+            [ "$rc" -ne 0 ] && exit_info=" \[\033[01;31m\]⟨${rc}⟩\[\033[00m\]"
+
+            PS1='\n\[\033[01;32m\]\u@\h\[\033[00m\] :: \[\033[01;36m\]'"${pwd_display}"'\[\033[00m\]'"${git_info}${exit_info}"'\n\[\033[01;35m\]>\[\033[00m\] '
+        }
+        PROMPT_COMMAND=__ps1_build
+        fi
 
         # Color aliases (harmless if .aliases already set them).
         alias ls='ls --color=auto'
         alias grep='grep --color=auto'
 
         # Editor.
-        if command -v nvim >/dev/null 2>&1; then
+        if command -v code >/dev/null 2>&1; then
+            export EDITOR=code
+        elif command -v nvim >/dev/null 2>&1; then
             export EDITOR=nvim
         elif command -v vim >/dev/null 2>&1; then
             export EDITOR=vim
         fi
         ;;
 esac
+
+# ─── exports & aliases ───────────────────────────────────────────────────────
+[ -f "$HOME/.exports"  ] && source "$HOME/.exports"
+[ -f "$HOME/.aliases"  ] && source "$HOME/.aliases"

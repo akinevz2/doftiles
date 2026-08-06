@@ -14,5 +14,5 @@ fi
 
 # IDE viewing shortcuts (for opencode agents)
 export VIEW="code -r"
-export NEW_WINDOW="code --wait --new-window"
+export NEW_WINDOW="code --new-window"
 export EDITOR="code --wait"
