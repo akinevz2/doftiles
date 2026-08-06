@@ -9,6 +9,7 @@ STOW   := stow
 
 install: bash
 
+
 bash: git
 	@$(STOW) -R -t $$HOME shell
 	@chmod +x shell/.local/bin/install/bashrc
@@ -18,3 +19,6 @@ git:
 	@$(STOW) -R -t $$HOME git
 	@chmod +x git/.local/bin/load-credentials
 	~/.local/bin/load-credentials
+
+opencode:
+	@$(STOW) -R -t $$HOME 
