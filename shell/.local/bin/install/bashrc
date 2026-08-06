@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Install hook: ensure ~/.bashrc sources ~/.bashrcx.
+# Invoked by `make bash` after stow symlinks .bashrcx into place.
+
+set -euo pipefail
+
+bashrc="$HOME/.bashrc"
+
+# Create ~/.bashrc from /etc/skel if it doesn't exist yet.
+if [ ! -f "$bashrc" ]; then
+    if [ -f /etc/skel/.bashrc ]; then
+        cp /etc/skel/.bashrc "$bashrc"
+    else
+        touch "$bashrc"
+    fi
+    echo "  created $bashrc"
+fi
+
+# Append a single sourcing line if .bashrcx isn't already referenced.
+if ! grep -qF '.bashrcx' "$bashrc"; then
+    printf 'source "$HOME/.bashrcx"\n' >> "$bashrc"
+    echo "  appended .bashrcx sourcing line to $bashrc"
+fi

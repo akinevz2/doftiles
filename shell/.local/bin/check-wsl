@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Detect whether we're running inside WSL.
+# Exits 0 (true) if WSL, 1 (false) otherwise.
+
+set -euo pipefail
+
+# /proc/version in WSL mentions "microsoft" (WSL1) or "Microsoft" (WSL2).
+grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null
