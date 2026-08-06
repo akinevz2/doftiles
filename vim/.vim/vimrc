@@ -86,7 +86,6 @@ inoremap <C-B> <C-o>guB<Esc>E<Space>
 inoremap <C-F> <C-o>e<C-o>a
 " spell toggles
 set completeopt+=preview
-colorscheme ron
 " if current file starts with alias=
 " add to aliases file
 
