@@ -1,5 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "model": "ollama/laguna-xs-2.1:latest",
   "disabled_providers": [],
   "provider": {
     "ollama": {
@@ -9,11 +10,29 @@
         "baseURL": "http://ws-rarebox:11434/v1"
       },
       "models": {
-        "glm-5.2:cloud": {
-          "name": "GLM"
+        "gemma4:12b": {
+          "name": "Gemma 4 (12B)"
+        },
+        "glm-4.7-flash:latest": {
+          "name": "GLM 4.7 Flash"
+        },
+        "laguna-xs-2.1:q8_0": {
+          "name": "Laguna XS 2.1 (q8)"
+        },
+        "laguna-xs-2.1:q4_K_M": {
+          "name": "Laguna XS 2.1"
+        },
+        "laguna-s-2.1:q4_K_M": {
+          "name": "Laguna S 2.1"
+        },
+        "qwen3-coder:latest": {
+          "name": "Qwen3 Coder"
+        },
+        "nemotron-3-nano:latest": {
+          "name": "Nemotron 3 Nano"
         },
         "laguna-xs-2.1:latest": {
-          "name": "Laguna XS 2.1"
+          "name": "Laguna XS 2.1 (latest)"
         }
       }
     }
