@@ -21,9 +21,11 @@ alias bs="bspwm"
 alias status='git status'
 alias commit='git commit'
 alias add='git add'
-alias gdiff='git diff'
+alias diff~='less -R - <<< "$(git -c color.ui=always status --short)" && git diff -- '
 
 # Misc
+alias core=code
+alias alisa=alias
 alias plan='vim +set\ ft=todo ~/.plan'
 alias adventure='vim "~/adventures/$(date).txt"'
 alias today='date;cal'
@@ -43,8 +45,8 @@ alias df=duf||df
 alias open=xdg-open
 
 # Quicklinks
-alias aliases="$EDITOR $HOME/.config/aliases && source $HOME/.config/aliases"
-alias exports="$EDITOR $HOME/.config/exports && source $HOME/.config/exports"
+alias aliases="$VISUAL $HOME/.config/aliases && source $HOME/.config/aliases"
+alias exports="$VISUAL $HOME/.config/exports && source $HOME/.config/exports"
 alias dots="cd $HOME/dots && tree -aL 2 -I '.git' $HOME/dots"
 alias go-dots="cd $HOME/dots && $VIEW $HOME/dots && ls $HOME/dots"
 
@@ -58,5 +60,4 @@ alias home="cd ~"
 
 # General Quickopen
 alias o="$EDITOR"
-alias odot="$NEW_WINDOW"
-alias alisa=aliases
+alias odot="$EDITOR $NEW_WINDOW"
