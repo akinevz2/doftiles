@@ -83,6 +83,32 @@ case $- in
         ;;
 esac
 
+# ─── ssh-agent (WSL host only) ───────────────────────────────────────────────
+# Start or reuse an ssh-agent on the WSL host.  Inside the devcontainer the
+# agent socket is bind-mounted from the host and SSH_AUTH_SOCK is set via
+# remoteEnv, so we must NOT clobber it here.
+if [ -x "$HOME/.local/bin/check-wsl" ] && "$HOME/.local/bin/check-wsl"; then
+    # Only start a new agent if we're NOT inside a container (the devcontainer
+    # sets SSH_AUTH_SOCK via remoteEnv already).
+    if [ -z "${SSH_AUTH_SOCK:-}" ] || ! [ -S "${SSH_AUTH_SOCK:-}" ]; then
+        _ssh_agent_env="$HOME/.ssh/agent.env"
+        if [ -f "$_ssh_agent_env" ]; then
+            source "$_ssh_agent_env" 2>/dev/null
+        fi
+        if ! ssh-add -l >/dev/null 2>&1; then
+            eval "$(ssh-agent -s)" >/dev/null 2>&1
+            echo "export SSH_AUTH_SOCK=\"${SSH_AUTH_SOCK}\""  > "$_ssh_agent_env"
+            echo "export SSH_AGENT_PID=\"${SSH_AGENT_PID}\"" >> "$_ssh_agent_env"
+            # Add default keys if they exist.
+            for _key in "$HOME"/.ssh/id_ed25519 "$HOME"/.ssh/id_rsa; do
+                [ -f "$_key" ] && ssh-add "$_key" 2>/dev/null
+            done
+            unset _key
+        fi
+        unset _ssh_agent_env
+    fi
+fi
+
 # ─── exports & aliases ───────────────────────────────────────────────────────
 [ -f "$HOME/.exports"  ] && source "$HOME/.exports"
 [ -f "$HOME/.aliases"  ] && source "$HOME/.aliases"
