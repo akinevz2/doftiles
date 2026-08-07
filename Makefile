@@ -7,7 +7,7 @@ STOW   := stow
 
 .PHONY: bash git install
 
-install: bash
+install: bash opencode
 
 
 bash: git
