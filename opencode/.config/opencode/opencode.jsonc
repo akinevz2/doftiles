@@ -13,6 +13,9 @@
         "gemma4:12b": {
           "name": "Gemma 4 (12B)"
         },
+        "glm-5.2:cloud": {
+          "name": "GLM 5.2"
+        },
         "glm-4.7-flash:latest": {
           "name": "GLM 4.7 Flash"
         },
