@@ -47,7 +47,7 @@ alias open=xdg-open
 # Quicklinks
 alias aliases="$VISUAL $HOME/.config/aliases && source $HOME/.config/aliases"
 alias exports="$VISUAL $HOME/.config/exports && source $HOME/.config/exports"
-alias dots="cd $HOME/dots && tree -aL 2 -I '.git' $HOME/dots"
+alias dots="cd $HOME/dots && tree -aL 2 -I '.git' $HOME/dots 2&>/dev/null || ls -AL ./**"
 alias go-dots="cd $HOME/dots && $VIEW $HOME/dots && ls $HOME/dots"
 
 # Quick changedir 
