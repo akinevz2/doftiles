@@ -10,11 +10,35 @@
         "baseURL": "http://ws-rarebox:11434/v1"
       },
       "models": {
+        "laguna-xs-maintainer:latest": {
+          "name": "Laguna XS Maintainer"
+        },
+        "disputer:latest": {
+          "name": "Disputer"
+        },
+        "ornith-1.5:35b": {
+          "name": "Ornith 1.5 (35B)"
+        },
+        "ebay-guard:latest": {
+          "name": "eBay Guard"
+        },
+        "qwen3.8:27b": {
+          "name": "Qwen3 8B (27B)"
+        },
+        "laguna-xs-2.1:safe": {
+          "name": "Laguna XS 2.1 Safe"
+        },
+        "nemotron-3.5-lightning:latest": {
+          "name": "Nemotron 3.5 Lightning"
+        },
+        "glm-4.7-flash:bf16": {
+          "name": "GLM 4.7 Flash (bf16)"
+        },
+        "glm-4.7-flash:q8_0": {
+          "name": "GLM 4.7 Flash (q8)"
+        },
         "gemma4:12b": {
           "name": "Gemma 4 (12B)"
-        },
-        "glm-5.2:cloud": {
-          "name": "GLM 5.2"
         },
         "glm-4.7-flash:latest": {
           "name": "GLM 4.7 Flash"
@@ -28,14 +52,23 @@
         "laguna-s-2.1:q4_K_M": {
           "name": "Laguna S 2.1"
         },
+        "laguna-xs-2.1:latest": {
+          "name": "Laguna XS 2.1 (latest)"
+        },
         "qwen3-coder:latest": {
           "name": "Qwen3 Coder"
+        },
+        "glm-5.2:cloud": {
+          "name": "GLM 5.2 Cloud"
+        },
+        "minimax-m3:cloud": {
+          "name": "Minimax M3 Cloud"
         },
         "nemotron-3-nano:latest": {
           "name": "Nemotron 3 Nano"
         },
-        "laguna-xs-2.1:latest": {
-          "name": "Laguna XS 2.1 (latest)"
+        "nemotron-3-nano:30b": {
+          "name": "Nemotron 3 Nano (30B)"
         }
       }
     }
