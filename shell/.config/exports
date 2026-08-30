@@ -11,7 +11,6 @@ if [ -x "$HOME/.local/bin/check-wsl" ] && "$HOME/.local/bin/check-wsl"; then
     export LIBGL_ALWAYS_INDIRECT=1
 fi
 
-export VIM="nvim"
 # IDE viewing shortcuts 
 export EDITOR="code"
 export VIEW="code -r"
