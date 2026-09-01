@@ -16,3 +16,12 @@ export EDITOR="code"
 export VIEW="code -r"
 export VISUAL="code --wait"
 export NEW_WINDOW="--new-window"
+
+# Set DISPLAY for WSL environments
+if [[ $(hostname) == WS* ]]; then
+    export DISPLAY=127.0.0.1:0
+    # Set BROWSER to wrapper script for Windows Firefox
+    export BROWSER="$HOME/.local/bin/firefox-wrapper.sh"
+    export DONT_PROMPT_WSL_INSTALL=true
+fi
+

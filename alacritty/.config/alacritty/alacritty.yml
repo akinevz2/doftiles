@@ -1,0 +1,59 @@
+window:
+  opacity: 0.85
+
+font:
+  size: 11.0
+  normal:
+    family: Ubuntu Mono
+    style: Regular
+
+  bold:
+    family: Ubuntu Mono
+    style: Bold
+
+  italic:
+    family: Ubuntu Mono
+    style: Italic
+
+colors:
+  primary:
+    background: '#300A24'
+    foreground: '#f0f0f0'
+
+  normal:
+    black: '#300A24'
+    red: '#ef6155'
+    green: '#48b686'
+    yellow: '#fcb93e'
+    blue: '#48afef'
+    magenta: '#ff9f43'
+    cyan: '#0bc4bd'
+    white: '#f0f0f0'
+
+  bright:
+    black: '#6e4c75'
+    red: '#eb4d4b'
+    green: '#20bf6b'
+    yellow: '#f9ca24'
+    blue: '#00a8ff'
+    magenta: '#a55eea'
+    cyan: '#00d2d3'
+    white: '#f0f0f0'
+
+selection:
+  semantic_escape_chars: ",│`|:\"' ()[]{}<>"
+
+cursor:
+  style:
+    shape: Block
+    blinking: Off
+
+key_bindings:
+  - { key: V, mods: Control|Shift, action: Paste }
+  - { key: C, mods: Control|Shift, action: Copy }
+  - { key: Key0, mods: Control, action: ResetFontSize }
+  - { key: Equals, mods: Control|Shift, action: IncreaseFontSize }
+  - { key: Plus, mods: Control|Shift, action: IncreaseFontSize }
+  - { key: Minus, mods: Control|Shift, action: DecreaseFontSize }
+  - { key: Key3, mods: Control, action: IncreaseFontSize }
+  - { key: Key4, mods: Control, action: DecreaseFontSize }

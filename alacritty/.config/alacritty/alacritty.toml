@@ -1,0 +1,90 @@
+[colors.bright]
+black = "#6e4c75"
+blue = "#00a8ff"
+cyan = "#00d2d3"
+green = "#20bf6b"
+magenta = "#a55eea"
+red = "#eb4d4b"
+white = "#f0f0f0"
+yellow = "#f9ca24"
+
+[colors.normal]
+black = "#300A24"
+blue = "#48afef"
+cyan = "#0bc4bd"
+green = "#48b686"
+magenta = "#ff9f43"
+red = "#ef6155"
+white = "#f0f0f0"
+yellow = "#fcb93e"
+
+[colors.primary]
+background = "#300A24"
+foreground = "#f0f0f0"
+
+[cursor.style]
+blinking = "Off"
+shape = "Block"
+
+[font]
+size = 11.0
+
+[font.bold]
+family = "Ubuntu Mono"
+style = "Bold"
+
+[font.italic]
+family = "Ubuntu Mono"
+style = "Italic"
+
+[font.normal]
+family = "Ubuntu Mono"
+style = "Regular"
+
+[[keyboard.bindings]]
+action = "Paste"
+key = "V"
+mods = "Control|Shift"
+
+[[keyboard.bindings]]
+action = "Copy"
+key = "C"
+mods = "Control|Shift"
+
+[[keyboard.bindings]]
+action = "ResetFontSize"
+key = "Key0"
+mods = "Control"
+
+[[keyboard.bindings]]
+action = "IncreaseFontSize"
+key = "Equals"
+mods = "Control|Shift"
+
+[[keyboard.bindings]]
+action = "IncreaseFontSize"
+key = "Plus"
+mods = "Control|Shift"
+
+[[keyboard.bindings]]
+action = "DecreaseFontSize"
+key = "Minus"
+mods = "Control|Shift"
+
+[[keyboard.bindings]]
+action = "IncreaseFontSize"
+key = "Key3"
+mods = "Control"
+
+[[keyboard.bindings]]
+action = "DecreaseFontSize"
+key = "Key4"
+mods = "Control"
+
+[selection]
+semantic_escape_chars = """,│`|:"' ()[]{}<>"""
+
+[window]
+opacity = 0.85
+
+[keyboard]

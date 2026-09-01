@@ -1,0 +1,14 @@
+# ~/.config/systemd/user/herbstluftwm.service
+[Unit]
+Description=herbstluftwm window manager (inside VcXsrv)
+After=graphical-session.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=127.0.0.1:0
+ExecStart=/usr/bin/herbstluftwm
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target

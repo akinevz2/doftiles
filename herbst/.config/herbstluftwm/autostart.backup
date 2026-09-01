@@ -1,36 +1,11 @@
 #!/usr/bin/env bash
 
-export DISPLAY="127.0.0.1:0"
-
 herb() {
     herbstclient "$@"
 }
 
 keyreg() {
     herb keybind "$@"
-}
-
-spawn_in_frame() {
-    # 1. Get the layout layout tree of the focused frame
-    # If the frame is empty, 'dump' returns a clean layout string with no windows
-    local frame_dump=$(herbstclient dump)
-
-    # 2. Check if the active frame has a window or is an empty leaf
-    # (An empty frame leaf in herbstluftwm dump typically looks like (clients vertical:0))
-    if [[ "$frame_dump" == *"(clients"*":0)"* ]]; then
-        # Capture the geometric coordinates of the empty frame
-        # Format: X Y WIDTH HEIGHT
-        read -r fx fy fw fh <<< $(herbstclient attr players.focus.geometry)
-        
-        # Spawn the window and use a one-time rule to map it directly to those coordinates
-        herbstclient rule once class='.*' floating=on floating_geometry="${fw}x${fh}+${fx}+${fy}"
-    else
-        # If the frame isn't empty, just let it float normally
-        herbstclient rule once class='.*' floating=on floatplacement=smart
-    fi
-    
-    # Execute your application (e.g., alacritty, st, kitty)
-    herbstclient spawn "$@"
 }
 
 ### CONFIG ###
@@ -45,70 +20,62 @@ ModCtrl=Mod1-Control
 herb emit_hook reload
 herb set_layout max
 herb keyunbind --all
-herb spawn xsetroot -solid '#2C001E'
-pgrep polybar && pkill polybar
-herb spawn polybar single
+# polybar single &
 
 # LAUNCHERS
-# TERMINAL="gnome-terminal --zoom 1.5"
-TERMINAL="alacritty"
+TERMINAL="gnome-terminal --zoom 1.5"
 ROFITHEME=${HOME}/.config/rofi/launcher/style.rasi
 APPLAUNCHER="rofi -modi drun,run -show drun -theme ${ROFITHEME}"
 SCREENSHOTTER="scrot"
 APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
 
 # terminal
+keyreg $Mod-grave           spawn $APPSWITCHER          # was Mod-Tab
 keyreg $Mod-Return          spawn $TERMINAL
 # applauncher
-keyreg $ModCtrl-a           spawn $APPSWITCHER          # was Mod-Tab
+keyreg $Mod-BackSpace       spawn $APPLAUNCHER
 # screenshot; revision HHKB custom caps
+keyreg $Mod-o               spawn $SCREENSHOTTER
+
 
 # CLOSE OR QUIT WM
-keyreg $ModShift-q          remove
 keyreg $Mod-q               close_or_remove
+keyreg $ModShift-q          remove
 keyreg $ModCtrl-q           spawn xkill
-keyreg $ModShift-w          reload
+keyreg $Mod-Escape          reload
+keyreg $Mod-w               reload
+keyreg $ModShift-Escape     quit
+# for linux
+keyreg XF86Sleep            quit
 
 # WINDOWING
 keyreg $ModShift-Return     chain . split explode . cycle_frame . spawn $TERMINAL
-keyreg $ModShift-a          chain . split explode 0.5 . cycle_frame
-keyreg $ModShift-r          chain . split right 0.5 . cycle_frame
+keyreg $Mod-a               chain . split explode 0.5 . cycle_frame
+keyreg $ModShift-a          chain . split vertical . cycle_frame
+keyreg $ModShift-d          remove
 
 # cycle; was $Mod-s / $ModShift-s
-keyreg $Mod-r               chain . cycle +1
-keyreg $Mod-e               chain . cycle -1
-
+keyreg $Mod-s               chain . cycle -1
+keyreg $ModShift-s          chain . cycle +1
+keyreg $Mod-c               cycle_frame
 
 # was $ModAlt-Tab → now Alt+Shift+`
-keyreg $Mod-c       chain . jumpto urgent . cycle_frame
-keyreg $Mod-w       or \
+keyreg $ModShift-grave      or \
                         , and \
-                            . compare tags.focus.curframe_wcount gt 2 \
-                            . cycle_frame \
-                        , cycle +1
-keyreg $Mod-s      or \
-                        , and \
-                            . compare tags.focus.curframe_wcount lt 2 \
-                            . cycle_frame \
-                        , cycle -1
-keyreg $ModShift-x          use_previous
+                            . compare tags.focus.curframe_wcount gt 1 \
+                            . cycle +1 \
+                        , cycle_frame
 
-keyreg $ModShift-d   or \
-    , and \
-        . compare tags.focus.curframe_wcount lt 2 \
-        . remove                                 \
-    , cycle_layout -1 max horizontal
 keyreg $Mod-d   or \
     , and \
         . compare tags.focus.curframe_wcount = 2 \
-        . cycle_layout +1 max vertical grid      \
-    , cycle_layout +1 grid vertical horizontal max
+        . cycle_layout +1 max grid vertical      \
+    , cycle_layout +1 horizontal grid vertical max
 
 # rotate layout
-keyreg $Mod-a               or , and . compare tags.focus.curframe_wcount gt 1 . chain ! lock ! rotate ! rotate ! unlock , cycle_frame
-# keyreg $Mod-c               chain . cycle_frame
+keyreg $ModCtrl-c           rotate
 # flip layout
-keyreg $Mod-x          or , and . compare tags.focus.curframe_wcount gt 1 . cycle_layout +1 grid vertical max , cycle_frame
+keyreg $ModShift-c          chain , lock , rotate , rotate , unlock
 # split into direction
 keyreg $Mod-v               split right  0.5
 keyreg $Mod-b               split bottom 0.5
@@ -122,10 +89,6 @@ keyreg $Mod-Left            focus left
 keyreg $Mod-Down            focus down
 keyreg $Mod-Up              focus up
 keyreg $Mod-Right           focus right
-keyreg $Mod-h               focus left
-keyreg $Mod-j               focus down
-keyreg $Mod-k               focus up
-keyreg $Mod-l               focus right
 
 # SHIFT windows — Alt+Ctrl+arrows and Alt+Ctrl+hjkl
 # (hjkl slot freed up by dropping the old focus aliases)
@@ -133,7 +96,6 @@ keyreg $ModCtrl-Left        shift left
 keyreg $ModCtrl-Down        shift down
 keyreg $ModCtrl-Up          shift up
 keyreg $ModCtrl-Right       shift right
-
 keyreg $ModCtrl-h           shift left
 keyreg $ModCtrl-j           shift down
 keyreg $ModCtrl-k           shift up
@@ -157,18 +119,22 @@ for i in "${!tag_keys[@]}" ; do
     fi
 done
 
+keyreg $Mod-x use_previous
+
 # mouse
 herb mouseunbind --all
 herb mousebind $Mod-Button1 move
 herb mousebind $Mod-Button2 zoom
 herb mousebind $Mod-Button3 resize
 
-# # focus other screen
-# # send to other screen
-# keyreg $ModCtrl-e           shift_to_monitor +1
-# keyreg $ModShift-x          spawn bring_last
+# focus other screen
+keyreg $Mod-e               cycle_monitor
+# send to other screen
+keyreg $ModCtrl-e           shift_to_monitor +1
+keyreg $ModShift-x          spawn bring_last
+keyreg $ModShift-e          spawn swap_monitors 0
 
-# source /home/kine/.config/herbstluftwm/dunst_keybinds
+source /home/kine/.config/herbstluftwm/dunst_keybinds
 
 # RESIZING
 resizestep=0.25
@@ -189,7 +155,7 @@ keyreg $ModShift-Down       resize down +$resizestep
 keyreg $ModShift-Up         resize up +$resizestep
 keyreg $ModShift-Right      resize right +$resizestep
 
-herb set default_direction_external_only 1
+herb set default_direction_external_only
 
 keyreg $Mod-comma           cycle_all --skip-invisible -1
 keyreg $Mod-period          cycle_all --skip-invisible +1
@@ -197,24 +163,25 @@ keyreg $ModShift-comma      shift left
 keyreg $ModShift-period     shift right
 
 # fullscreen / float
-keyreg $Mod-z               chain \
+keyreg $Mod-f               fullscreen toggle
+keyreg $ModShift-space      chain . set_attr clients.focus.floating off . pseudotile toggle . jumpto urgent
+keyreg $ModCtrl-space       chain \
+                                , set_attr clients.focus.floating toggle \
+                                , pseudotile off
+keyreg $Mod-space           chain \
                                 , lock \
                                 , attr tags.focus.floating_focused toggle \
                                 , cycle , cycle -1 \
                                 , unlock
-keyreg $Mod-f               chain \
-                                , lock \
-                                , set_attr clients.focus.floating toggle \
-                                , pseudotile off \
-                                , unlock
 
+# peek grid
+keyreg $ModCtrl-z           cycle_layout +1 grid max
 # peek floats
-keyreg $ModCtrl-f           floating toggle
-keyreg $ModShift-f          fullscreen toggle
+keyreg $ModShift-z          floating toggle
+keyreg $Mod-z               spawn throw_corner
 
-# zoom/peek grid
-keyreg $ModShift-e          cycle_layout +1 grid max
-keyreg $ModShift-s          chain . lock . jumpto urgent . set_attr clients.focus.floating off . pseudotile toggle . unlock
+keyreg $Mod-i               bring urgent
+
 
 # THEME
 herb attr theme.tiling.reset 1
@@ -234,12 +201,12 @@ herb attr theme.active.inner_color '#ffeeee'
 herb attr theme.active.outer_color '#feef69'
 herb attr theme.background_color '#333333'
 
-herb set always_show_frame on
+herb set always_show_frame off
 herb set frame_bg_transparent on
 herb set frame_transparent_width 2
-herb set frame_border_width 1
+herb set frame_border_width 5
 
-herb set frame_gap 12
+herb set frame_gap 0
 herb set window_gap 0
 herb set frame_padding 0
 
@@ -247,7 +214,7 @@ herb set snap_distance 10
 herb set snap_gap 5
 
 herb set smart_window_surroundings off
-herb set smart_frame_surroundings on
+herb set smart_frame_surroundings off
 
 herb attr theme.minimal.border_width 2
 herb attr theme.inner_width 0
@@ -257,14 +224,12 @@ herb attr theme.floating.border_width 5
 herb attr theme.floating.outer_width 5
 
 herb set mouse_recenter_gap 5
-herb set focus_follows_mouse off
-herb set focus_stealing_prevention off
+herb set focus_follows_mouse 1
 herb set focus_crosses_monitor_boundaries off
 herb set gapless_grid on
-herb set hide_covered_windows off
+herb set hide_covered_windows on
 herb set pseudotile_center_threshold 25
-herb set update_dragged_clients off
-herb set float
+herb set update_dragged_clients 0
 
 # RULES
 herb unrule -F
@@ -285,8 +250,21 @@ herb rule class='firefox' windowtype='_NET_WM_WINDOW_TYPE_NORMAL' tag=browser
 herb rule title='Task Manager' tag=task
 herb rule title='Config Manager' tag=config
 
+keyreg $ModShift-p      chain , spawn sh -c 'pidof pavucontrol || pavucontrol' , use volume
+keyreg $ModShift-m      chain , spawn sh -c 'pidof spotify || spotify' , use music
+keyreg $Mod-m           spawn spotify_playpause
+keyreg $Mod-n           spawn spotify_control next
+keyreg $ModShift-n      spawn spotify_control previous
+keyreg XF86AudioPlay    spawn spotify_playpause
+keyreg XF86AudioNext    spawn spotify_control next
+keyreg XF86AudioPrev    spawn spotify_control previous
+
+herb rule class='discord' tag=discord
+herb rule class='tasks' floating=on
+keyreg $Mod-t           spawn task_window
+
 herb set tree_style '╾│ ├└╼-┐'
-herb set default_frame_layout grid
+herb set default_frame_layout 1
 
 # unlock, just to be sure
 herb unlock
