@@ -70,34 +70,45 @@ keyreg $ModCtrl-q           spawn xkill
 keyreg $ModShift-w          reload
 
 # WINDOWING
-keyreg $ModShift-Return     chain . split explode . cycle_frame . spawn $TERMINAL
-keyreg $ModShift-a          chain . split explode 0.5 . cycle_frame
-keyreg $ModShift-r          chain . split right 0.5 . cycle_frame
+keyreg $ModShift-Return     chain . split right . cycle_frame . spawn $TERMINAL
+keyreg $Mod-a               chain . split left 0.5 . focus left --level=frame
+keyreg $ModShift-a          chain . split left 0.5 . shift left
+keyreg $ModShift-r          chain . split explode 0.5 . cycle_frame
 
 # cycle; was $Mod-s / $ModShift-s
-keyreg $Mod-r               chain . cycle +1
-keyreg $Mod-e               chain . cycle -1
+# zoom/peek grid
+keyreg $ModShift-s          cycle_layout +1 grid max
+keyreg $Mod-s               or \
+                                , and \
+                                    ! compare tags.focus.curframe_wcount gt 1 \
+                                    ! cycle -1 \
+                                , chain . lock \
+                                    . jumpto urgent \
+                                    . set_attr clients.focus.floating off \
+                                    . pseudotile toggle \
+                                    . unlock
 
 
 # was $ModAlt-Tab → now Alt+Shift+`
 keyreg $Mod-c       chain . jumpto urgent . cycle_frame
 keyreg $Mod-w       or \
                         , and \
-                            . compare tags.focus.curframe_wcount gt 2 \
-                            . cycle_frame \
-                        , cycle +1
-keyreg $Mod-s      or \
+                            . compare tags.focus.curframe_wcount gt 1 \
+                            . cycle +1 \
+                        , cycle_frame
+keyreg $Mod-e      or \
                         , and \
-                            . compare tags.focus.curframe_wcount lt 2 \
-                            . cycle_frame \
-                        , cycle -1
+                            . compare tags.focus.frame_count lt 2 \
+                            . cycle -1 \
+                        , cycle_frame
 keyreg $ModShift-x          use_previous
 
 keyreg $ModShift-d   or \
     , and \
         . compare tags.focus.curframe_wcount lt 2 \
-        . remove                                 \
-    , cycle_layout -1 max horizontal
+        . cycle_layout +1 max grid                \
+        . remove                                  \
+    , chain . cycle_layout -1 max horizontal . cycle_frame
 keyreg $Mod-d   or \
     , and \
         . compare tags.focus.curframe_wcount = 2 \
@@ -105,10 +116,26 @@ keyreg $Mod-d   or \
     , cycle_layout +1 grid vertical horizontal max
 
 # rotate layout
-keyreg $Mod-a               or , and . compare tags.focus.curframe_wcount gt 1 . chain ! lock ! rotate ! rotate ! unlock , cycle_frame
+keyreg $Mod-r               or , and . compare tags.focus.curframe_wcount gt 1 . chain ! lock ! rotate ! rotate ! unlock , cycle_frame
 # keyreg $Mod-c               chain . cycle_frame
 # flip layout
-keyreg $Mod-x          or , and . compare tags.focus.curframe_wcount gt 1 . cycle_layout +1 grid vertical max , cycle_frame
+# peek floats
+keyreg $ModShift-f          fullscreen toggle
+keyreg $Mod-f               or , and . compare tags.focus.frame_count lt 2 . cycle_layout +1 horizontal max , chain \
+                                ! lock \
+                                ! set_attr clients.focus.floating toggle \
+                                ! pseudotile off \
+                                ! unlock
+# fullscreen / float
+keyreg $Mod-x               or . and \
+                                    ! compare tags.focus.floating_focused != 1 \
+                                    ! chain \
+                                        , lock \
+                                        , attr tags.focus.floating_focused toggle \
+                                        , cycle , cycle -1 \
+                                        , unlock \
+                                . set_attr clients.focus.floating off
+
 # split into direction
 keyreg $Mod-v               split right  0.5
 keyreg $Mod-b               split bottom 0.5
@@ -122,10 +149,10 @@ keyreg $Mod-Left            focus left
 keyreg $Mod-Down            focus down
 keyreg $Mod-Up              focus up
 keyreg $Mod-Right           focus right
-keyreg $Mod-h               focus left
-keyreg $Mod-j               focus down
-keyreg $Mod-k               focus up
-keyreg $Mod-l               focus right
+keyreg $Mod-h               focus --level=all left
+keyreg $Mod-j               focus --level=all down
+keyreg $Mod-k               focus --level=all up
+keyreg $Mod-l               focus --level=all right
 
 # SHIFT windows — Alt+Ctrl+arrows and Alt+Ctrl+hjkl
 # (hjkl slot freed up by dropping the old focus aliases)
@@ -145,7 +172,7 @@ herb set swap_monitors_to_get_tag 0
 tag_names=( work term browser task )
 tag_keys=( {1..9} 0 )
 
-herb rename default "${tag_names[0]}" || true
+# herb rename default "${tag_names[0]}" || true
 for i in "${!tag_keys[@]}" ; do
     if ! [ -z $name ] ; then
         herb add "${tag_names[$i]}"
@@ -196,25 +223,7 @@ keyreg $Mod-period          cycle_all --skip-invisible +1
 keyreg $ModShift-comma      shift left
 keyreg $ModShift-period     shift right
 
-# fullscreen / float
-keyreg $Mod-z               chain \
-                                , lock \
-                                , attr tags.focus.floating_focused toggle \
-                                , cycle , cycle -1 \
-                                , unlock
-keyreg $Mod-f               chain \
-                                , lock \
-                                , set_attr clients.focus.floating toggle \
-                                , pseudotile off \
-                                , unlock
 
-# peek floats
-keyreg $ModCtrl-f           floating toggle
-keyreg $ModShift-f          fullscreen toggle
-
-# zoom/peek grid
-keyreg $ModShift-e          cycle_layout +1 grid max
-keyreg $ModShift-s          chain . lock . jumpto urgent . set_attr clients.focus.floating off . pseudotile toggle . unlock
 
 # THEME
 herb attr theme.tiling.reset 1
@@ -234,6 +243,7 @@ herb attr theme.active.inner_color '#ffeeee'
 herb attr theme.active.outer_color '#feef69'
 herb attr theme.background_color '#333333'
 
+herb set hide_covered_windows on
 herb set always_show_frame on
 herb set frame_bg_transparent on
 herb set frame_transparent_width 2
@@ -264,7 +274,6 @@ herb set gapless_grid on
 herb set hide_covered_windows off
 herb set pseudotile_center_threshold 25
 herb set update_dragged_clients off
-herb set float
 
 # RULES
 herb unrule -F
