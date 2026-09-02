@@ -12,7 +12,6 @@ inactive_bg=
 inactive_underline=
 
 separator="·"
-show="window_class" # options: window_title, window_class, window_classname
 forbidden_classes="Polybar Conky Gmrun"
 empty_desktop_message="Desktop"
 
@@ -46,6 +45,14 @@ main() {
 
 
 # ON-CLICK FUNCTIONS {{{ ---
+
+# Open the rofi window switcher, filtered to the given window class
+switcher() {
+	rofi -modi windowcd -show windowcd \
+		-theme ~/.config/rofi/window-switcher.rasi \
+		-window-match-fields class \
+		-filter "$1"
+}
 
 raise_or_minimize() {
 	if [ "$(get_active_wid)" = "$1" ]; then
@@ -147,16 +154,48 @@ generate_window_list() {
 	window_count=0
 	on_click="$0"
 
-	# Format each window name one by one
-	# Space and . are both used as IFS,
-	# because classname and class are separated by '.'
-	while IFS="[ .\.]" read -r wid ws cname cls host title; do
-		# Don't show the window if on another workspace (-1 = sticky)
-		if [ "$ws" != "$active_workspace" ] && [ "$ws" != "-1" ]; then
-			continue
-		fi
+	# Group windows by class: one entry per class, showing the title of
+	# the group's active window (or its first window). Uses tab-separated
+	# output: class \t wid \t is_active \t title
+	grouped_windows=$(wmctrl -lx | awk -v ws="$active_workspace" -v act="$active_wid" '
+		{
+			wid = $1
+			desk = $2
+			# Don'"'"'t show the window if on another workspace (-1 = sticky)
+			if (desk != ws && desk != "-1") next
 
-		# Don't show the window if its class is forbidden
+			# wmctrl -lx layout: WID DESK CLASS.INSTANCE HOST TITLE...
+			cls = $3
+			sub(/\..*/, "", cls)
+
+			title = ""
+			for (i = 5; i <= NF; i++) title = title (i > 5 ? " " : "") $i
+
+			if (!(cls in idx)) {
+				idx[cls] = ++n
+				classes[n] = cls
+				gwid[n] = wid
+				gtitle[n] = title
+				gactive[n] = 0
+				gcount[n] = 0
+			}
+			i = idx[cls]
+			gcount[i]++
+			# Prefer the active window'"'"'s title inside each class group
+			if (tolower(wid) == tolower(act)) {
+				gactive[i] = 1
+				gwid[i] = wid
+				gtitle[i] = title
+			}
+		}
+		END {
+			for (i = 1; i <= n; i++)
+				printf "%s\t%s\t%d\t%d\t%s\n", classes[i], gwid[i], gactive[i], gcount[i], gtitle[i]
+		}')
+
+	# Format each window group one by one
+	while IFS="	" read -r cls wid is_active win_count title; do
+		# Don't show the group if its class is forbidden
 		case "$forbidden_classes" in
 			*$cls*) continue ;;
 		esac
@@ -167,14 +206,10 @@ generate_window_list() {
 			window_count=$(( window_count + 1 ))
 			continue
 		fi
-		
-		# Show the user-selected window property
-		case "$show" in
-			"window_class") w_name="$cls" ;;
-			"window_classname") w_name="$cname" ;;
-			"window_title") w_name="$title" ;;
-		esac
-		
+
+		# Display the group's window title, falling back to the class
+		w_name=${title:-$cls}
+
 		# Use user-selected character case
 		case "$char_case" in
 			"lower") w_name=$(
@@ -196,7 +231,7 @@ generate_window_list() {
 		fi
 
 		# Add left and right formatting to displayed name
-		if [ "$wid" = "$active_wid" ]; then
+		if [ "$is_active" = "1" ]; then
 			w_name="${active_left}${w_name}${active_right}"
 		else
 			w_name="${inactive_left}${w_name}${inactive_right}"
@@ -208,7 +243,13 @@ generate_window_list() {
 		fi
 
 		# Add on-click action Polybar formatting
-		printf "%s" "%{A1:$on_click raise_or_minimize $wid:}"
+		# Left click: switch straight to a lone window; otherwise open
+		# the rofi switcher filtered to this window class
+		if [ "$win_count" = "1" ]; then
+			printf "%s" "%{A1:$on_click raise_or_minimize $wid:}"
+		else
+			printf "%s" "%{A1:$on_click switcher \"$cls\":}"
+		fi
 		printf "%s" "%{A2:$on_click close $wid:}"
 		printf "%s" "%{A3:$on_click slop_resize $wid:}"
 		printf "%s" "%{A4:$on_click increment_size $wid:}"
@@ -219,7 +260,7 @@ generate_window_list() {
 
 		window_count=$(( window_count + 1 ))
 	done <<-EOF
-	$(wmctrl -lx)
+	$grouped_windows
 	EOF
 
 	# After printing all the windows,
