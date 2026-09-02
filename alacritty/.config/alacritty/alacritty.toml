@@ -29,6 +29,10 @@ shape = "Block"
 [font]
 size = 11.0
 
+[font.normal]
+family = "Ubuntu Mono"
+style = "Regular"
+
 [font.bold]
 family = "Ubuntu Mono"
 style = "Bold"
@@ -36,10 +40,6 @@ style = "Bold"
 [font.italic]
 family = "Ubuntu Mono"
 style = "Italic"
-
-[font.normal]
-family = "Ubuntu Mono"
-style = "Regular"
 
 [[keyboard.bindings]]
 action = "Paste"

@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Parse arguments
+TARGET_INDEX="$1"
+CURRENT_INDEX="$2"
+
+# Get all workspaces and their status
+WORKSPACE_INDEX=0
+WORKSPACES=()
+
+while IFS=$'\t' read -r idx status; do
+    if [[ "$idx" =~ [0-9]+ ]]; then
+        WORKSPACE_INDEX=$((idx + 0))
+        WORKSPACES+=("$idx:$status")
+    fi
+done < <(herbstclient tag_status)
+
+# Check if current workspace has windows
+CURRENT_WINDOWS=$(herbstclient attr tags.by-name."*".clients.count 2>/dev/null || echo "0")
+if [ "$CURRENT_INDEX" = "$TARGET_INDEX" ]; then
+    # Current workspace
+    for ws in "${WORKSPACES[@]}"; do
+        idx="${ws%%:*}"
+        status="${ws##*:}"
+        if [ "$idx" = "$CURRENT_INDEX" ]; then
+            echo "%{A1:herbstclient use_index ${idx} && rofi -modi windowcd -show windowcd -theme ~/.config/rofi/launcher/style.rasi:}%{B#222}%{U#FEEF69} $idx%{U-}%{B-}%{A}"
+            exit
+        fi
+    done
+fi
+
+# Non-current workspace - check if it has windows
+for ws in "${WORKSPACES[@]}"; do
+    idx="${ws%%:*}"
+    status="${ws##*:}"
+    
+    # Parse status characters (for herbstluftwm: # = empty, ! = urgent, "+": = focused, etc.)
+    local_count=0
+    while [[ $status == *"!"* ]]; do
+        status="${status#*!}"
+        ((local_count++))
+    done
+    
+    # Count clients on this workspace
+    CLIENTS=$(herbstclient attr tags.by-index."$idx".clients.count 2>/dev/null || echo "0")
+    
+    # Only show if it has windows
+    if [ "$CLIENTS" -gt 0 ]; then
+        echo "%{A1:herbstclient use_index ${idx} && rofi -modi windowcd -show windowcd -theme ~/.config/rofi/launcher/style.rasi:}%{A1:herbstclient use_index ${idx} && rofi -modi windowcd -show windowcd -theme ~/.config/rofi/launcher/style.rasi:} $idx%{A}"
+    fi
+done
