@@ -1,0 +1,36 @@
+#!/bin/sh
+hc() { herbstclient "$@"; }
+
+winid="$1"
+if [ -z "$winid" ]; then
+	echo "Usage: $0 <winid>" >&2
+	exit 1
+fi
+
+status=$(hc attr clients."$winid")
+if [ -z "$status" ]; then
+	echo "Window $winid not found" >&2
+	exit 1
+fi
+
+minimized=$(hc attr "clients.$winid.minimized" 2>/dev/null || echo "false")
+floating=$(hc attr "clients.$winid.floating" 2>/dev/null || echo "false")
+pseudotiled=$(hc attr "clients.$winid.pseudotiled" 2>/dev/null || echo "false")
+
+case "$minimized" in
+	true)
+		hc bring "$winid"
+		hc set_attr "clients.$winid.floating" true
+		;;
+	false)
+		case "$floating" in
+			true)
+				hc set_attr "clients.$winid.floating" false
+				hc set_attr "clients.$winid.pseudotile" false
+				;;
+			false)
+				herbstclient jumpto "$winid"
+				;;
+		esac
+		;;
+esac

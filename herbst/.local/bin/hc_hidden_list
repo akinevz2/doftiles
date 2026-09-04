@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+DISPLAY="127.0.0.1:0"
+export DISPLAY
+
+herb() {
+    herbstclient "$@"
+}
+
+hidden_entries() {
+    herb attr clients | while read -r obj _; do
+        case $obj in
+            0x*) ;;
+            *) continue ;;
+        esac
+        obj=${obj%.}
+        herb attr "clients.$obj" 2>/dev/null | awk -v wid="$obj" '
+            / class = "/    { sub(/^.* class = "/, ""); sub(/".*$/, ""); cls = $0 }
+            / title = "/    { sub(/^.* title = "/, ""); sub(/".*$/, ""); ttl = $0 }
+            / minimized = / { min = $NF }
+            END {
+                if (min == "true")
+                    printf "%s\t%s\t%s\n", ttl, cls, wid
+            }'
+    done
+}
+
+entries=$(hidden_entries)
+[ -n "$entries" ] || exit 0
+
+selection=$(printf '%s\n' "$entries" | cut -f1 | rofi -dmenu -theme ~/.config/rofi/window-ops.rasi -p "hidden")
+[ -n "$selection" ] || exit 0
+
+target=$(printf '%s\n' "$entries" | awk -F'\t' -v want="$selection" '$1 == want { print $3; exit }')
+
+[ -n "$target" ] && herb chain . focus "$target" . set_attr clients.focus.floating on

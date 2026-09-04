@@ -1,0 +1,10 @@
+#!/bin/sh
+hc() { herbstclient "$@"; }
+
+winid="$1"
+if [ -z "$winid" ]; then
+	echo "Usage: $0 <winid>" >&2
+	exit 1
+fi
+
+hc set_attr "clients.$winid.minimized" true

@@ -1,0 +1,105 @@
+#!/bin/sh
+# rofi_windows: rofi script-mode window switcher for hlwm.
+# Usage: rofi_windows [class]
+# Runs as its own launcher: without ROFI_RETV it execs rofi pointing at
+# itself (listing windows of the given WM_CLASS, else all windows,
+# across all tags); rofi calls back into this script for the rows and
+# every action. The window-switcher.rasi styling tells the states apart:
+#   default - visible: on the focused tag, not minimized
+#   active  - unminimized: running on another tag
+#   urgent  - minimized: hidden
+# Enter/left click jumps to the window, right click toggles its
+# minimized state, Shift+Delete closes it; every action quits rofi.
+
+DISPLAY=${DISPLAY:-127.0.0.1:0}
+
+herb() {
+	herbstclient "$@"
+}
+
+client_fields() {
+	# winid \t class \t minimized \t tag \t title
+	herb attr "clients.$1" 2>/dev/null | awk -v wid="$1" '
+		/ winid = "/    { sub(/^.* winid = "/, ""); sub(/".*$/, ""); w = $0 }
+		/ class = "/    { sub(/^.* class = "/, ""); sub(/".*$/, ""); cls = $0 }
+		/ title = "/    { sub(/^.* title = "/, ""); sub(/".*$/, ""); ttl = $0 }
+		/ minimized = / { min = $NF }
+		/ tag = "/      { sub(/^.* tag = "/, ""); sub(/".*$/, ""); tg = $0 }
+		END {
+			if (w != "")
+				printf "%s\t%s\t%s\t%s\t%s\n", w, cls, min, tg, ttl
+		}'
+}
+
+window_rows() {
+	# Most recently used first, like the old windowcd listing: walk the
+	# X stacking list top-down
+	current_tag=$(herb attr tags.focus.name) || return 1
+	xprop -root -notype _NET_CLIENT_LIST_STACKING |
+		awk -F'# ' '{ n = split($2, a, ", "); for (i = n; i >= 1; i--) print a[i] }' |
+		while read -r wid; do
+			IFS="	" read -r w cls min tg ttl <<EOF
+$(client_fields "$wid")
+EOF
+			[ "$w" = "$wid" ] || continue
+			[ -z "$1" ] || [ "$cls" = "$1" ] || continue
+			disp=${ttl:-$cls}
+			icon=$(echo "$cls" | tr '[:upper:]' '[:lower:]')
+			if [ "$min" = "true" ]; then
+				# minimized: hidden
+				printf '%s\000icon\037%s\037urgent\037true\037info\037%s\n' \
+					"$disp" "$icon" "$w"
+			elif [ "$tg" != "$current_tag" ]; then
+				# unminimized on another tag
+				printf '%s\000icon\037%s\037active\037true\037info\037%s\n' \
+					"$disp" "$icon" "$w"
+			else
+				# visible on the focused tag
+				printf '%s\000icon\037%s\037info\037%s\n' "$disp" "$icon" "$w"
+			fi
+		done
+}
+
+# Launcher: run rofi with this script as its script-mode backend; the
+# class to filter by travels along in the mode command. Right click is
+# moved off the custom-action accept (whose flag script mode drops) to
+# hot-key 1, which script mode forwards with the hovered row's info.
+if [ -z "$ROFI_RETV" ]; then
+	exec rofi -show windows -modi "windows:$0 $1" \
+		-theme "$HOME/.config/rofi/window-switcher.rasi" \
+		-kb-custom-1 "MouseSecondary"
+fi
+
+# Backend: rofi calls back into this script.
+
+case "$ROFI_RETV" in
+	# Initial call: emit the window rows. Octal escapes only: dash's
+	# printf (unlike bash's) does not know \x hex escapes, and rofi
+	# needs real \0 (NUL) / \037 (US) separator bytes here
+	0)
+		printf '\000use-hot-keys\037true\n'
+		printf '\000prompt\037windows\n'
+		printf '\000no-custom\037true\n'
+		window_rows "$1"
+		;;
+	# Accepted a row: jump to the window (follows it to its tag,
+	# unminimizes and focuses it)
+	1)
+		herb jumpto "$ROFI_INFO"
+		;;
+	# Shift+Delete: close the window
+	3)
+		wmctrl -ic "$ROFI_INFO"
+		;;
+	# Right click: unminimize if hidden, minimize otherwise
+	10)
+		if [ "$(herb attr "clients.$ROFI_INFO.minimized" 2>/dev/null)" = "true" ]; then
+			herb jumpto "$ROFI_INFO"
+		else
+			herb set_attr "clients.$ROFI_INFO.minimized" true
+		fi
+		;;
+esac
+
+# Actions print no rows, so rofi quits
+exit 0

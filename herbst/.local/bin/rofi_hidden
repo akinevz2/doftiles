@@ -1,0 +1,53 @@
+#!/bin/sh
+# rofi_hidden: pick a hidden (minimized) client and jump to it.
+# Exits non-zero when there are no hidden clients, so callers can
+# chain further fallbacks after it.
+
+DISPLAY=${DISPLAY:-127.0.0.1:0}
+
+herb() {
+	herbstclient "$@"
+}
+
+hidden_entries() {
+	herb attr clients | while read -r obj _; do
+		case $obj in
+			0x*) ;;
+			*) continue ;;
+		esac
+		obj=${obj%.}
+		herb attr "clients.$obj" 2>/dev/null | awk -v wid="$obj" '
+			/ class = "/    { sub(/^.* class = "/, ""); sub(/".*$/, ""); cls = $0 }
+			/ title = "/    { sub(/^.* title = "/, ""); sub(/".*$/, ""); ttl = $0 }
+			/ minimized = / { min = $NF }
+			END {
+				if (min == "true")
+					printf "%s\t%s\n", ttl, cls
+			}'
+	done | while IFS="	" read -r ttl cls; do
+		printf '%s\000icon\037%s\n' "$ttl" "$cls"
+	done
+}
+
+entries=$(hidden_entries)
+[ -n "$entries" ] || exit 1
+
+selection=$(printf '%s\n' "$entries" | rofi -dmenu -theme ~/.config/rofi/window-ops.rasi -p "hidden")
+[ -n "$selection" ] || exit 0
+
+target=$(herb attr clients | while read -r obj _; do
+	case $obj in
+		0x*) ;;
+		*) continue ;;
+	esac
+	obj=${obj%.}
+	herb attr "clients.$obj" 2>/dev/null | awk -v wid="$obj" -v want="$selection" '
+		/ title = "/    { sub(/^.* title = "/, ""); sub(/".*$/, ""); ttl = $0 }
+		/ minimized = / { min = $NF }
+		END {
+			if (min == "true" && ttl == want)
+				print wid
+		}'
+done | head -n 1)
+
+[ -n "$target" ] && herb jumpto "$target"
