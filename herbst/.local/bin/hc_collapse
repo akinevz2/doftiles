@@ -1,0 +1,3 @@
+#!/bin/bash
+# Collapse/Cycle previous window (scroll down)
+herbstclient cycle all --skip-invisible -1

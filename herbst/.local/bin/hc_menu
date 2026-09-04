@@ -1,0 +1,3 @@
+#!/bin/bash
+# Right-click menu for herbstluftwm clients
+rofi -modi herbstluftwm -show herbstluftwm -run-command 'herbstclient "{}"' -theme /home/kine/dots/rofi/.config/rofi/window-ops.rasi

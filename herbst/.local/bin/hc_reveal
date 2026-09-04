@@ -1,0 +1,3 @@
+#!/bin/bash
+# Reveal/Cycle next window (scroll up)
+herbstclient cycle all --skip-invisible +1

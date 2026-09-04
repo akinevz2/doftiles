@@ -1,0 +1,3 @@
+#!/bin/bash
+# Disposes (closes) the current herbstluftwm client
+herbstclient close_or_remove
