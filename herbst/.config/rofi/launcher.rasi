@@ -1,25 +1,14 @@
 configuration {
-	lines: 8;
-	columns: 1;
-	bw: 0;
-	location: 0;
-	padding: 0;
 	fixed-num-lines: true;
 	show-icons: true;
 	icon-theme: "Reversal-purple-dark";
-	separator-style: "none";
-	hide-scrollbar: true;
-	fullscreen: false;
 	scroll-method: 0;
-	window-format = "{c}";
 	click-to-exit: true;
-	show-match: false;
-	combi-hide-mode-prefix: false;
-	display-window = "ﬓ Windows";
-	display-run = " Run";
-	display-ssh = " SSH";
-	display-drun = " Applications";
-	display-combi = " ";
+	display-window: " Windows";
+	display-run: " Run";
+	display-ssh: " SSH";
+	display-drun: " Applications";
+	display-combi: " ";
 }
 
 * {
@@ -29,7 +18,7 @@ configuration {
 	fg-alt: #888888;
 	accent: #feef59;
 	normal-border: #666666;
-	transparent: rgba(0, 0, 0, 0);
+	transparent: rgba ( 0, 0, 0, 0 % );
 }
 
 window {
@@ -41,6 +30,8 @@ window {
 	width: 45em;
 	outline: 1px;
 	outline-color: @bg-alt;
+	location: 0;
+	fullscreen: false;
 }
 
 mainbox {
@@ -74,6 +65,8 @@ entry {
 }
 
 listview {
+	line-number: 8;
+	columns: 1;
 	fixed-height: false;
 	scrollbar: false;
 	spacing: 2px;

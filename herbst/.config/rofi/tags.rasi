@@ -1,0 +1,122 @@
+/*
+ * tags.rasi
+ *
+ * Rofi script-mode theme for the tag (workspace) switcher, attached to
+ * the polybar. Matches the herbstluftwm theme, like window-ops.rasi:
+ *   - background   #333333 (theme.background_color)
+ *   - panel/bg     #222222 (polybar module background)
+ *   - normal/blur  #666    (theme.normal.color, frame_border_normal_color)
+ *   - accent       #feef69 (theme.active.color, polybar active underline)
+ *   - inactive     #888888 (polybar inactive text)
+ *   - border width 5px     (theme.border_width), square corners like hlwm
+ */
+
+configuration {
+	font: "Ubuntu Mono 12";
+	lines: 8;
+	bw: 0;
+	padding: 0;
+	fixed-num-lines: false;
+	separator-style: "none";
+	hide-scrollbar: true;
+	fullscreen: false;
+	scroll-method: 0;
+	click-to-exit: true;
+	/* Rows are only highlighted by keyboard/click, never by pointer
+	   motion: scrolling confirms immediately, so a row followed by
+	   the pointer would change the target on the way out */
+	hover-select: false;
+	/* Allow the selected row option from script mode to set the
+	   initially-highlighted row (current workspace) */
+	auto-select: true;
+	/* Disable MousePrimary as an entry selector. Without this you can't
+	   use MousePrimary as an entry acceptor. */
+	me-select-entry: "";
+	/* Accept an entry with a single left click */
+	me-accept-entry: [ MousePrimary, MouseDPrimary ];
+}
+
+* {
+	bg: #333333;
+	bg-alt: #222222;
+	fg: #eeeeee;
+	fg-alt: #888888;
+	accent: #feef69;
+	normal-border: #666666;
+	transparent: rgba(0, 0, 0, 0);
+}
+
+window {
+	background-color: @bg;
+	border: 5px;
+	border-color: @normal-border;
+	border-radius: 0px;
+	padding: 0px;
+	width: 360px;
+	/* Attach the menu to the polybar (bottom bar, height 28 + 4 margin) */
+	location: south;
+	y-offset: -38px;
+	/* hlwm inner_color outline just inside the frame */
+	outline: 1px;
+	outline-color: @bg-alt;
+}
+
+mainbox {
+	background-color: @bg;
+	padding: 8px 8px 0px 8px;
+	children: [ inputbar, listview ];
+}
+
+inputbar {
+	spacing: 0px;
+	text-color: @fg;
+	background-color: @bg-alt;
+	padding: 10px 14px;
+	border: 0 0 2px 0;
+	border-color: @accent;
+	children: [ prompt, entry ];
+}
+
+prompt {
+	expand: false;
+	text-color: @accent;
+	background-color: @bg-alt;
+	padding: 0px 10px 0px 0px;
+}
+
+/* Typed input filters the tags: an index number or a name fragment */
+entry {
+	text-color: @fg;
+	background-color: @bg-alt;
+	placeholder: "filter...";
+	placeholder-color: @fg-alt;
+}
+
+listview {
+	fixed-height: false;
+	scrollbar: false;
+	spacing: 2px;
+	padding: 8px 4px;
+	background-color: @bg;
+}
+
+element {
+	padding: 6px 10px;
+	text-color: @fg-alt;
+	background-color: @transparent;
+	border: 0 0 2px 0;
+	border-color: @transparent;
+	border-radius: 0px;
+}
+
+element selected {
+	background-color: @bg-alt;
+	text-color: @fg;
+	border-color: @accent;
+}
+
+element-text {
+	background-color: @transparent;
+	text-color: inherit;
+	vertical-align: 0.5;
+}
