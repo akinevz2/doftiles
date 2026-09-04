@@ -1,0 +1,96 @@
+#!/bin/sh
+# rofi_tags: rofi over all hlwm tags, rendered as "index  name".
+# Runs as the rofi script-mode backend and as its own launcher: without
+# ROFI_RETV set it execs rofi pointing at itself, otherwise it answers
+# rofi's callbacks.
+#   - scroll up/down   switch to the previous/next tag (use_index -1/+1)
+#   - Enter/left click switch to the highlighted tag
+#   - typed input      accepted as an index number or a name fragment
+# All accepted cases output no rows, so rofi quits right away.
+
+DISPLAY=${DISPLAY:-127.0.0.1:0}
+
+herb() {
+	herbstclient "$@"
+}
+
+
+tag_list() {
+	herb attr tags.by-name | while read -r obj _; do
+		case $obj in
+			focus.|by-name.) continue ;;
+		esac
+		name=${obj%.}
+		idx=$(herb attr "tags.by-name.$name.index" 2>/dev/null) || continue
+		printf '%s\t%s\n' "$((idx + 1))" "$name"
+	done | sort -n
+}
+
+
+# Launcher: run rofi with this script as its script-mode backend. The
+# vertical scroll events are unhooked from row navigation and rebound
+# as custom hot-keys 1/2, so a scroll confirms immediately instead of
+# just moving the highlight.
+if [ -z "$ROFI_RETV" ]; then
+	# Calculate the 1-based index of the currently focused tag for -selected-row
+	current_idx=$(herb attr tags.focus.index 2>/dev/null)
+	exec rofi -show tags -modi "tags:$0" \
+		-theme "$HOME/.config/rofi/tags.rasi" \
+		-kb-custom-1 "ScrollUp" \
+		-kb-custom-2 "ScrollDown" \
+		-ml-row-up "" \
+		-ml-row-down "" \
+		-selected-row "${current_idx:-0}"
+fi
+
+# Backend: rofi calls back into this script.
+
+case "$ROFI_RETV" in
+	# Initial call: emit the tag rows. Octal escapes only: dash's
+	# printf (unlike bash's) does not know \x hex escapes, and rofi
+	# needs real \0 (NUL) / \037 (US) separator bytes here
+	0)
+		current=$(herb attr tags.focus.name)
+		printf '\000use-hot-keys\037true\n'
+		printf '\000prompt\037tag\n'
+		tag_list | while IFS="	" read -r num name; do
+			if [ "$name" = "$current" ]; then
+				printf '%s  %s\000info\037%s\037selected\037true\n' "$num" "$name" "$name"
+			else
+				printf '%s  %s\000info\037%s\n' "$num" "$name" "$name"
+			fi
+		done
+		;;
+	# Accepted a listed row: jump to the selected tag
+	1)
+		herb use "$ROFI_INFO"
+		;;
+	# Custom typed input: an index number switches by number,
+	# anything else by the first tag whose name starts with it
+	2)
+		num=${1%%[!0-9]*}
+		if [ -n "$num" ] && [ "$num" -ge 1 ] 2>/dev/null; then
+			herb use_index $((num - 1))
+		else
+			tag_list | while IFS="	" read -r num name; do
+				case $name in
+					"$1"*)
+						herb use_index $((num - 1))
+						break
+						;;
+				esac
+			done
+		fi
+		;;
+	# Scroll up: confirm with the previous tag
+	10)
+		herb use_index -1
+		;;
+	# Scroll down: confirm with the next tag
+	11)
+		herb use_index +1
+		;;
+esac
+
+# Accepted cases print no rows, so rofi quits
+exit 0
