@@ -52,7 +52,7 @@ herb spawn polybar single
 # LAUNCHERS
 # TERMINAL="gnome-terminal --zoom 1.5"
 TERMINAL="alacritty"
-ROFITHEME=${HOME}/.config/rofi/launcher/style.rasi
+ROFITHEME=${HOME}/.config/rofi/launcher.rasi
 APPLAUNCHER="rofi -modi drun,run -show drun -theme ${ROFITHEME}"
 SCREENSHOTTER="scrot"
 APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
@@ -60,11 +60,16 @@ APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
 # terminal
 keyreg $Mod-Return          spawn $TERMINAL
 # applauncher
-keyreg $ModCtrl-a           spawn $APPSWITCHER          # was Mod-Tab
+keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 , spawn $APPSWITCHER . close_or_remove         # was Mod-Tab
+keyreg $ModShift-a          or . and , compare tags.focus.curframe_wcount gt 1 , split explode . spawn $APPLAUNCHER           # was Mod-Tab
+keyreg $ModShift-q          or \
+                            . and \
+                                    , compare tags.focus.curframe_wcount lt 2 \
+                                    , close_or_remove                         \
+                            . remove
 # screenshot; revision HHKB custom caps
 
 # CLOSE OR QUIT WM
-keyreg $ModShift-q          remove
 keyreg $Mod-q               close_or_remove
 keyreg $ModCtrl-q           spawn xkill
 keyreg $ModShift-w          reload
@@ -72,16 +77,20 @@ keyreg $ModShift-w          reload
 # WINDOWING
 keyreg $ModShift-Return     chain . split right . cycle_frame . spawn $TERMINAL
 keyreg $Mod-a               chain . split left 0.5 . focus left --level=frame
-keyreg $ModShift-a          chain . split left 0.5 . shift left
-keyreg $ModShift-r          chain . split explode 0.5 . cycle_frame
+keyreg $ModCtrl-a           chain . split left 0.5 . or , shift left , focus left --level=frame
+keyreg $ModCtrl-r           chain . split auto . cycle_frame 
+keyreg $ModCtrl-e           chain . split auto . cycle_frame
+keyreg $ModShift-r          split explode
+keyreg $ModShift-e          chain . split horizontal . cycle_frame
 
 # cycle; was $Mod-s / $ModShift-s
 # zoom/peek grid
 keyreg $ModShift-s          cycle_layout +1 grid max
 keyreg $Mod-s               or \
-                                , and \
-                                    ! compare tags.focus.curframe_wcount gt 1 \
-                                    ! cycle -1 \
+                                , or \
+                                    ! and ? compare tags.focus.curframe_wcount gt 1 \
+                                         ? cycle_all -1 \
+                                    ! focus --level=frame down \
                                 , chain . lock \
                                     . jumpto urgent \
                                     . set_attr clients.focus.floating off \
@@ -90,12 +99,19 @@ keyreg $Mod-s               or \
 
 
 # was $ModAlt-Tab → now Alt+Shift+`
-keyreg $Mod-c       chain . jumpto urgent . cycle_frame
+keyreg $Mod-c       or \
+                    . and \
+                        , compare tags.focus.tiling.root.split_type = vertical \
+                        , compare tags.focus.floating_focused = 0 \
+                        , rotate \
+                    . chain \
+                        , cycle_frame \
+                        , jumpto urgent
 keyreg $Mod-w       or \
                         , and \
                             . compare tags.focus.curframe_wcount gt 1 \
-                            . cycle +1 \
-                        , cycle_frame
+                            . or , cycle_all , cycle_frame \
+                        , focus --level=frame up
 keyreg $Mod-e      or \
                         , and \
                             . compare tags.focus.frame_count lt 2 \
@@ -103,84 +119,113 @@ keyreg $Mod-e      or \
                         , cycle_frame
 keyreg $ModShift-x          use_previous
 
-keyreg $ModShift-d   or \
-    , and \
-        . compare tags.focus.curframe_wcount lt 2 \
-        . cycle_layout +1 max grid                \
-        . remove                                  \
-    , chain . cycle_layout -1 max horizontal . cycle_frame
+keyreg $ModShift-d  or \
+                    . and \
+                            , compare tags.focus.curframe_wcount gt 1 \
+                            , cycle_layout +1 max grid \
+                    . remove
 keyreg $Mod-d   or \
-    , and \
-        . compare tags.focus.curframe_wcount = 2 \
-        . cycle_layout +1 max vertical grid      \
-    , cycle_layout +1 grid vertical horizontal max
+                , and \
+                    . compare tags.focus.curframe_wcount gt 3 \
+                    . cycle_layout +1 grid vertical max horizontal      \
+                , and \
+                    . compare tags.focus.curframe_wcount = 2 \
+                    . cycle_layout +1 max grid \
+                , cycle_layout -1 grid horizontal max 
 
 # rotate layout
-keyreg $Mod-r               or , and . compare tags.focus.curframe_wcount gt 1 . chain ! lock ! rotate ! rotate ! unlock , cycle_frame
-# keyreg $Mod-c               chain . cycle_frame
 # flip layout
-# peek floats
+keyreg $Mod-r               or , and . compare tags.focus.curframe_wcount gt 1 . chain ! lock ! rotate ! rotate ! unlock , cycle_frame
+
+# fullscreen
 keyreg $ModShift-f          fullscreen toggle
-keyreg $Mod-f               or , and . compare tags.focus.frame_count lt 2 . cycle_layout +1 horizontal max , chain \
+
+# peek floats; when the floating layer is empty (or every float is
+# hidden), offer the hidden windows via rofi
+keyreg $Mod-z               or \
+                                . attr tags.focus.floating_focused toggle \
+                                . spawn sh -c "~/.local/bin/rofi_hidden || herbstclient pseudotile toggle"
+
+# tag switcher
+keyreg $Mod-g               spawn ~/.local/bin/rofi_tags
+
+# toggle float and center
+keyreg $Mod-x               chain \
                                 ! lock \
-                                ! set_attr clients.focus.floating toggle \
-                                ! pseudotile off \
+                                ! or \
+                                    . spawn ~/.local/bin/hc_hidden_list \
+                                    . or \
+                                        . attr tags.focus.floating_focused toggle \
+                                        . and , compare tags.focus.tiling.focused_frame.client_count lt 2 \
+                                              , floating toggle \
+                                        . and , compare tags.focus.tiling.focused_frame.client_count gt 1 \
+                                              , pseudotile toggle \
+                                ! attr clients.focus.floating off \
                                 ! unlock
+
 # fullscreen / float
-keyreg $Mod-x               or . and \
-                                    ! compare tags.focus.floating_focused != 1 \
-                                    ! chain \
-                                        , lock \
-                                        , attr tags.focus.floating_focused toggle \
-                                        , cycle , cycle -1 \
-                                        , unlock \
-                                . set_attr clients.focus.floating off
+keyreg $Mod-f               chain \
+                            ! lock \
+                            ! attr tags.focus.floating off \
+                            ! or \
+                                , attr clients.focus.floating toggle \
+                                , attr tags.focus.floating_focused on \
+                            ! pseudotile off \
+                            ! and , compare tags.focus.tiling.focused_frame.client_count lt 1 \
+                                , remove \
+                            ! spawn ~/.local/bin/hc_center \
+                            ! unlock
 
 # split into direction
-keyreg $Mod-v               split right  0.5
-keyreg $Mod-b               split bottom 0.5
+keyreg $Mod-v               chain , split right  0.5 , cycle_frame
+keyreg $Mod-b               chain , split bottom 0.5 , cycle_frame
 keyreg $ModCtrl-v           chain , split right  0.5 , focus -e right
 keyreg $ModCtrl-b           chain , split bottom 0.5 , focus -i down
 keyreg $ModShift-b          chain split top 0.5 , focus -i down
 
 
 # FOCUS — arrows only; old Alt-hjkl aliases dropped (would shadow new Mod=Alt)
-keyreg $Mod-Left            focus left
-keyreg $Mod-Down            focus down
-keyreg $Mod-Up              focus up
-keyreg $Mod-Right           focus right
-keyreg $Mod-h               focus --level=all left
-keyreg $Mod-j               focus --level=all down
-keyreg $Mod-k               focus --level=all up
-keyreg $Mod-l               focus --level=all right
+keyreg $Mod-h           or . focus --level=visible left . focus --level=all left
+keyreg $Mod-j           or . focus --level=frame down . focus --level=visible down
+keyreg $Mod-k           or . focus --level=frame up . focus --level=visible up
+keyreg $Mod-l           or . focus --level=visible right . focus --level=all right
+keyreg $Mod-Left                focus --level=visible left
+keyreg $Mod-Down                focus --level=visible down
+keyreg $Mod-Up                  focus --level=visible up
+keyreg $Mod-Right               focus --level=visible right
 
 # SHIFT windows — Alt+Ctrl+arrows and Alt+Ctrl+hjkl
 # (hjkl slot freed up by dropping the old focus aliases)
-keyreg $ModCtrl-Left        shift left
-keyreg $ModCtrl-Down        shift down
-keyreg $ModCtrl-Up          shift up
-keyreg $ModCtrl-Right       shift right
-
-keyreg $ModCtrl-h           shift left
-keyreg $ModCtrl-j           shift down
-keyreg $ModCtrl-k           shift up
-keyreg $ModCtrl-l           shift right
+keyreg $ModCtrl-h           or . shift --level=visible left . shift --level=all left
+keyreg $ModCtrl-j           or . shift --level=frame down . shift --level=visible down
+keyreg $ModCtrl-k           or . shift --level=frame up . shift --level=visible up
+keyreg $ModCtrl-l           or . shift --level=visible right . shift --level=all right
+keyreg $ModCtrl-Left            shift left
+keyreg $ModCtrl-Down            shift down
+keyreg $ModCtrl-Up              shift up
+keyreg $ModCtrl-Right           shift right
 
 ### TAGS ###
-herb set swap_monitors_to_get_tag 0
+herb set swap_monitors_to_get_tag 1
 
-tag_names=( work term browser task )
+tag_names=( work term browser logs task default )
 tag_keys=( {1..9} 0 )
 
-# herb rename default "${tag_names[0]}" || true
+herb rename default "${tag_names[0]}" || true
+herb add term
+herb add config
+herb add logs
+herb add task
+herb add browser
+herb add discord
 for i in "${!tag_keys[@]}" ; do
     if ! [ -z $name ] ; then
         herb add "${tag_names[$i]}"
     fi
     key="${tag_keys[$i]}"
     if [ -n "$key" ] ; then
-        herb keybind "$Mod-$key" use_index "$i"
-        herb keybind "$Mod-Shift-$key" move_index "$i"
+        keyreg "$Mod-$key" use_index "$i"
+        keyreg "$ModCtrl-$key" move_index "$i"
     fi
 done
 
@@ -189,6 +234,9 @@ herb mouseunbind --all
 herb mousebind $Mod-Button1 move
 herb mousebind $Mod-Button2 zoom
 herb mousebind $Mod-Button3 resize
+# scroll wheel: cycle windows within current frame (up = previous, down = next)
+herb mousebind $Mod-Button4 call cycle +1
+herb mousebind $Mod-Button5 call cycle -1
 
 # # focus other screen
 # # send to other screen
@@ -207,14 +255,14 @@ keyreg $Mod-bracketright    use_index +1 --skip-visible
 keyreg $ModCtrl-comma       resize left +$resizestep
 keyreg $ModCtrl-period      resize right +$resizestep
 
-keyreg $ModShift-h          resize left +$nudgestep
-keyreg $ModShift-j          resize down +$nudgestep
-keyreg $ModShift-k          resize up +$nudgestep
-keyreg $ModShift-l          resize right +$nudgestep
-keyreg $ModShift-Left       resize left +$resizestep
-keyreg $ModShift-Down       resize down +$resizestep
-keyreg $ModShift-Up         resize up +$resizestep
-keyreg $ModShift-Right      resize right +$resizestep
+keyreg $ModShift-h          resize left +$nudgestep --level=all
+keyreg $ModShift-j          resize down +$nudgestep --level=all
+keyreg $ModShift-k          resize up +$nudgestep --level=all
+keyreg $ModShift-l          resize right +$nudgestep --level=all
+keyreg $ModShift-Left       resize left +$resizestep --level=all
+keyreg $ModShift-Down       resize down +$resizestep --level=all
+keyreg $ModShift-Up         resize up +$resizestep --level=all
+keyreg $ModShift-Right      resize right +$resizestep --level=all
 
 herb set default_direction_external_only 1
 
@@ -267,7 +315,7 @@ herb attr theme.floating.border_width 5
 herb attr theme.floating.outer_width 5
 
 herb set mouse_recenter_gap 5
-herb set focus_follows_mouse off
+herb set focus_follows_mouse on
 herb set focus_stealing_prevention off
 herb set focus_crosses_monitor_boundaries off
 herb set gapless_grid on
@@ -283,11 +331,6 @@ herb rule class~'[Yy]ad' floating=on
 herb rule windowtype='_NET_WM_WINDOW_TYPE_DIALOG' focus=on
 herb rule windowtype~'_NET_WM_WINDOW_TYPE_(NOTIFICATION|DOCK|DESKTOP)' manage=off focus=off
 
-herb add term
-herb add config
-herb add task
-herb add browser
-herb add discord
 herb rule class='pavucontrol' tag=volume
 herb rule class='spotify' tag=music
 herb rule class='firefox' windowtype='_NET_WM_WINDOW_TYPE_NORMAL' tag=browser
