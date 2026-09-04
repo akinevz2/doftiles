@@ -1,29 +1,76 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "ollama/laguna-xs-2.1:latest",
-  "disabled_providers": [],
   "provider": {
     "ollama": {
-      "name": "WS-RAREBOX",
       "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (ws-rarebox)",
       "options": {
-        "baseURL": "http://ws-rarebox:11434/v1"
+        "baseURL": "http://localhost:11434/v1",
+        "apiKey": "ollama"
       },
       "models": {
-        "qwen3.8:27b": {
-          "name": "Qwen3 8B (27B)"
-        },
-        "nemotron-3.5-lightning:latest": {
-          "name": "Nemotron 3.5 Lightning"
-        },
-        "gemma4:12b": {
-          "name": "Gemma 4 (12B)"
-        },
         "glm-4.7-flash:latest": {
-          "name": "GLM 4.7 Flash"
+          "name": "GLM 4.7 Flash",
+          "tool_call": true,
+          "reasoning": true,
+          "limit": {
+            "context": 202752,
+            "output": 202752
+          }
+        },
+        "laguna-xs-maintainer:latest": {
+          "name": "Laguna XS Maintainer",
+          "tool_call": true,
+          "reasoning": true,
+          "limit": {
+            "context": 262144,
+            "output": 262144
+          }
         },
         "laguna-xs-2.1:latest": {
-          "name": "Laguna XS 2.1 (latest)"
+          "name": "Laguna XS 2.1",
+          "tool_call": true,
+          "reasoning": true,
+          "limit": {
+            "context": 262144,
+            "output": 262144
+          }
+        },
+        "nemotron-3.5-lightning:latest": {
+          "name": "Nemotron 3.5 Lightning",
+          "tool_call": true,
+          "reasoning": true,
+          "limit": {
+            "context": 1048576,
+            "output": 1048576
+          }
+        },
+        "qwen3-coder:latest": {
+          "name": "Qwen3 Coder",
+          "tool_call": true,
+          "reasoning": false,
+          "limit": {
+            "context": 262144,
+            "output": 262144
+          }
+        },
+        "hf.co/TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF:IQ4_XS": {
+          "name": "GLM 4.7 Flash Claude Opus 4.5 High Reasoning Distill (IQ4_XS)",
+          "tool_call": false,
+          "reasoning": false,
+          "limit": {
+            "context": 202752,
+            "output": 202752
+          }
+        },
+        "hf.co/ryzdfm/qwen2.5-coder-3b-claude_opus_4.6-distilled:Q4_K_M": {
+          "name": "Qwen2.5 Coder 3B Claude Opus 4.6 Distilled (Q4_K_M)",
+          "tool_call": true,
+          "reasoning": false,
+          "limit": {
+            "context": 32768,
+            "output": 32768
+          }
         }
       }
     }
