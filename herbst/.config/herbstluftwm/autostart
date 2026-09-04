@@ -315,8 +315,8 @@ herb attr theme.floating.border_width 5
 herb attr theme.floating.outer_width 5
 
 herb set mouse_recenter_gap 5
-herb set focus_follows_mouse on
-herb set focus_stealing_prevention off
+herb set focus_follows_mouse off
+herb set focus_stealing_prevention on
 herb set focus_crosses_monitor_boundaries off
 herb set gapless_grid on
 herb set hide_covered_windows off

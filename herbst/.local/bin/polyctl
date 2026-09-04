@@ -1,0 +1,22 @@
+#!/bin/bash
+# polyctl - Control polybar instances
+
+case "$1" in
+    up)
+        polybar single > /dev/null 2>&1 &
+        ;;
+    down)
+        pkill polybar
+        ;;
+    reload)
+        pkill polybar
+        polybar single > /dev/null 2>&1 &
+        if [ -x ~/.local/bin/winbarctl ]; then
+            ~/.local/bin/winbarctl reload
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {up|down|reload}"
+        exit 1
+        ;;
+esac

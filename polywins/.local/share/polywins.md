@@ -59,10 +59,9 @@ Check herbstclient manual for hooks:
 - Window workspace changes: `tag_changed`
 
 ## Scripts
-- `herbst/.local/bin/hc_show` - Show window (handle minimized/hidden/floating cases)
-- `herbst/.local/bin/hc_hide` - Minimize window
 - `herbst/.local/bin/rofi_windows` - Window switcher script-mode backend
 - `herbst/.local/bin/rofi_tags` - Workspace switcher
+- `herbst/.local/bin/hc_*` - Operate on the Window Manager state using herbstclient commands
 
 ## File Paths
 - Script: `/home/kine/dots/polybar/.config/polybar/scripts/polywins.sh`

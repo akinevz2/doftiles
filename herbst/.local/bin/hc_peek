@@ -1,3 +1,23 @@
 #!/bin/bash
+# hc_peek - Peek at current window and open switcher for filtered list
 
-herbstclient attr clients.focus.winid
+# Default to operating on the currently focused window
+current_winid="${1:-}"
+
+# If no argument provided, get the focused window
+if [ -z "$current_winid" ]; then
+    current_winid=$(herbstclient attr clients.focus.winid)
+fi
+
+# If we have a valid window ID, raise and jump to it
+if [ -n "$current_winid" ]; then
+    herbstclient raise "$current_winid" && herbstclient jumpto "$current_winid"
+fi
+
+# switcher function
+switcher() {
+    rofi -modi windowcd -show windowcd \
+        -theme ~/.config/rofi/window-switcher.rasi \
+        -window-match-fields class \
+        -filter "$1"
+}

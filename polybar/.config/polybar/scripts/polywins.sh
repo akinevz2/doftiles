@@ -19,19 +19,22 @@ char_limit=20
 max_windows=15
 char_case="normal" # normal, upper, lower
 add_spaces="true"
-resize_increment=16
-wm_border_width=1 # setting this might be required for accurate resize position
 
 # --- }}}
+
+
+herb() {
+	herbstclient "$@"
+}
 
 
 main() {
 	# If no argument passed...
 	if [ -z "$2" ]; then
 		# ...print new window list every time
-		# the active window changes or
-		# a window is opened or closed
-		xprop -root -spy _NET_CLIENT_LIST _NET_ACTIVE_WINDOW |
+		# the active window changes, a window is
+		# opened/closed or the visible tag changes
+		xprop -root -spy _NET_CLIENT_LIST _NET_ACTIVE_WINDOW _NET_CURRENT_DESKTOP |
 			while IFS= read -r _; do
 				generate_window_list
 			done
@@ -54,11 +57,16 @@ switcher() {
 		-filter "$1"
 }
 
+# Hide/unhide a window: unminimize if hidden,
+# minimize if focused, otherwise just raise it
 raise_or_minimize() {
-	if [ "$(get_active_wid)" = "$1" ]; then
-		wmctrl -ir "$1" -b toggle,hidden
+	if [ "$(herb attr "clients.$1.minimized" 2>/dev/null)" = "true" ]; then
+		herb chain . jumpto "$1" . attr "clients.$1.floating" true
+	elif [ "$1" = "$(get_active_wid)" ]; then
+		herb set_attr "clients.$1.minimized" true
 	else
-		wmctrl -ia "$1"
+		herb raise "$1"
+		herb jumpto "$1"
 	fi
 }
 
@@ -66,37 +74,36 @@ close() {
 	wmctrl -ic "$1"
 }
 
-slop_resize() {
-	wmctrl -ia "$1"
-	wmctrl -ir "$1" -e "$(slop -f 0,%x,%y,%w,%h)"
+# Focus the previous/next window on the focused tag,
+# including hidden (minimized) ones
+scroll_focus() {
+	target=$(list_clients | awk -v act="$(get_active_wid)" -v dir="$1" '
+		{ wids[++n] = $1 }
+		$1 == act { pos = n }
+		END {
+			if (!n) exit
+			if (!pos) pos = (dir == "up") ? n + 1 : 0
+			pos += (dir == "up") ? -1 : 1
+			if (pos < 1) pos = n
+			if (pos > n) pos = 1
+			print wids[pos]
+		}')
+	[ -n "$target" ] && herb jumpto "$target"
 }
 
-increment_size() {
-	while IFS="[ .]" read -r wid ws wx wy ww wh _; do
-		test "$wid" != "$1" && continue
-		x=$(( wx - wm_border_width * 2 - resize_increment / 2 ))
-		y=$(( wy - wm_border_width * 2 - resize_increment / 2 ))
-		w=$(( ww + resize_increment ))
-		h=$(( wh + resize_increment ))
-	done <<-EOF
-	$(wmctrl -lG)
-	EOF
-
-	wmctrl -ir "$1" -e "0,$x,$y,$w,$h"
-}
-
-decrement_size() {
-	while IFS="[ .]" read -r wid ws wx wy ww wh _; do
-		test "$wid" != "$1" && continue
-		x=$(( wx - wm_border_width * 2 + resize_increment / 2 ))
-		y=$(( wy - wm_border_width * 2 + resize_increment / 2 ))
-		w=$(( ww - resize_increment ))
-		h=$(( wh - resize_increment ))
-	done <<-EOF
-	$(wmctrl -lG)
-	EOF
-
-	wmctrl -ir "$1" -e "0,$x,$y,$w,$h"
+# Show a rofi menu with window operations, attached to the polybar
+window_ops() {
+	title=$(herb attr "clients.$1.title" 2>/dev/null)
+	# No Maximize/fullscreen entry: hlwm hides the polybar when a
+	# window is fullscreen; Focus (pseudotile toggle) instead
+	choice=$(printf 'Close\nFocus\nMinimize\nToggle floating\n' |
+		rofi -dmenu -l 4 -theme ~/.config/rofi/window-ops.rasi -p "${title:-window}")
+	case $choice in
+		Close) close "$1" ;;
+		Focus) herb attr "clients.$1.pseudotile" toggle 2>/dev/null ;;
+		Minimize) herb attr "clients.$1.minimized" toggle 2>/dev/null ;;
+		"Toggle floating") herb attr "clients.$1.floating" toggle 2>/dev/null ;;
+	esac
 }
 
 # --- }}}
@@ -132,60 +139,62 @@ if [ -n "$inactive_bg" ]; then
 fi
 
 get_active_wid() {
-	active_wid=$(xprop -root _NET_ACTIVE_WINDOW)
-	active_wid="${active_wid#*\# }"
-	active_wid="${active_wid%,*}" # Necessary for XFCE
-	while [ ${#active_wid} -lt 10 ]; do
-		active_wid="0x0${active_wid#*x}"
-	done
-	echo "$active_wid"
+	herb attr clients.focus.winid 2>/dev/null
 }
 
-get_active_workspace() {
-	wmctrl -d |
-		while IFS="[ .]" read -r number active_status _; do
-			test "$active_status" = "*" && echo "$number" && break
-		done
+# Emit all windows on the focused tag (visible and hidden),
+# one per line: winid \t class \t minimized \t title
+# hlwm lists client objects with a trailing dot (e.g. "0x180003."),
+# which is stripped to build the query path; the emitted id comes
+# from the winid attribute so it matches clients.focus.winid exactly
+list_clients() {
+	current_tag=$(herb attr tags.focus.name) || return 1
+	herb attr clients | while read -r obj _; do
+		case $obj in
+			0x*) ;;
+			*) continue ;;
+		esac
+		herb attr "clients.${obj%.}" 2>/dev/null | awk -v tag="$current_tag" '
+			/ winid = "/    { sub(/^.* winid = "/, ""); sub(/".*$/, ""); w = $0 }
+			/ class = "/    { sub(/^.* class = "/, ""); sub(/".*$/, ""); cls = $0 }
+			/ title = "/    { sub(/^.* title = "/, ""); sub(/".*$/, ""); ttl = $0 }
+			/ minimized = / { min = $NF }
+			/ tag = "/      { sub(/^.* tag = "/, ""); sub(/".*$/, ""); tg = $0 }
+			END {
+				if (tg == tag && w != "")
+					printf "%s\t%s\t%s\t%s\n", w, cls, min, ttl
+			}'
+	done
 }
 
 generate_window_list() {
-	active_workspace=$(get_active_workspace)
 	active_wid=$(get_active_wid)
 	window_count=0
 	on_click="$0"
 
 	# Group windows by class: one entry per class, showing the title of
-	# the group's active window (or its first window). Uses tab-separated
-	# output: class \t wid \t is_active \t title
-	grouped_windows=$(wmctrl -lx | awk -v ws="$active_workspace" -v act="$active_wid" '
+	# the group active window (or its first window). Hidden windows on
+	# the focused tag are included, so groups never lose track of them
+	grouped_windows=$(list_clients | awk -F'\t' -v act="$active_wid" '
 		{
 			wid = $1
-			desk = $2
-			# Don'"'"'t show the window if on another workspace (-1 = sticky)
-			if (desk != ws && desk != "-1") next
-
-			# wmctrl -lx layout: WID DESK CLASS.INSTANCE HOST TITLE...
-			cls = $3
-			sub(/\..*/, "", cls)
-
-			title = ""
-			for (i = 5; i <= NF; i++) title = title (i > 5 ? " " : "") $i
+			cls = $2
 
 			if (!(cls in idx)) {
 				idx[cls] = ++n
 				classes[n] = cls
 				gwid[n] = wid
-				gtitle[n] = title
+				gtitle[n] = $4
 				gactive[n] = 0
 				gcount[n] = 0
 			}
 			i = idx[cls]
 			gcount[i]++
-			# Prefer the active window'"'"'s title inside each class group
-			if (tolower(wid) == tolower(act)) {
+			# Prefer the title of the active window in each class group
+			if (wid == act) {
 				gactive[i] = 1
 				gwid[i] = wid
-				gtitle[i] = title
+				gtitle[i] = $4
 			}
 		}
 		END {
@@ -237,7 +246,7 @@ generate_window_list() {
 			w_name="${inactive_left}${w_name}${inactive_right}"
 		fi
 
-		# Add separator unless the window is first in list
+		# Add separator unless the group is first in list
 		if [ "$window_count" != 0 ]; then
 			printf "%s" "$separator"
 		fi
@@ -251,9 +260,9 @@ generate_window_list() {
 			printf "%s" "%{A1:$on_click switcher \"$cls\":}"
 		fi
 		printf "%s" "%{A2:$on_click close $wid:}"
-		printf "%s" "%{A3:$on_click slop_resize $wid:}"
-		printf "%s" "%{A4:$on_click increment_size $wid:}"
-		printf "%s" "%{A5:$on_click decrement_size $wid:}"
+		printf "%s" "%{A3:$on_click window_ops $wid:}"
+		printf "%s" "%{A4:$on_click scroll_focus up:}"
+		printf "%s" "%{A5:$on_click scroll_focus down:}"
 		# Print the final window name
 		printf "%s" "$w_name"
 		printf "%s" "%{A}%{A}%{A}%{A}%{A}"
@@ -273,7 +282,7 @@ generate_window_list() {
 	if [ "$window_count" = 0 ]; then
 		printf "%s" "$empty_desktop_message"
 	fi
-	
+
 	# Print newline
 	echo ""
 }

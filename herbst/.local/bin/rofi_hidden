@@ -3,51 +3,50 @@
 # Exits non-zero when there are no hidden clients, so callers can
 # chain further fallbacks after it.
 
-DISPLAY=${DISPLAY:-127.0.0.1:0}
-
 herb() {
 	herbstclient "$@"
 }
 
-hidden_entries() {
+# List minimized windows with their titles and classes
+list_hidden() {
 	herb attr clients | while read -r obj _; do
 		case $obj in
-			0x*) ;;
-			*) continue ;;
+			0x*) 
+				obj=${obj%.}
+				minimized=$(herb attr "clients.$obj.minimized" 2>/dev/null)
+				[ "$minimized" != "true" ] && continue
+				class=$(herb attr "clients.$obj.class" 2>/dev/null || echo "Unknown")
+				title=$(herb attr "clients.$obj.title" 2>/dev/null || echo "")
+				# Skip if no title
+				[ -z "$title" ] && continue
+				printf '%s\t%s\n' "$title" "$obj"
+				;;
 		esac
-		obj=${obj%.}
-		herb attr "clients.$obj" 2>/dev/null | awk -v wid="$obj" '
-			/ class = "/    { sub(/^.* class = "/, ""); sub(/".*$/, ""); cls = $0 }
-			/ title = "/    { sub(/^.* title = "/, ""); sub(/".*$/, ""); ttl = $0 }
-			/ minimized = / { min = $NF }
-			END {
-				if (min == "true")
-					printf "%s\t%s\n", ttl, cls
-			}'
-	done | while IFS="	" read -r ttl cls; do
-		printf '%s\000icon\037%s\n' "$ttl" "$cls"
-	done
+	done | sort -u
 }
 
-entries=$(hidden_entries)
+entries=$(list_hidden)
 [ -n "$entries" ] || exit 1
 
-selection=$(printf '%s\n' "$entries" | rofi -dmenu -theme ~/.config/rofi/window-ops.rasi -p "hidden")
+# Show in rofi and get selection
+selection=$(printf '%s' "$entries" | rofi -dmenu -theme ~/.config/rofi/window-ops.rasi -p "hidden" -selected-row 0)
 [ -n "$selection" ] || exit 0
 
-target=$(herb attr clients | while read -r obj _; do
+# Find and jump to the selected window
+herb attr clients | while read -r obj _; do
 	case $obj in
-		0x*) ;;
-		*) continue ;;
+		0x*) 
+			obj=${obj%.}
+			minimized=$(herb attr "clients.$obj.minimized" 2>/dev/null)
+			[ "$minimized" != "true" ] && continue
+			title=$(herb attr "clients.$obj.title" 2>/dev/null || echo "")
+			# Match selected title
+			if [ "$title" = "$selection" ]; then
+				herb jumpto "$obj"
+				exit 0
+			fi
+			;;
 	esac
-	obj=${obj%.}
-	herb attr "clients.$obj" 2>/dev/null | awk -v wid="$obj" -v want="$selection" '
-		/ title = "/    { sub(/^.* title = "/, ""); sub(/".*$/, ""); ttl = $0 }
-		/ minimized = / { min = $NF }
-		END {
-			if (min == "true" && ttl == want)
-				print wid
-		}'
-done | head -n 1)
+done
 
-[ -n "$target" ] && herb jumpto "$target"
+exit 1

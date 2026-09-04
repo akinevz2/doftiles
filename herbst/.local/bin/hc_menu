@@ -1,3 +1,23 @@
 #!/bin/bash
-# Right-click menu for herbstluftwm clients
-rofi -modi herbstluftwm -show herbstluftwm -run-command 'herbstclient "{}"' -theme /home/kine/dots/rofi/.config/rofi/window-ops.rasi
+# Herbstluftwm right-click menu for clients
+
+MENU=(
+    "Close\0icon\x1fuser-trash"
+    "Minimize all\0icon\x1fwindow-minimize"
+    "Minimize\0icon\x1fwindow-minimize"
+    "Maximize\0icon\x1fwindow-maximize"
+    "Toggle Focus\0icon\x1fwindow-focus"
+    "Toggle Floating\0icon\x1fwindow-fullscreen"
+    "Resize\0icon\x1fwindow-resize"
+    "Move\0icon\x1fwindow-move"
+)
+
+MENU_STR=$'\n'"${MENU[@]}"$'\n'
+selected=$(echo -e "$MENU_STR" | rofi -dmenu -i -no-automatch -no-history -mesg "Window Operations" -theme /home/kine/dots/rofi/.config/rofi/window-ops.rasi)
+
+if [ -n "$selected" ]; then
+    # Extract the command part (before tab)
+    cmd="${selected%%	*}"
+    # Execute via herbstclient chain
+    xmessage "$cmd"
+fi

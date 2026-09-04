@@ -1,0 +1,68 @@
+#!/bin/bash
+# winbarctl - Herbstluftwm polybar control with hooks
+
+WINBAR_PID=
+HOOK_PID=0
+
+cleanup() {
+    if [ "$HOOK_PID" -gt 0 ]; then
+        kill "$HOOK_PID" 2>/dev/null
+    fi
+    trap - EXIT
+}
+
+trap cleanup EXIT
+
+# Hook listener process
+spawn_hook_listener() {
+    {
+        herbstclient --idle "tag_changed|focus_changed|attribute_changed.*clients.focus" || true
+    } | while read -r hook args; do
+        case "$hook" in
+            "quit_panel")
+                pkill polybar
+                ;;
+            "module-reload")
+                pgrep polybar | while read -r pid; do
+                    polybar-msg -p "$pid" cmd reload 2>/dev/null
+                done
+                ;;
+            "attribute_changed")
+                # Filter out position/size updates (geometry/decoration_geometry)
+                case "$args" in
+                    *"geometry"*) continue ;;
+                    *"decoration_geometry"*) continue ;;
+                esac
+                polybar-msg action "polywins" peek 2>/dev/null
+                ;;
+            "tag_changed")
+                polybar-msg action "polywins" peek 2>/dev/null
+                ;;
+            "focus_changed")
+                polybar-msg action "polywins" peek 2>/dev/null
+                ;;
+        esac
+    done
+}
+
+case "$1" in
+    up)
+        spawn_hook_listener &
+        HOOK_PID=$!
+        polybar single > /dev/null 2>&1 &
+        herbstclient emit_hook module-reload
+        ;;
+    down)
+        pkill polybar
+        herbstclient emit_hook quit_panel
+        ;;
+    reload)
+        pkill polybar
+        polybar single > /dev/null 2>&1 &
+        herbstclient emit_hook module-reload
+        ;;
+    *)
+        echo "Usage: $0 {up|down|reload}"
+        exit 1
+        ;;
+esac
