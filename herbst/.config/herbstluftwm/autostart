@@ -76,8 +76,8 @@ keyreg $ModShift-w          reload
 
 # WINDOWING
 keyreg $ModShift-Return     chain . split right . cycle_frame . spawn $TERMINAL
-keyreg $Mod-a               chain . split left 0.5 . focus left --level=frame
-keyreg $ModCtrl-a           chain . split left 0.5 . or , shift left , focus left --level=frame
+keyreg $Mod-a               split left 0.5
+keyreg $ModShift-a          or , shift left , focus left --level=frame , chain . split left . shift left
 keyreg $ModCtrl-r           chain . split auto . cycle_frame 
 keyreg $ModCtrl-e           chain . split auto . cycle_frame
 keyreg $ModShift-r          split explode
@@ -87,13 +87,12 @@ keyreg $ModShift-e          chain . split horizontal . cycle_frame
 # zoom/peek grid
 keyreg $ModShift-s          cycle_layout +1 grid max
 keyreg $Mod-s               or \
-                                , or \
-                                    ! and ? compare tags.focus.curframe_wcount gt 1 \
-                                         ? cycle_all -1 \
-                                    ! focus --level=frame down \
+                                , focus --level=frame down \
+                                , and ? compare tags.focus.curframe_wcount gt 1 \
+                                      ? cycle -1 \
                                 , chain . lock \
-                                    . jumpto urgent \
-                                    . set_attr clients.focus.floating off \
+                                    . or ? attr clients.focus.floating off \
+                                        ? cycle_frame \
                                     . pseudotile toggle \
                                     . unlock
 
@@ -108,10 +107,12 @@ keyreg $Mod-c       or \
                         , cycle_frame \
                         , jumpto urgent
 keyreg $Mod-w       or \
-                        , and \
-                            . compare tags.focus.curframe_wcount gt 1 \
-                            . or , cycle_all , cycle_frame \
-                        , focus --level=frame up
+                        . jumpto urgent \
+                        . focus --level=frame up \
+                        . and , compare tags.focus.curframe_wcount gt 1 \
+                              , cycle \
+                        . cycle_frame -1
+
 keyreg $Mod-e      or \
                         , and \
                             . compare tags.focus.frame_count lt 2 \
@@ -130,7 +131,7 @@ keyreg $Mod-d   or \
                     . cycle_layout +1 grid vertical max horizontal      \
                 , and \
                     . compare tags.focus.curframe_wcount = 2 \
-                    . cycle_layout +1 max grid \
+                    . cycle_layout +1 max vertical grid  \
                 , cycle_layout -1 grid horizontal max 
 
 # rotate layout
@@ -153,14 +154,13 @@ keyreg $Mod-g               spawn ~/.local/bin/rofi_tags
 keyreg $Mod-x               chain \
                                 ! lock \
                                 ! or \
-                                    . spawn ~/.local/bin/hc_hidden_list \
+                                    . attr tags.focus.floating_focused toggle \
                                     . or \
-                                        . attr tags.focus.floating_focused toggle \
-                                        . and , compare tags.focus.tiling.focused_frame.client_count lt 2 \
-                                              , floating toggle \
+                                        . and , compare tags.focus.tiling.focused_frame.client_count lt 1 \
+                                              , floating off \
                                         . and , compare tags.focus.tiling.focused_frame.client_count gt 1 \
                                               , pseudotile toggle \
-                                ! attr clients.focus.floating off \
+                                        . attr clients.focus.floating toggle \
                                 ! unlock
 
 # fullscreen / float
