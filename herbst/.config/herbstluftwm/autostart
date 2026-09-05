@@ -75,7 +75,7 @@ keyreg $ModCtrl-q           spawn xkill
 keyreg $ModShift-w          reload
 
 # WINDOWING
-keyreg $ModShift-Return     chain . split right . focus right . spawn $TERMINAL
+keyreg $ModShift-Return     spawn $APPLAUNCHER
 keyreg $Mod-a               chain . split left 0.5 . focus left
 keyreg $ModShift-a          or , shift left , focus left --level=frame , chain . split left . shift left
 keyreg $ModCtrl-r           chain . split auto . cycle_frame 
