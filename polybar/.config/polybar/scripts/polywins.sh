@@ -17,7 +17,7 @@ empty_desktop_message="Desktop"
 
 char_limit=20
 max_windows=15
-char_case="normal"
+char_case="normal" # normal, upper, lower
 add_spaces="true"
 
 # --- }}}
@@ -29,20 +29,27 @@ herb() {
 
 
 main() {
+	# If no argument passed...
 	if [ -z "$2" ]; then
+		# ...print new window list every time
+		# the active window changes, a window is
+		# opened/closed or the visible tag changes
 		xprop -root -spy _NET_CLIENT_LIST _NET_ACTIVE_WINDOW _NET_CURRENT_DESKTOP |
 			while IFS= read -r _; do
 				generate_window_list
 			done
 
+	# If arguments are passed, run requested on-click function
 	else
 		"$@"
 	fi
 }
 
 
+
 # ON-CLICK FUNCTIONS {{{ ---
 
+# Open the rofi window switcher, filtered to the given window class
 switcher() {
 	rofi -modi windowcd -show windowcd \
 		-theme ~/.config/rofi/window-switcher.rasi \
@@ -50,6 +57,8 @@ switcher() {
 		-filter "$1"
 }
 
+# Hide/unhide a window: unminimize if hidden,
+# minimize if focused, otherwise just raise it
 raise_or_minimize() {
 	herb lock
 	if [ "$(herb attr "clients.$1.minimized" 2>/dev/null)" = "true" ]; then
@@ -71,8 +80,10 @@ close() {
 	wmctrl -ic "$1"
 }
 
+# Focus the previous/next window on the focused tag,
+# including hidden (minimized) ones
 scroll_focus() {
-	target=$(get_all_wids | awk -v act="$(get_active_wid)" -v dir="$1" '
+	target=$(list_clients | awk -v act="$(get_active_wid)" -v dir="$1" '
 		{ wids[++n] = $1 }
 		$1 == act { pos = n }
 		END {
@@ -86,8 +97,11 @@ scroll_focus() {
 	[ -n "$target" ] && herb jumpto "$target"
 }
 
+# Show a rofi menu with window operations, attached to the polybar
 window_ops() {
 	title=$(herb attr "clients.$1.title" 2>/dev/null)
+	# No Maximize/fullscreen entry: hlwm hides the polybar when a
+	# window is fullscreen; Focus (pseudotile toggle) instead
 	choice=$(printf 'Close\nFocus\nMinimize\nToggle floating\n' |
 		rofi -dmenu -l 4 -theme ~/.config/rofi/window-ops.rasi -p "${title:-window}")
 	case $choice in
@@ -134,108 +148,135 @@ get_active_wid() {
 	herb attr clients.focus.winid 2>/dev/null
 }
 
-# Get all window IDs (for scroll_focus)
-get_all_wids() {
-	herbstclient list_clients --title --tag="$(herb attr tags.focus.name)" 2>/dev/null | \
-		while read -r line; do
-			[ -z "$line" ] && continue
-			echo "${line%% *}"
-		done
-}
-
-# Get frame indices from dump
-get_frame_indices() {
-	herbstclient dump 2>/dev/null | grep -o '\(clients max:[0-9]*' | \
-		grep -oE '[0-9]+' | sort -n | uniq
-}
-
-# Get window info for a specific frame
-get_frame_windows() {
-	local frame_idx=$1
-	herbstclient list_clients --frame="$frame_idx" --title --tag="$(herb attr tags.focus.name)" 2>/dev/null | \
-		while read -r line; do
-			[ -z "$line" ] && continue
-			wid="${line%% *}"
-			ttl="${line#* }"
-			cls=$(herb attr "clients.$wid.class" 2>/dev/null)
-			printf "%s\t%s\t%s\n" "$wid" "$ttl" "$cls"
-		done
+# Emit all windows on the focused tag (visible and hidden),
+# one per line: winid \t class \t minimized \t title
+list_clients() {
+	current_tag=$(herb attr tags.focus.name) || return 1
+	herbstclient list_clients --title --tag="$current_tag" 2>/dev/null | while read -r line; do
+		[ -z "$line" ] && continue
+		wid="${line%% *}"
+		ttl="${line#* }"
+		cls=$(herb attr "clients.$wid.class" 2>/dev/null)
+		min=$(herb attr "clients.$wid.minimized" 2>/dev/null)
+		printf "%s\t%s\t%s\t%s\n" "$wid" "$cls" "$min" "$ttl"
+	done
 }
 
 generate_window_list() {
 	active_wid=$(get_active_wid)
+	window_count=0
 	on_click="$0"
 
-	# Get frame indices
-	frame_indices=$(get_frame_indices)
-	[ -z "$frame_indices" ] && {
-		echo "$empty_desktop_message"
-		return
-	}
+	# Group windows by class: one entry per class, showing the title of
+	# the group active window (or its first window). Hidden windows on
+	# the focused tag are included, so groups never lose track of them
+	grouped_windows=$(list_clients | awk -F'\t' -v act="$active_wid" '
+		{
+			wid = $1
+			cls = $2
 
-	# Process each frame
-	first_frame=1
-	window_count=0
-
-	for frame_idx in $frame_indices; do
-		# Get windows for this frame and group by class
-		frame_groups=$(get_frame_windows "$frame_idx" | awk -F'\t' -v act="$active_wid" '
-			{
-				wid = $1
-				ttl = $2
-				cls = $3
-				
-				if (!(cls in first)) {
-					first[cls] = wid
-					titles[cls] = ttl
-					count[cls] = 0
-					classes[++n] = cls
-				}
-				count[cls]++
+			if (!(cls in idx)) {
+				idx[cls] = ++n
+				classes[n] = cls
+				gwid[n] = wid
+				gtitle[n] = $4
+				gactive[n] = 0
+				gcount[n] = 0
 			}
-			END {
-				for (i = 1; i <= n; i++) {
-					cls = classes[i]
-					printf "%s\t%s\t%s\t%d\n", cls, first[cls], titles[cls], count[cls]
-				}
-			}')
+			i = idx[cls]
+			gcount[i]++
+			# Prefer the title of the active window in each class group
+			if (wid == act) {
+				gactive[i] = 1
+				gwid[i] = wid
+				gtitle[i] = $4
+			}
+		}
+		END {
+			for (i = 1; i <= n; i++)
+				printf "%s\t%s\t%d\t%d\t%s\n", classes[i], gwid[i], gactive[i], gcount[i], gtitle[i]
+		}')
 
-		# Output frame separator
-		if [ "$first_frame" -eq 0 ]; then
-			printf " %{F#888888}│%{F-} "
+	# Format each window group one by one
+	while IFS="	" read -r cls wid is_active win_count title; do
+		# Don't show the group if its class is forbidden
+		case "$forbidden_classes" in
+			*$cls*) continue ;;
+		esac
+
+		# If max number of windows reached, just increment
+		# the windows counter
+		if [ "$window_count" -ge "$max_windows" ]; then
+			window_count=$(( window_count + 1 ))
+			continue
 		fi
-		first_frame=0
 
-		# Output grouped windows for this frame
-		echo "$frame_groups" | while IFS=$'\t' read -r cls wid ttl cnt; do
-			[ -z "$cls" ] && continue
+		# Display the group's window title, falling back to the class
+		w_name=${title:-$cls}
 
-			# Skip forbidden classes
-			case "$forbidden_classes" in
-				*$cls*) continue ;;
-			esac
+		# Use user-selected character case
+		case "$char_case" in
+			"lower") w_name=$(
+				echo "$w_name" | tr '[:upper:]' '[:lower:]'
+				) ;;
+			"upper") w_name=$(
+				echo "$w_name" | tr '[:lower:]' '[:upper:]'
+				) ;;
+		esac
 
-			# Truncate title
-			w_name="${ttl:-$cls}"
-			if [ "${#w_name}" -gt "$char_limit" ]; then
-				w_name="$(echo "$w_name" | cut -c1-$((char_limit-1)))…"
-			fi
+		# Truncate displayed name to user-selected limit
+		if [ "${#w_name}" -gt "$char_limit" ]; then
+			w_name="$(echo "$w_name" | cut -c1-$((char_limit-1)))…"
+		fi
 
-			# Apply spacing
-			if [ "$add_spaces" = "true" ]; then
-				w_name=" $w_name "
-			fi
+		# Apply add-spaces setting
+		if [ "$add_spaces" = "true" ]; then
+			w_name=" $w_name "
+		fi
 
-			# Format with colors
-			if [ "$wid" = "$active_wid" ]; then
-				printf "%%{F$active_text_color}%%{+u}%%{u$active_underline}%s%%{-u}%%{F-}" "$w_name"
-			else
-				printf "%%{F$inactive_text_color}%s%%{F-}" "$w_name"
-			fi
+		# Add left and right formatting to displayed name
+		if [ "$is_active" = "1" ]; then
+			w_name="${active_left}${w_name}${active_right}"
+		else
+			w_name="${inactive_left}${w_name}${inactive_right}"
+		fi
 
-			window_count=$((window_count + 1))
-		done
-	done
+		# Add separator unless the group is first in list
+		if [ "$window_count" != 0 ]; then
+			printf "%s" "$separator"
+		fi
+
+		# Add on-click action Polybar formatting
+		# Left click: switch straight to a lone window; otherwise open
+		# the rofi switcher filtered to this window class
+		if [ "$win_count" = "1" ]; then
+			printf "%s" "%{A1:$on_click raise_or_minimize $wid:}"
+		else
+			printf "%s" "%{A1:$on_click switcher \"$cls\":}"
+		fi
+		printf "%s" "%{A2:$on_click close $wid:}"
+		printf "%s" "%{A3:$on_click window_ops $wid:}"
+		printf "%s" "%{A4:$on_click scroll_focus up:}"
+		printf "%s" "%{A5:$on_click scroll_focus down:}"
+		# Print the final window name
+		printf "%s" "$w_name"
+		printf "%s" "%{A}%{A}%{A}%{A}%{A}"
+
+		window_count=$(( window_count + 1 ))
+	done <<-EOF
+	$grouped_windows
+	EOF
+
+	# After printing all the windows,
+	# print number of hidden windows
+	if [ "$window_count" -gt "$max_windows" ]; then
+		printf "%s" "+$(( window_count - max_windows ))"
+	fi
+
+	# Print empty desktop message if no windows are open
+	if [ "$window_count" = 0 ]; then
+		printf "%s" "$empty_desktop_message"
+	fi
 
 	# Print newline
 	echo ""
