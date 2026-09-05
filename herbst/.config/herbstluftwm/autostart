@@ -337,7 +337,7 @@ herb rule class='firefox' windowtype='_NET_WM_WINDOW_TYPE_NORMAL' tag=browser
 herb rule title='Task Manager' tag=task
 herb rule title='Config Manager' tag=config
 
-herb set tree_style '╾│ ├└╼-┐'
+herb set tree_style '        '
 herb set default_frame_layout grid
 
 # unlock, just to be sure
