@@ -11,7 +11,7 @@ alias l='ls'
 alias s='ls -r'
 
 # WM Stuff
-alias sxhkdrc="vim $HOME/.config/sxhkd"
+alias sxhkdrc="$EDITOR $HOME/.config/sxhkd"
 alias bspwmrc="$EDITOR $HOME/.config/bspwm"
 alias wmrc="$EDITOR $HOME/.config/herbstluftwm/autostart"
 alias development="cd $HOME/development && bash -c 'cd system/monitoring && npm run tui'"
@@ -46,8 +46,8 @@ alias df=duf||df
 alias open=xdg-open
 
 # Quicklinks
-alias aliases="$VISUAL $HOME/.config/aliases && source $HOME/.config/aliases"
-alias exports="$VISUAL $HOME/.config/exports && source $HOME/.config/exports"
+alias aliases="$EDITOR $HOME/.config/aliases && source $HOME/.config/aliases"
+alias exports="$EDITOR $HOME/.config/exports && source $HOME/.config/exports"
 alias dots="cd $HOME/dots && tree -aL 2 -I '.git' $HOME/dots 2&>/dev/null || ls -AL ./**"
 alias go-dots="cd $HOME/dots && $VIEW $HOME/dots && ls $HOME/dots"
 
