@@ -93,7 +93,7 @@ keyreg $Mod-s               or \
                                 , chain . lock \
                                     . or ? attr clients.focus.floating off \
                                         ? cycle_frame \
-                                    . pseudotile toggle \
+                                    . pseudotile on \
                                     . unlock
 
 
@@ -139,13 +139,14 @@ keyreg $Mod-d   or \
 keyreg $Mod-r               or , and . compare tags.focus.curframe_wcount gt 1 . chain ! lock ! rotate ! rotate ! unlock , cycle_frame
 
 # fullscreen
-keyreg $ModShift-f          fullscreen toggle
+keyreg $ModShift-f          floating toggle
 
 # peek floats; when the floating layer is empty (or every float is
 # hidden), offer the hidden windows via rofi
+keyreg $ModShift-z          attr clients.focus.minimized toggle
 keyreg $Mod-z               or \
                                 . attr tags.focus.floating_focused toggle \
-                                . spawn sh -c "~/.local/bin/rofi_hidden || herbstclient pseudotile toggle"
+                                . spawn ~/.local/bin/rofi_hidden 
 
 # tag switcher
 keyreg $Mod-g               spawn ~/.local/bin/rofi_tags
@@ -160,20 +161,19 @@ keyreg $Mod-f               chain \
                                               , floating off \
                                         . and , compare tags.focus.tiling.focused_frame.client_count gt 1 \
                                               , attr clients.focus.floating toggle \
-                                        . pseudotile toggle \
+                                              , spawn ~/.local/bin/hc_center \
+                                        . fullscreen toggle \
                                 ! unlock
 
 # fullscreen / float
 keyreg $Mod-x               chain \
                             ! lock \
-                            ! attr tags.focus.floating off \
+                            ! attr clients.focus.floating off \
                             ! or \
-                                , attr clients.focus.floating toggle \
                                 , attr tags.focus.floating_focused on \
-                            ! pseudotile off \
+                                , pseudotile off \
                             ! and , compare tags.focus.tiling.focused_frame.client_count lt 1 \
                                 , remove \
-                            ! spawn ~/.local/bin/hc_center \
                             ! unlock
 
 # split into direction
@@ -206,7 +206,7 @@ keyreg $ModCtrl-Up              shift up
 keyreg $ModCtrl-Right           shift right
 
 ### TAGS ###
-herb set swap_monitors_to_get_tag 1
+herb set swap_monitors_to_get_tag 0
 
 tag_names=( work term browser logs task default )
 tag_keys=( {1..9} 0 )
