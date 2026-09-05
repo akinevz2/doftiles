@@ -159,8 +159,8 @@ keyreg $Mod-f               chain \
                                         . and , compare tags.focus.tiling.focused_frame.client_count lt 1 \
                                               , floating off \
                                         . and , compare tags.focus.tiling.focused_frame.client_count gt 1 \
-                                              , pseudotile toggle \
-                                        . attr clients.focus.floating toggle \
+                                              , attr clients.focus.floating toggle \
+                                        . pseudotile toggle \
                                 ! unlock
 
 # fullscreen / float
