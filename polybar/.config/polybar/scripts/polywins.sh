@@ -77,7 +77,7 @@ raise_or_minimize() {
 }
 
 close() {
-	wmctrl -ic "$1"
+	herb close "$1"
 }
 
 # Focus the previous/next window on the focused tag,
