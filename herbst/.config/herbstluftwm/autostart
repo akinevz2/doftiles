@@ -151,7 +151,7 @@ keyreg $Mod-z               or \
 keyreg $Mod-g               spawn ~/.local/bin/rofi_tags
 
 # toggle float and center
-keyreg $Mod-x               chain \
+keyreg $Mod-f               chain \
                                 ! lock \
                                 ! or \
                                     . attr tags.focus.floating_focused toggle \
@@ -164,7 +164,7 @@ keyreg $Mod-x               chain \
                                 ! unlock
 
 # fullscreen / float
-keyreg $Mod-f               chain \
+keyreg $Mod-x               chain \
                             ! lock \
                             ! attr tags.focus.floating off \
                             ! or \
