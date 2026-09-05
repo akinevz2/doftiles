@@ -161,19 +161,19 @@ keyreg $Mod-f               chain \
                                               , floating off \
                                         . and , compare tags.focus.tiling.focused_frame.client_count gt 1 \
                                               , attr clients.focus.floating toggle \
-                                              , spawn ~/.local/bin/hc_center \
                                         . fullscreen toggle \
                                 ! unlock
 
 # fullscreen / float
 keyreg $Mod-x               chain \
                             ! lock \
-                            ! attr clients.focus.floating off \
-                            ! or \
+                            ! try or \
                                 , attr tags.focus.floating_focused on \
                                 , pseudotile off \
-                            ! and , compare tags.focus.tiling.focused_frame.client_count lt 1 \
-                                , remove \
+                            ! and , attr clients.focus.floating toggle \
+                                 , compare tags.focus.tiling.focused_frame.client_count lt 1 \
+                                 , remove \
+                                 , spawn ~/.local/bin/hc_center \
                             ! unlock
 
 # split into direction
