@@ -61,7 +61,7 @@ APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
 keyreg $Mod-Return          spawn $TERMINAL
 # applauncher
 keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 , spawn $APPSWITCHER . close_or_remove         # was Mod-Tab
-keyreg $ModShift-a          or . and , compare tags.focus.curframe_wcount gt 1 , split explode . spawn $APPLAUNCHER           # was Mod-Tab
+keyreg $ModCtrl-a          or . and , compare tags.focus.curframe_wcount gt 1 , split explode . spawn $APPLAUNCHER           # was Mod-Tab
 keyreg $ModShift-q          or \
                             . and \
                                     , compare tags.focus.curframe_wcount lt 2 \
@@ -75,8 +75,8 @@ keyreg $ModCtrl-q           spawn xkill
 keyreg $ModShift-w          reload
 
 # WINDOWING
-keyreg $ModShift-Return     chain . split right . cycle_frame . spawn $TERMINAL
-keyreg $Mod-a               split left 0.5
+keyreg $ModShift-Return     chain . split right . focus right . spawn $TERMINAL
+keyreg $Mod-a               chain . split left 0.5 . focus left
 keyreg $ModShift-a          or , shift left , focus left --level=frame , chain . split left . shift left
 keyreg $ModCtrl-r           chain . split auto . cycle_frame 
 keyreg $ModCtrl-e           chain . split auto . cycle_frame
