@@ -60,14 +60,20 @@ switcher() {
 # Hide/unhide a window: unminimize if hidden,
 # minimize if focused, otherwise just raise it
 raise_or_minimize() {
+	herb lock
 	if [ "$(herb attr "clients.$1.minimized" 2>/dev/null)" = "true" ]; then
-		herb chain . jumpto "$1" . attr "clients.$1.floating" true
+		herb jumpto "$1" 
+		herb and , compare tags.focus.curframe_wcount lt 1 , attr clients.$1.floating false
+	elif [ "$(herb attr "clients.$1.floating" 2>/dev/null)" = "true" ]; then
+		herb attr "clients.$1.floating" false
 	elif [ "$1" = "$(get_active_wid)" ]; then
+		herb set_attr "clients.$1.floating" true
 		herb set_attr "clients.$1.minimized" true
 	else
-		herb raise "$1"
 		herb jumpto "$1"
+		herb raise "$1"
 	fi
+	herb unlock
 }
 
 close() {
@@ -144,26 +150,15 @@ get_active_wid() {
 
 # Emit all windows on the focused tag (visible and hidden),
 # one per line: winid \t class \t minimized \t title
-# hlwm lists client objects with a trailing dot (e.g. "0x180003."),
-# which is stripped to build the query path; the emitted id comes
-# from the winid attribute so it matches clients.focus.winid exactly
 list_clients() {
 	current_tag=$(herb attr tags.focus.name) || return 1
-	herb attr clients | while read -r obj _; do
-		case $obj in
-			0x*) ;;
-			*) continue ;;
-		esac
-		herb attr "clients.${obj%.}" 2>/dev/null | awk -v tag="$current_tag" '
-			/ winid = "/    { sub(/^.* winid = "/, ""); sub(/".*$/, ""); w = $0 }
-			/ class = "/    { sub(/^.* class = "/, ""); sub(/".*$/, ""); cls = $0 }
-			/ title = "/    { sub(/^.* title = "/, ""); sub(/".*$/, ""); ttl = $0 }
-			/ minimized = / { min = $NF }
-			/ tag = "/      { sub(/^.* tag = "/, ""); sub(/".*$/, ""); tg = $0 }
-			END {
-				if (tg == tag && w != "")
-					printf "%s\t%s\t%s\t%s\n", w, cls, min, ttl
-			}'
+	herbstclient list_clients --title --tag="$current_tag" 2>/dev/null | while read -r line; do
+		[ -z "$line" ] && continue
+		wid="${line%% *}"
+		ttl="${line#* }"
+		cls=$(herb attr "clients.$wid.class" 2>/dev/null)
+		min=$(herb attr "clients.$wid.minimized" 2>/dev/null)
+		printf "%s\t%s\t%s\t%s\n" "$wid" "$cls" "$min" "$ttl"
 	done
 }
 
