@@ -148,16 +148,33 @@ get_active_wid() {
 	herb attr clients.focus.winid 2>/dev/null
 }
 
+# Add frame index to the list_clients output
+# Output: winid \t class \t minimized \t title \t frame_index
+list_clients_with_frame() {
+	list_clients | while IFS=$'\t' read -r wid cls min ttl; do
+		[ -z "$wid" ] && continue
+		frame=$(herb attr "clients.$wid.parent_frame.index" 2>/dev/null)
+		printf "%s\t%s\t%s\t%s\t%s\n" "$wid" "$cls" "$min" "$ttl" "$frame"
+	done
+}
+
+# Get unique frame indices from windows
+get_frame_indices() {
+	list_clients | cut -f1 | while read -r wid; do
+		[ -z "$wid" ] && continue
+		herb attr "clients.$wid.parent_frame.index" 2>/dev/null
+	done | sort -n | uniq
+}
+
 # Emit all windows on the focused tag (visible and hidden),
 # one per line: winid \t class \t minimized \t title
 list_clients() {
 	current_tag=$(herb attr tags.focus.name) || return 1
-	herbstclient list_clients --title --tag="$current_tag" 2>/dev/null | while read -r line; do
-		[ -z "$line" ] && continue
-		wid="${line%% *}"
-		ttl="${line#* }"
+	herbstclient list_clients --tag="$current_tag" 2>/dev/null | while read -r wid; do
+		[ -z "$wid" ] && continue
 		cls=$(herb attr "clients.$wid.class" 2>/dev/null)
 		min=$(herb attr "clients.$wid.minimized" 2>/dev/null)
+		ttl=$(herb attr "clients.$wid.title" 2>/dev/null)
 		printf "%s\t%s\t%s\t%s\n" "$wid" "$cls" "$min" "$ttl"
 	done
 }
