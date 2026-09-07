@@ -6,8 +6,12 @@ Requires=basic.target
 
 [Service]
 Type=simple
-Environment=DISPLAY=127.0.0.1:0
-ExecStartPre=/bin/bash -c 'until xset -display 127.0.0.1:0 q >/dev/null 2>&1; do sleep 1; done'
+Environment=DISPLAY=localhost:0.0
+# WSLg exposes a Wayland socket (wayland-0) that dual-backend apps like
+# rofi 2.0 autodetect; force the whole WM session onto X11/VcXsrv.
+Environment=XDG_SESSION_TYPE=x11
+UnsetEnvironment=WAYLAND_DISPLAY
+ExecStartPre=/bin/bash -c 'until xset -display localhost:0.0 q >/dev/null 2>&1; do sleep 1; done'
 ExecStart=/usr/bin/herbstluftwm
 Restart=on-failure
 RestartSec=3
