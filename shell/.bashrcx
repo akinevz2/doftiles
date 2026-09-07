@@ -66,6 +66,27 @@ case $- in
             PS1='\n\[\033[01;32m\]\u\[\033[00m\] @ \[\033[01;32m\]\h\[\033[00m\] ::'"${git_info}${exit_info}"' \[\033[01;36m\]'"${pwd_display}"'\[\033[00m\]\n\[\033[01;35m\]>\[\033[00m\] '
         }
         PROMPT_COMMAND=__ps1_build
+
+        # Keep the terminal (WM) title in sync with the running program,
+        # so window lists show 'nvim' / 'vi' instead of the terminal class.
+        # The DEBUG trap fires for shell-internal work too (the
+        # PROMPT_COMMAND function itself), so skip __-prefixed helpers and
+        # restore the idle title when the prompt returns.
+        __title_set() {
+            printf '\033]0;%s\007' "$1"
+        }
+        __title_running() {
+            case ${BASH_COMMAND%% *} in
+                __*) return ;;
+                *=*) return ;;   # assignments, incl. PROMPT_COMMAND itself
+            esac
+            __title_set "${BASH_COMMAND%% *}"
+        }
+        __title_idle() {
+            __title_set "bash ${PWD/#$HOME/~}"
+        }
+        trap __title_running DEBUG
+        PROMPT_COMMAND="__ps1_build; __title_idle"
         fi
 
         # Color aliases (harmless if .aliases already set them).

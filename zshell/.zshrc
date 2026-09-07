@@ -104,4 +104,12 @@ source $ZSH/oh-my-zsh.sh
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 zstyle ':omz:update' mode disabled
 export PATH="$HOME/.local/bin:$PATH"
-source "/home/kine/.my-credentials-env"
+[ -f "$HOME/.my-credentials-env" ] && source "$HOME/.my-credentials-env"
+
+# Keep the terminal (WM) title in sync with the running program, so
+# window lists show 'nvim' / 'vi' instead of the terminal class.
+# preexec fires when a command starts; precmd when the prompt returns.
+__title_set() { printf '\033]0;%s\007' "$1" }
+__title_running() { __title_set "${1%% *}"; }
+precmd() { __title_set "zsh ${(D):-%~}"; }
+preexec() { __title_running "$1"; }

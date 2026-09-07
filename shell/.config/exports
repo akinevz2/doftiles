@@ -2,8 +2,6 @@ export TASKRC=${HOME}/.config/taskrc
 export XDG_CONFIG_HOME=~/.config
 export MOZ_WEBRENDER=1
 export MOZ_X11_EGL=1
-export LIBGL_ALWAYS_INDIRECT=1
-export LIBGL_ALWAYS_SOFTWARE=true
 
 
 export LOCAL_BIN=~/.local/bin
@@ -23,8 +21,12 @@ export NEW_WINDOW="--new-window"
 # Set DISPLAY for WSL environments
 if [[ $(hostname) == WS* ]]; then
     export DISPLAY=localhost:0.0
+    # VcXsrv/X11 through WSL: force indirect/software GL rendering
+    export LIBGL_ALWAYS_INDIRECT=1
+    export LIBGL_ALWAYS_SOFTWARE=true
     # Set BROWSER to wrapper script for Windows Firefox
     export BROWSER="firefox"
-    # export DONT_PROMPT_WSL_INSTALL=true
+    # Allows VS Code usage within the X11
+    export DONT_PROMPT_WSL_INSTALL=true
 fi
 

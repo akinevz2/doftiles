@@ -26,8 +26,11 @@ if [ -d "$HOME/.local/bin" ] ; then
     PATH="$HOME/.local/bin:$PATH"
 fi
 
-if [ -d /run/WSL ]; then
-    export WSL_INTEROP=$(ls -t /run/WSL/*_interop 2>/dev/null | head -1)
-    systemctl --user set-environment WSL_INTEROP="$WSL_INTEROP"
+# Push environment into the systemd user manager (only where it exists).
+if command -v systemctl >/dev/null 2>&1 && systemctl --user >/dev/null 2>&1; then
+    systemctl --user set-environment PATH="$PATH"
+    if [ -d /run/WSL ]; then
+        export WSL_INTEROP=$(ls -t /run/WSL/*_interop 2>/dev/null | head -1)
+        systemctl --user set-environment WSL_INTEROP="$WSL_INTEROP"
+    fi
 fi
-systemctl --user set-environment PATH="$PATH"
