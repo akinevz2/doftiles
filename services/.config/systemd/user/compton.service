@@ -1,0 +1,12 @@
+[Unit]
+Description=compton compositor (inside VcXsrv)
+After=herbst.service
+BindsTo=herbst.service
+
+[Service]
+Type=simple
+Environment=DISPLAY=127.0.0.1:0
+ExecStart=/usr/bin/compton
+
+[Install]
+WantedBy=basic.target

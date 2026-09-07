@@ -1,0 +1,113 @@
+#!/bin/bash
+
+# herbstluftwm context menu script
+# Run with: herbstluftwm --context-menu
+
+MOD="Mod1"  # Alt key
+TERM="alacritty"
+ROFITHEME="${HOME}/.config/rofi/launcher.rasi"
+ROFIBIN="${HOME}/.local/bin/rofi_hc_context"
+
+# Create main context menu
+generate_menu() {
+    cat <<'EOF'
+🪟<b>Window Management</b>
+
+🚪<b>Close Window       </b>close_or_remove;
+💀<b>Force Delete       </b>chain . lock . spawn xkill . unlock
+
+👁️<b>Focus Management</b>
+
+⬅️<b>Focus Left          </b>focus --level=visible left
+➡️<b>Focus Right         </b>focus --level=visible right
+⬆️<b>Focus Up           </b>focus --level=visible up
+⬇️<b>Focus Down         </b>focus --level=visible down
+🔍<b>Focus Next         </b>cycle_all +1
+🔎<b>Focus Prev         </b>cycle_all -1
+📍<b>Jump Urgent         </b>jumpto urgent
+
+🏗️<b>Layout Operations</b>
+
+🎈<b>Toggle Float        </b>floating toggle
+⏺️<b>Center Float       </b>chain ! lock . spawn ~/.local/bin/hc_center . unlock
+📐<b>Pseudotile        </b>pseudotile toggle
+🚚<b>Move Left           </b>shift left
+🚚<b>Move Right          </b>shift right
+🚚<b>Move Up            </b>shift up
+🚚<b>Move Down          </b>shift down
+✂️<b>Split Left         </b>chain split right 0.5 . cycle_frame
+✂️<b>Split Right        </b>chain split vertical . cycle_frame
+✂️<b>Split Top          </b>chain split top 0.5 . cycle_frame
+✂️<b>Split Bottom       </b>chain split horizontal . cycle_frame
+🔧<b>Auto Split         </b>chain split auto . cycle_frame
+
+📁<b>Tag/Workspace</b>
+
+⏭️<b>Move to Prev Tag    </b>chain . lock . tag_move_nth -1 . unlock
+⏪<b>Move to Next Tag   </b>chain . lock . tag_move_nth 1 . unlock
+📤<b>Move to Specific    </b>chain . lock . spawn rofi_tags_move . unlock
+🔄<b>Swap with Tag       </b>chain . lock . spawn rofi_tags_swap . unlock
+🌐<b>Toggle Monitors    </b>chain . lock . use_previous . unlock
+
+⚡<b>Process Control</b>
+
+💣<b>Kill Process        </b>chain . lock . close_or_remove . spawn xkill . unlock
+🔄<b>Restart WM          </b>reload
+▶️<b>Restart App         </b>chain . close_or_remove . spawn rofi_apps
+
+🎨<b>Visual Operations</b>
+
+📸<b>Screenshot          </b>spawn scrot
+🎨<b>Color Picker       </b>spawn xcolor
+📊<b>Grid Layout        </b>cycle_layout grid
+⬛<b>Max Layout         </b>cycle_layout max
+📏<b>Vertical Layout    </b>cycle_layout vertical
+↔️<b>Horizontal Layout  </b>cycle_layout horizontal
+🔄<b>Rotate Layout      </b>chain ! lock ! rotate ! rotate ! unlock
+EOF
+}
+
+# Parse and execute selected action
+execute_action() {
+    local action="$1"
+    shift
+
+    if [[ "$action" == "close_or_remove" ]]; then
+        herbstclient close_or_remove
+    elif [[ "$action" == "floating toggle" ]]; then
+        herbstclient floating toggle
+    elif [[ "$action" == "fullscreen toggle" ]]; then
+        herbstclient fullscreen toggle
+    elif [[ "$action" == "toggle hidden" ]]; then
+        herbstclient toggle hidden || echo "Window not hidden"
+    elif [[ "$action" == "jumpto urgent" ]]; then
+        herbstclient jumpto urgent || echo "No urgent windows"
+    elif [[ "$action" == "spawn scrot" ]]; then
+        herbstclient spawn scrot
+    elif [[ "$action" == "reload" ]]; then
+        herbstclient reload
+    elif [[ "$action" == "chain" && "$*" ]]; then
+        herbstclient "$@"
+    fi
+
+    exit 0
+}
+
+# Main menu invocation
+MENU=$(generate_menu)
+COMMAND=$(echo "$MENU" | rofi -dmenu -i -p "📋 Herbstluftwm Actions:" -theme "$ROFITHEME")
+
+# Parse the command
+if [[ -n "$COMMAND" ]]; then
+    if [[ "$COMMAND" =~ \] ]]; then
+        # Simple command
+        execute_action "$COMMAND" "$COMMAND"
+    else
+        # Chain command
+        parts=($(echo "$COMMAND" | tr -s ' ' '\n' | grep -v '^$'))
+        part_count=${#parts[@]}
+        if [[ $part_count -ge 2 ]]; then
+            execute_action "${parts[0]}" "${parts[@]}"
+        fi
+    fi
+fi

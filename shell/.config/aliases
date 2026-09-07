@@ -62,3 +62,6 @@ alias home="cd ~"
 # General Quickopen
 alias o="$EDITOR"
 alias odot="$EDITOR $NEW_WINDOW"
+
+# AI/Development
+alias letsgo="opencode --continue"

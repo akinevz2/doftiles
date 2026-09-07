@@ -1,0 +1,14 @@
+#!/bin/bash
+TAGS=($(herbstclient names | tr '\n' ' '))
+TAGS+=("Cancel")
+SELECTED=$(printf '%s\n' "${TAGS[@]}" | rofi -dmenu -i -p "Select Tag to Swap:")
+if [[ -n "$SELECTED" ]] && [[ "$SELECTED" != "Cancel" ]]; then
+    index=$(printf '%s\n' "${TAGS[@]}" | grep -n "$SELECTED" | cut -d: -f1)
+    if [[ -n "$index" ]]; then
+        current_tag=$(herbstclient attr tags.focus.index)
+        herbstclient lock
+        swap "/tag/${index}"
+        use "/tag/$current_tag"
+        herbstclient unlock
+    fi
+fi

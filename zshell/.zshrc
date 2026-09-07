@@ -104,3 +104,4 @@ source $ZSH/oh-my-zsh.sh
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 zstyle ':omz:update' mode disabled
 export PATH="$HOME/.local/bin:$PATH"
+source "/home/kine/.my-credentials-env"

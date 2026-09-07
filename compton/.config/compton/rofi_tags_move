@@ -1,0 +1,12 @@
+#!/bin/bash
+TAGS=($(herbstclient names | tr '\n' ' '))
+TAGS+=("Cancel")
+SELECTED=$(printf '%s\n' "${TAGS[@]}" | rofi -dmenu -i -p "Select Target Tag:")
+if [[ -n "$SELECTED" ]] && [[ "$SELECTED" != "Cancel" ]]; then
+    index=$(printf '%s\n' "${TAGS[@]}" | grep -n "$SELECTED" | cut -d: -f1)
+    if [[ -n "$index" ]]; then
+        herbstclient lock
+        tag_move_nth "$((index - 1))"
+        herbstclient unlock
+    fi
+fi

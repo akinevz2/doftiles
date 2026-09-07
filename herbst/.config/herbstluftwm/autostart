@@ -45,7 +45,7 @@ ModCtrl=Mod1-Control
 herb emit_hook reload
 herb set_layout max
 herb keyunbind --all
-herb spawn xsetroot -solid '#2C001E'
+herb spawn hsetroot -solid '#2C001E'
 pgrep polybar && pkill polybar
 herb spawn polybar single
 

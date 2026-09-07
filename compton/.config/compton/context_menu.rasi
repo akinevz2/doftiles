@@ -1,0 +1,57 @@
+* {
+    font: "Segoe UI Light 11";
+    background-color: #1a1a2e00;
+    text-color: #ffffff;
+    border-color: #666600ff;
+    separator-color: #666600ff;
+    listview: {
+        columns: 2;
+        lines: 10;
+        spacing: 0px;
+        scrollbar: true;
+        fixed-height: false;
+        expand: true;
+        layout: vertical;
+    };
+    element-normal: {
+        background-color: #2d2d4433;
+        text-color: #ffffff;
+        border: 1px solid #66660044;
+    };
+    element-alternate: {
+        background-color: #33334422;
+        text-color: #cccccccc;
+    };
+    element-selected: {
+        background-color: #feef69ff;
+        text-color: #1a1a2e00;
+    };
+    element-icon: {
+        size: 16px;
+    };
+    element-text: {
+        text-color: inherit;
+    };
+    window: {
+        fullscreen: false;
+        width: 600px;
+        height: 700px;
+        border-color: #666600ff;
+        background-color: #1a1a2eaa;
+    };
+    scrollbar: {
+        handle-width: 4px;
+    };
+    inputbar: {
+    };
+    message: {
+        background-color: #666600ff;
+        text-color: #1a1a2e00;
+    };
+    prompt: {
+    };
+    case-sensitive: false;
+    separator: "╌";
+}
+
+@theme "dmenu"
