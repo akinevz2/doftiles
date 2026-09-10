@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-export DISPLAY="127.0.0.1:0"
+export DISPLAY="localhost:0.0"
 
 herb() {
     herbstclient "$@"
@@ -46,7 +46,10 @@ herb emit_hook reload
 herb set_layout max
 herb keyunbind --all
 herb spawn hsetroot -solid '#2C001E'
+# kill stale panel processes from a previous session; the polywins
+# hook listener exits with polybar (it is a child process)
 pgrep polybar && pkill polybar
+pkill -f "polywins.sh" 2>/dev/null
 herb spawn polybar single
 
 # LAUNCHERS
@@ -59,9 +62,11 @@ APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
 
 # terminal
 keyreg $Mod-Return          spawn $TERMINAL
+keyreg $ModShift-Return     chain . lock . split auto . cycle_frame . spawn $TERMINAL . unlock
+keyreg $ModCtrl-Return      spawn $APPLAUNCHER
 # applauncher
 keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 , spawn $APPSWITCHER . close_or_remove         # was Mod-Tab
-keyreg $ModCtrl-a          or . and , compare tags.focus.curframe_wcount gt 1 , split explode . spawn $APPLAUNCHER           # was Mod-Tab
+keyreg $ModCtrl-a           or . and , compare tags.focus.curframe_wcount gt 1 , split explode . spawn $APPLAUNCHER           # was Mod-Tab
 keyreg $ModShift-q          or \
                             . and \
                                     , compare tags.focus.curframe_wcount lt 2 \
@@ -75,8 +80,7 @@ keyreg $ModCtrl-q           spawn xkill
 keyreg $ModShift-w          reload
 
 # WINDOWING
-keyreg $ModShift-Return     spawn $APPLAUNCHER
-keyreg $Mod-a               chain . split left 0.5 . focus left
+keyreg $Mod-a               or , focus left --level=frame , split left 0.5
 keyreg $ModShift-a          or , shift left , focus left --level=frame , chain . split left . shift left
 keyreg $ModCtrl-r           chain . split auto . cycle_frame 
 keyreg $ModCtrl-e           chain . split auto . cycle_frame
@@ -85,17 +89,16 @@ keyreg $ModShift-e          chain . split horizontal . cycle_frame
 
 # cycle; was $Mod-s / $ModShift-s
 # zoom/peek grid
-keyreg $ModShift-s          cycle_layout +1 grid max
-keyreg $Mod-s               or \
-                                , focus --level=frame down \
-                                , and ? compare tags.focus.curframe_wcount gt 1 \
-                                      ? cycle -1 \
-                                , chain . lock \
-                                    . or ? attr clients.focus.floating off \
-                                        ? cycle_frame \
-                                    . pseudotile on \
-                                    . unlock
-
+keyreg $Mod-s               chain : lock \
+                                  :  or , jumpto urgent \
+                                        , and ! compare tags.focus.curframe_wcount gt 1 \
+                                              ! cycle -1 \
+                                        , and . set_attr clients.focus.floating off \
+                                                . pseudotile toggle \
+                                  : unlock                
+                                            
+                                            
+                                            
 
 # was $ModAlt-Tab → now Alt+Shift+`
 keyreg $Mod-c       or \
@@ -106,40 +109,34 @@ keyreg $Mod-c       or \
                     . chain \
                         , cycle_frame \
                         , jumpto urgent
-keyreg $Mod-w       or \
-                        . jumpto urgent \
-                        . focus --level=frame up \
-                        . and , compare tags.focus.curframe_wcount gt 1 \
-                              , cycle \
-                        . cycle_frame -1
+keyreg $Mod-w       chain : lock : or , and \
+                            ! compare tags.focus.curframe_wcount gt 1 \
+                            ! cycle \
+                       , focus --level=frame up \
+                       , cycle_frame : unlock
 
-keyreg $Mod-e      or \
-                        , and \
-                            . compare tags.focus.frame_count lt 2 \
+keyreg $Mod-e      or , and . compare tags.focus.frame_count lt 2 \
                             . cycle -1 \
-                        , cycle_frame
+                      , cycle_frame
 keyreg $ModShift-x          use_previous
 
 keyreg $ModShift-d  or \
                     . and \
                             , compare tags.focus.curframe_wcount gt 1 \
-                            , cycle_layout +1 max grid \
+                            , cycle_layout +1 max grid vertical \
                     . remove
 keyreg $Mod-d   or \
                 , and \
                     . compare tags.focus.curframe_wcount gt 3 \
-                    . cycle_layout +1 grid vertical max horizontal      \
+                            . cycle_layout +1 max horizontal grid \
                 , and \
                     . compare tags.focus.curframe_wcount = 2 \
-                    . cycle_layout +1 max vertical grid  \
-                , cycle_layout -1 grid horizontal max 
+                    . cycle_layout +1 vertical max grid \
+                , cycle_layout -1 grid max
 
 # rotate layout
 # flip layout
 keyreg $Mod-r               or , and . compare tags.focus.curframe_wcount gt 1 . chain ! lock ! rotate ! rotate ! unlock , cycle_frame
-
-# fullscreen
-keyreg $ModShift-f          floating toggle
 
 # peek floats; when the floating layer is empty (or every float is
 # hidden), offer the hidden windows via rofi
@@ -151,29 +148,29 @@ keyreg $Mod-z               or \
 # tag switcher
 keyreg $Mod-g               spawn ~/.local/bin/rofi_tags
 
-# toggle float and center
-keyreg $Mod-f               chain \
-                                ! lock \
-                                ! or \
-                                    . attr tags.focus.floating_focused toggle \
-                                    . or \
-                                        . and , compare tags.focus.tiling.focused_frame.client_count lt 1 \
-                                              , floating off \
-                                        . and , compare tags.focus.tiling.focused_frame.client_count gt 1 \
-                                              , attr clients.focus.floating toggle \
-                                        . fullscreen toggle \
-                                ! unlock
+# contextual focus: peek-float frame groups, fullscreen lone windows,
+# toggle workspace floats; un-floats an accessible float first (hc_focus)
+keyreg $Mod-f               spawn ~/.local/bin/hc_focus
+
+# fullscreen
+# full focus: fullscreen priority — un-float floats, un-fullscreen+float
+# fullscreened windows, fullscreen everything else (hc_full_focus)
+keyreg $ModCtrl-f          spawn ~/.local/bin/hc_full_focus
+keyreg $ModShift-f          attr tags.focus.floating toggle
 
 # fullscreen / float
 keyreg $Mod-x               chain \
                             ! lock \
-                            ! try or \
-                                , attr tags.focus.floating_focused on \
-                                , pseudotile off \
-                            ! and , attr clients.focus.floating toggle \
-                                 , compare tags.focus.tiling.focused_frame.client_count lt 1 \
-                                 , remove \
+                            ! or , try bring urgent \
+                                 , or : attr clients.focus.floating toggle \
+                                        : attr tags.focus.floating_focused on \
                                  , spawn ~/.local/bin/hc_center \
+                            ! and , compare clients.focus.floating_effectively = 1 \
+                                  , chain . attr clients.focus.fullscreen off \
+                                          . attr clients.focus.pseudotile off \
+                                          . attr clients.focus.floating off \
+                                  , and : compare tags.focus.tiling.focused_frame.client_count lt 1 \
+                                        : remove \
                             ! unlock
 
 # split into direction
@@ -278,15 +275,16 @@ herb attr theme.tiling.reset 1
 herb attr theme.floating.reset 1
 
 #= COLOURS =#
-herb set frame_border_active_color '#666'
+herb set frame_border_active_color '#888'
 herb set frame_border_normal_color '#333'
-herb set frame_bg_normal_color '#88888800'
-herb set frame_bg_active_color '#eee'
+# Focused frame gets a brighter gray than unfocused ones (rgba: low alpha
+# so the transparent frame background stays subtle).
+herb set frame_bg_normal_color '#eeeeee'
+herb set frame_bg_active_color '#feef69'
 herb attr theme.active.color '#feef69'
 herb attr theme.normal.color '#666'
 herb attr theme.urgent.color orange
 herb attr theme.minimal.color '#333'
-herb attr theme.floating.outer_color '#97ff65'
 herb attr theme.active.inner_color '#ffeeee'
 herb attr theme.active.outer_color '#feef69'
 herb attr theme.background_color '#333333'
@@ -296,6 +294,9 @@ herb set always_show_frame on
 herb set frame_bg_transparent on
 herb set frame_transparent_width 2
 herb set frame_border_width 1
+
+herb attr theme.floating.outer_color '#888888'
+herb attr theme.floating.outer_width 2
 
 herb set frame_gap 12
 herb set window_gap 0
@@ -312,7 +313,6 @@ herb attr theme.inner_width 0
 herb attr theme.inner_color black
 herb attr theme.border_width 5
 herb attr theme.floating.border_width 5
-herb attr theme.floating.outer_width 5
 
 herb set mouse_recenter_gap 5
 herb set focus_follows_mouse off
