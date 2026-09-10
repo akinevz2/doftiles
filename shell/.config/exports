@@ -30,3 +30,4 @@ if [[ $(hostname) == WS* ]]; then
     export DONT_PROMPT_WSL_INSTALL=true
 fi
 
+export PATH=$LOCAL_BIN:$PATH
