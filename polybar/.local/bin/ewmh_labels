@@ -1,51 +1,112 @@
 #!/bin/bash
 
-# Parse arguments
-TARGET_INDEX="$1"
-CURRENT_INDEX="$2"
+# ewmh_labels — polybar workspace labels for herbstluftwm.
+#
+# Long-running (polybar `tail = true`): renders once, then re-renders on
+# every hlwm hook. Single writer, no polling.
+#
+# Style: populated workspaces bright gray, focused gets the gold
+# underline, empty dimmed. Left click switches; scroll cycles prev/next
+# with wraparound.
 
-# Get all workspaces and their status
-WORKSPACE_INDEX=0
-WORKSPACES=()
+VISIBLE_TEXT_COLOR="#eeeeee"
+HIDDEN_TEXT_COLOR="#888888"
+FOCUSED_UNDERLINE="#FEEF69"
 
-while IFS=$'\t' read -r idx status; do
-    if [[ "$idx" =~ [0-9]+ ]]; then
-        WORKSPACE_INDEX=$((idx + 0))
-        WORKSPACES+=("$idx:$status")
+# Emit one clickable label. Args: name marker prev_name next_name.
+# Populated = ':' marker; empty = '.'; focused = '+' or '#'.
+emit_label() {
+    local name=$1 marker=$2 prev=$3 next=$4
+    local color uopen uclose
+    color=$VISIBLE_TEXT_COLOR
+    [ "$marker" = "." ] && color=$HIDDEN_TEXT_COLOR
+    uopen=""; uclose=""
+    if [ "$marker" = "+" ] || [ "$marker" = "#" ]; then
+        uopen="%{+u}%{U${FOCUSED_UNDERLINE}}"
+        uclose="%{-u}"
     fi
-done < <(herbstclient tag_status)
+    printf '%s' "%{A1:herbstclient use ${name}:}%{A4:herbstclient use ${prev}:}%{A5:herbstclient use ${next}:}%{F${color}}${uopen} ${name} ${uclose}%{F-}%{A}%{A}%{A}"
+}
 
-# Check if current workspace has windows
-CURRENT_WINDOWS=$(herbstclient attr tags.by-name."*".clients.count 2>/dev/null || echo "0")
-if [ "$CURRENT_INDEX" = "$TARGET_INDEX" ]; then
-    # Current workspace
-    for ws in "${WORKSPACES[@]}"; do
-        idx="${ws%%:*}"
-        status="${ws##*:}"
-        if [ "$idx" = "$CURRENT_INDEX" ]; then
-            echo "%{A1:herbstclient use_index ${idx} && rofi -modi windowcd -show windowcd -theme ~/.config/rofi/launcher/style.rasi:}%{B#222}%{U#FEEF69} $idx%{U-}%{B-}%{A}"
-            exit
+render_labels() {
+    local line entry name marker base m i j
+    local -a names markers skip
+    names=(); markers=(); skip=()
+
+    while IFS= read -r line; do
+        for entry in $line; do
+            names+=("${entry:1}")
+            markers+=("${entry:0:1}")
+            skip+=(0)
+        done
+    done < <(herbstclient tag_status)
+
+    # Focused tag: from hlwm directly (index into the tag_status order).
+    local pos
+    pos=$(herbstclient attr tags.focus.index 2>/dev/null) || pos=0
+    local n=${#names[@]}
+    if ! [[ "$pos" =~ ^[0-9]+$ ]] || [ "$pos" -ge "$n" ]; then
+        pos=0
+    fi
+    local prev_name=${names[$(( (pos - 1 + n) % n ))]}
+    local next_name=${names[$(( (pos + 1) % n ))]}
+
+    # A "<base>-max" tag shadows its base: it renders in the base's
+    # slot (hc_maximize moves it to the base's index), and the base
+    # itself is only shown — side by side, right of the max label —
+    # while the base is the focused tag (i.e. the user scrolled to it).
+    for i in "${!names[@]}"; do
+        case ${names[$i]} in
+            *-max)
+                base=${names[$i]%-max}
+                for j in "${!names[@]}"; do
+                    if [ "${names[$j]}" = "$base" ]; then
+                        skip[$i]=1
+                        break
+                    fi
+                done
+                ;;
+        esac
+    done
+
+    for i in "${!names[@]}"; do
+        [ "${skip[$i]}" = "1" ] && continue
+        name=${names[$i]}
+
+        # Find a max shadow of this base (if any) and render it in the
+        # base's slot first.
+        for j in "${!names[@]}"; do
+            if [ "${names[$j]}" = "${name}-max" ] && [ "${skip[$j]}" = "1" ]; then
+                m=${markers[$j]}
+                # The max tag carries the focused marker in tag_status
+                # only when it is the focused tag; force the underline
+                # marker in that case (its own entry is skipped above).
+                [ "$pos" = "$j" ] && m="#"
+                emit_label "${names[$j]}" "$m" "$prev_name" "$next_name"
+                # The base itself: only beside the max label while the
+                # user has scrolled onto it.
+                if [ "$pos" = "$i" ]; then
+                    emit_label "$name" "${markers[$i]}" "$prev_name" "$next_name"
+                fi
+                break
+            fi
+        done
+
+        # Plain tag (no max shadow, or a max tag whose base is gone):
+        # render normally. A max tag whose base tag no longer exists
+        # also lands here (skip stays 0) so it never disappears.
+        if ! printf '%s\n' "${names[@]}" | grep -Fxq "${name}-max"; then
+            emit_label "$name" "${markers[$i]}" "$prev_name" "$next_name"
         fi
     done
-fi
+    printf '\n'
+}
 
-# Non-current workspace - check if it has windows
-for ws in "${WORKSPACES[@]}"; do
-    idx="${ws%%:*}"
-    status="${ws##*:}"
-    
-    # Parse status characters (for herbstluftwm: # = empty, ! = urgent, "+": = focused, etc.)
-    local_count=0
-    while [[ $status == *"!"* ]]; do
-        status="${status#*!}"
-        ((local_count++))
-    done
-    
-    # Count clients on this workspace
-    CLIENTS=$(herbstclient attr tags.by-index."$idx".clients.count 2>/dev/null || echo "0")
-    
-    # Only show if it has windows
-    if [ "$CLIENTS" -gt 0 ]; then
-        echo "%{A1:herbstclient use_index ${idx} && rofi -modi windowcd -show windowcd -theme ~/.config/rofi/launcher/style.rasi:}%{A1:herbstclient use_index ${idx} && rofi -modi windowcd -show windowcd -theme ~/.config/rofi/launcher/style.rasi:} $idx%{A}"
-    fi
-done
+render_labels
+
+while IFS= read -r -u 3 hook; do
+    case "$hook" in
+        quit_panel|reload) exit 0 ;;
+        *) render_labels ;;
+    esac
+done 3< <(herbstclient --idle 2>/dev/null)

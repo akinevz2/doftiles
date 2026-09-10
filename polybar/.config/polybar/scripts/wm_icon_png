@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""wm_icon_png WINID CLASS — extract a window's _NET_WM_ICON via xprop -raw
+and write it as PNG to $XDG_CACHE_HOME/polywins-icons/<class>.png.
+Prints the path on success; prints nothing (exit 0) if there is no icon.
+Raw format: comma/space separated cardinals: width, height, then
+width*height ARGB quadruplets."""
+import os, re, struct, subprocess, sys, zlib
+
+wid, cls = sys.argv[1], sys.argv[2]
+
+out = subprocess.run(
+    ["xprop", "-id", wid, "-notype", "-f", "_NET_WM_ICON", "0x",
+     "_NET_WM_ICON"],
+    capture_output=True, text=True).stdout
+
+nums = [int(n, 16) for n in re.findall(r"0x[0-9a-fA-F]+", out)]
+if len(nums) < 2:
+    sys.exit(0)
+w, h, pixels = nums[0], nums[1], nums[2:]
+if w <= 0 or h <= 0 or len(pixels) < w * h:
+    sys.exit(0)
+pixels = pixels[:w * h]
+
+# ARGB -> RGBA, zero-filter PNG rows (1 word = 1 ARGB pixel)
+raw = bytearray()
+for y in range(h):
+    raw.append(0)
+    for px in pixels[y * w:(y + 1) * w]:
+        a, r, g, b = (px >> 24) & 255, (px >> 16) & 255, (px >> 8) & 255, px & 255
+        raw += bytes((r, g, b, a))
+
+def chunk(tag, data):
+    c = struct.pack(">I", len(data)) + tag + data
+    return c + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+png = (b"\x89PNG\r\n\x1a\n"
+       + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
+       + chunk(b"IDAT", zlib.compress(bytes(raw), 6))
+       + chunk(b"IEND", b""))
+
+cache = os.path.join(
+    os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")),
+    "polywins-icons")
+os.makedirs(cache, exist_ok=True)
+path = os.path.join(cache, f"{cls}.png")
+with open(path, "wb") as f:
+    f.write(png)
+print(path)

@@ -1,0 +1,13 @@
+{
+    "name": "polyframes",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Polybar window/frame label renderer for herbstluftwm (JS port of the polyframes shell scripts)",
+    "main": "index.js",
+    "scripts": {
+        "test": "node --test tests/"
+    },
+    "engines": {
+        "node": ">=18"
+    }
+}
