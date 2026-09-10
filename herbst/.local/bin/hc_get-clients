@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# hc_get-clients
+# Print every client on the currently focused tag in WM order, one per
+# line, enriched with attributes:
+#   winid \t class \t minimized \t title \t floating_effectively \t frame
+# Windows with no parent_frame (e.g. fullscreen or not yet managed in
+# the frame tree) get an EMPTY frame field — never coerce them to
+# frame 0, they are their own group downstream; tabs/newlines in
+# titles are flattened so the tab-separated rows stay parseable.
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+tag=$(herbstclient attr tags.focus.name)
+
+herbstclient list_clients --tag="$tag" |
+while read -r wid; do
+    [ -z "$wid" ] && continue
+    cls=$(herbstclient attr "clients.$wid.class" 2>/dev/null)
+    min=$(herbstclient attr "clients.$wid.minimized" 2>/dev/null)
+    ttl=$(herbstclient attr "clients.$wid.title" 2>/dev/null)
+    flt=$(herbstclient attr "clients.$wid.floating_effectively" 2>/dev/null)
+    # Frame attribution, three cases:
+    #   - parent_frame object missing entirely (not in the tree):
+    #     frame = -1  (own separate group downstream; a real read
+    #     failure would otherwise silently merge these into frame 0)
+    #   - parent_frame.index = "" (the single UNSPLIT root frame):
+    #     frame = -1 as well — tiling.root is semantically NOT
+    #     tiling.root.0, and with no splits every window is its own
+    #     visible label (accessibility: no collapsed groups)
+    #   - parent_frame.index = "N": used verbatim
+    if herbstclient attr "clients.$wid.parent_frame" >/dev/null 2>&1; then
+        frame=$(herbstclient attr "clients.$wid.parent_frame.index" 2>/dev/null) || frame=""
+        [ -n "$frame" ] || frame=-1
+    else
+        frame=-1
+    fi
+    ttl=$(printf "%s" "$ttl" | tr "\t\n" "  ")
+    printf "%s\t%s\t%s\t%s\t%s\t%s\n" "$wid" "$cls" "$min" "${ttl:-$cls}" "$flt" "$frame"
+done

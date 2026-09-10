@@ -1,29 +1,50 @@
 #!/usr/bin/env bash
+# hc_center — center the focused window within the focused frame.
+# Uses hc_current to resolve client attributes and
+# tags.focus.tiling.focused_frame.content_geometry as the target rect.
 
-DISPLAY="127.0.0.1:0"
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 
 herb() {
     herbstclient "$@"
 }
 
-monitor_geom=$(herb attr monitors.focus.geometry)
-win_geom=$(herb attr tags.focus.tiling.focused_frame.content_geometry)
-[[ $monitor_geom =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]] || {
-    echo "hc_center: cannot parse monitor geometry '$monitor_geom'" >&2
+frame_geom=$(herb attr tags.focus.tiling.root.content_geometry)
+[[ $frame_geom =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]] || {
+    echo "hc_center: cannot parse frame geometry '$frame_geom'" >&2
     exit 1
 }
-[[ $win_geom =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]] || {
+fw=${BASH_REMATCH[1]}
+fh=${BASH_REMATCH[2]}
+fx=${BASH_REMATCH[3]}
+fy=${BASH_REMATCH[4]}
+
+# Prefer the client's floating geometry; fall back to content geometry
+# when the window is tiled (floating_geometry is stale until floated).
+win_geom=$(hc_current content_geometry 2>/dev/null || true)
+if ! [[ $win_geom =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]]; then
+    win_geom=$(hc_current floating_geometry 2>/dev/null || true)
+fi
+[[ $win_geom =~ ^([0-9]+)x([0-9]+) ]] || {
     echo "hc_center: cannot parse window geometry '$win_geom'" >&2
     exit 1
 }
-mw=${BASH_REMATCH[1]}
-mh=${BASH_REMATCH[2]}
-mx=${BASH_REMATCH[3]}
-my=${BASH_REMATCH[4]}
-win_w=${BASH_REMATCH[1]}
-win_h=${BASH_REMATCH[2]}
-win_x=$((mx + (mw - win_w) / 2))
-win_y=$((my + (mh - win_h) / 2))
-herb chain . lock . set_attr tags.focus.floating_focused on . set_attr clients.focus.floating_geometry "${win_w}x${win_h}+${win_x}+${win_y}" . unlock
+ww=${BASH_REMATCH[1]}
+wh=${BASH_REMATCH[2]}
+
+wx=$((fx + (fw - ww) / 2))
+wy=$((fy + (fh - wh) / 2))
+
+winid=$(hc_current winid)
+
+herb chain . lock \
+    . set_attr "clients.${winid}.floating_geometry" "${ww}x${wh}+${wx}+${wy}" \
+    . set_attr "clients.${winid}.floating" on \
+    . try set_attr tags.focus.floating_focused on \
+    . jumpto $winid \
+    . bring $winid \
+    . unlock
 

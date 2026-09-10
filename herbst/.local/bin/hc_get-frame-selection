@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# hc_get-frame-selection [PARTIAL_INDEX]
+# Print the winid of the frame's currently selected (visible) client.
+# PARTIAL_INDEX is the flat frame index as reported by
+# clients.<wid>.parent_frame.index (e.g. "0", "1", "00", "010").
+# Exit 1 with no output if the frame holds no clients.
+#
+# Index semantics (verified against hlwm):
+#   - parent_frame.index is a FLAT string of child choices, e.g. "00"
+#     means root -> child 0 -> child 0. The object path is built by
+#     inserting a dot between every digit: root.0.0 (NOT root.00,
+#     which does not exist).
+#   - The empty index "" is the root frame itself (only in an unsplit
+#     max-like layout); its object path is tags.focus.tiling.root.
+#   - herbstclient list_clients --frame expects the same flat index
+#     ("0", "00", "1", ...). An object path is silently ignored and
+#     ALL tag clients are returned, breaking selection lookup.
+#   - "0" is a REAL index (left child of the root split) and must NOT
+#     be normalized to "" — doing so reads the root split's selection
+#     and indexes it into the leaf's client list (wrong results).
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+idx=${1:-}
+if [ -n "$idx" ]; then
+    # Argument is used verbatim as an object path segment:
+    # "0" -> root.0, "0.0" -> root.0.0, "1" -> root.1
+    sel=$(herbstclient attr "tags.focus.tiling.root.$idx.selection" 2>/dev/null) || exit 1
+else
+    sel=$(herbstclient attr tags.focus.tiling.root.selection 2>/dev/null) || exit 1
+fi
+[ -n "$sel" ] || exit 1
+herbstclient list_clients --frame="$idx" | sed -n "$(( sel + 1 ))p"

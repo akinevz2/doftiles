@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# hc_get-frame-path [PARTIAL_INDEX]
+# Print the frame object path under tags.focus.tiling.root for a given
+# (possibly partial) frame index.
+#   hc_get-frame-path        -> tags.focus.tiling.root   (all frames' parent)
+#   hc_get-frame-path 1      -> tags.focus.tiling.root.1
+#   hc_get-frame-path 1.0    -> tags.focus.tiling.root.1.0
+# A leaf frame's `index` attribute is the concatenated digit path (e.g.
+# "10"), so each character of the index becomes one path component.
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+idx=${1:-}
+path="tags.focus.tiling.root"
+
+# [ -n "$idx" ] || { herbstclient attr $path; exit 0; }
+
+case $idx in
+    *.*) path="$path.$idx" ;;          # already a dotted path fragment
+    *)                                 # concatenated index: "10" -> .1.0
+        i=0
+        while [ $i -lt ${#idx} ]; do
+            path="$path.${idx:$i:1}"
+            i=$(( i + 1 ))
+        done
+        ;;
+esac
+
+echo $path
+# grep "0 children." <<<"$got" && herbstclient list_clients --frame "${idx}" || echo $got | sed -e '/children:/d' -e '/attributes:/,$d'
+

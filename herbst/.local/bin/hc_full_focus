@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# hc_full_focus — Mod-Shift-f "full focus" behaviour
+#
+# Short-circuits hc_focus's logic — fullscreen is the priority:
+#   1. focused window is effectively floating  -> un-float it (re-tiling)
+#   2. focused window is fullscreened          -> un-fullscreen AND float it
+#   3. otherwise                               -> fullscreen the focused window
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+hc() { herbstclient "$@"; }
+
+eff=$(hc attr clients.focus.floating_effectively 2>/dev/null || echo 0)
+
+if [ "$eff" = "1" ]; then
+    # Case 1: drop out of floating entirely
+    hc chain \
+        . attr tags.focus.floating off \
+        . attr clients.focus.floating off \
+        . attr clients.focus.fullscreen off
+fi
+
+fullscreen=$(hc attr clients.focus.fullscreen 2>/dev/null || echo false)
+
+if [ "$fullscreen" = "true" ]; then
+    # Case 2: leave fullscreen but keep the window in front — float it
+    hc chain \
+        . attr clients.focus.fullscreen off \
+        . attr clients.focus.floating on
+    exec "$HOME/.local/bin/hc_center"
+fi
+
+# Case 3: fullscreen the focused window
+hc attr clients.focus.fullscreen on

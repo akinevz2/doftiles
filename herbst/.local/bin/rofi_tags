@@ -8,7 +8,7 @@
 #   - typed input      accepted as an index number or a name fragment
 # All accepted cases output no rows, so rofi quits right away.
 
-DISPLAY=${DISPLAY:-127.0.0.1:0}
+DISPLAY=${DISPLAY:-localhost:0.0}
 
 herb() {
 	herbstclient "$@"
@@ -16,14 +16,15 @@ herb() {
 
 
 tag_list() {
-	herb attr tags.by-name | while read -r obj _; do
-		case $obj in
-			focus.|by-name.) continue ;;
-		esac
-		name=${obj%.}
-		idx=$(herb attr "tags.by-name.$name.index" 2>/dev/null) || continue
-		printf '%s\t%s\n' "$((idx + 1))" "$name"
-	done | sort -n
+        # One call: tag_status lists every tag in index order as
+        # "<marker><name>". The index is the position in that list.
+        idx=0
+        for entry in $(herb tag_status); do
+                name=${entry#[.!+:#]}
+                [ -z "$name" ] && continue
+                printf '%s\t%s\n' "$(( idx + 1 ))" "$name"
+                idx=$(( idx + 1 ))
+        done
 }
 
 

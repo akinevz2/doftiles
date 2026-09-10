@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# polyframes-toggle <wid>
+# Left-click state machine for a single-window bar entry. The action
+# depends on the window's CURRENT state:
+#
+#   tiling (not floating, not minimized)
+#       -> float the window (it detaches from its frame and keeps
+#          focus); if the frame it vacated still has a selection,
+#          focus that window so focus never dangles.
+#   floating (and not minimized)
+#       -> minimize the window
+#   minimized
+#       -> unminimize and raise it (jumpto)
+#
+# State reads use floating_effectively (true also for pseudotiled /
+# fullscreen windows, which behave like floating); the float WRITE
+# goes to the floating preference attribute.
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+wid=${1:?usage: polyframes-toggle <wid>}
+
+herbstclient lock
+
+min=$(herbstclient attr "clients.$wid.minimized" 2>/dev/null) || min=false
+flt=$(herbstclient attr "clients.$wid.floating_effectively" 2>/dev/null) || flt=false
+foc=$(herbstclient attr clients.focus.winid 2>/dev/null) || foc=""
+
+if [ "$min" = "true" ]; then
+    # minimized: unminimize, jump to it (brings it to its frame/tag)
+    herbstclient jumpto "$wid"
+    herbstclient raise "$wid"
+elif [ "$flt" = "true" ] && [ "$wid" != "$foc" ]; then
+    # floating but NOT focused: the click intent is to focus it,
+    # never minimize
+    herbstclient jumpto "$wid"
+    herbstclient raise "$wid"
+elif [ "$flt" = "true" ]; then
+    # floating AND focused: full screen it (unfloat it)
+    herbstclient set_attr "clients.$wid.floating" false
+else
+    # tiling: minimize it if it was focused, then keep focus inside the vacated frame
+    frame=""
+    if [ "$wid" = "$foc" ]; then 
+        herbstclient set_attr "clients.$wid.floating" true
+        herbstclient set_attr "clients.$wid.minimized" true
+        frame=$(herbstclient attr "clients.$wid.parent_frame.index" 2>/dev/null) || frame=""
+    fi
+    if [ -n "$frame" ]; then
+        sel=$("$HOME/.local/bin/hc_get-frame-selection" "$frame" 2>/dev/null) || sel=""
+        [ -n "$sel" ] && herbstclient jumpto "$sel"
+    fi
+fi
+
+herbstclient unlock

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# hc_current — print an attribute of the focused client.
+# Usage: hc_current [ATTRIBUTE]
+#   hc_current            -> same as 'hc_current winid'
+#   hc_current winid      -> e.g. 0x500003
+#   hc_current title      -> window title
+#   hc_current floating_geometry -> e.g. 800x600+5+5
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+attr=${1:-winid}
+
+value=$(herbstclient attr "clients.focus.$attr") || {
+    echo "hc_current: cannot read clients.focus.$attr" >&2
+    exit 1
+}
+
+echo "$value"

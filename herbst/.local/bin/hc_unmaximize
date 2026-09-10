@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# hc_unmaximize — restore a maximized client to its original location.
+#
+# Usage: hc_unmaximize <wid>
+#
+# The window must currently live on a "<...>-max" tag (see hc_maximize).
+# Moves it back to its recorded original tag, re-focuses its recorded
+# frame (selection walk root→frame), inserts it at its recorded client
+# index, and merges the now-empty max tag away. No-op (exit 0) if the
+# window is not on a max tag.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+herb() {
+    herbstclient "$@"
+}
+
+WID=${1:?usage: hc_unmaximize <wid>}
+
+flat_to_dotted() {
+    printf '%s' "$1" | sed 's/./&./g; s/.$//'
+}
+
+cur_tag=$(herb attr "clients.${WID}.tag" 2>/dev/null) || cur_tag=""
+case "$cur_tag" in
+    *-max) ;;          # proceed
+    *) exit 0 ;;       # not maximized — nothing to do
+esac
+orig_tag=${cur_tag%-max}
+
+herb lock
+trap 'herb unlock' EXIT
+
+# Restore state recorded at maximize time (defaults for safety).
+frame=$(herb getenv "PF_MAX_FRAME_${WID}" 2>/dev/null || echo "")
+win=$(herb getenv "PF_MAX_WIN_${WID}" 2>/dev/null || echo 0)
+
+herb move "$orig_tag"
+herb use "$orig_tag"
+
+# Re-focus the original frame: walk the selection path root→frame.
+dotted=$(flat_to_dotted "$frame")
+path="tags.focus.tiling.root"
+if [ -n "$dotted" ]; then
+    for d in $(printf '%s' "$dotted" | tr '.' ' '); do
+        herb attr "$path.selection" "$d" 2>/dev/null || true
+        path="$path.$d"
+    done
+fi
+
+# Insert the window at its recorded client index within the frame:
+# focus the client currently at that index (bring inserts next to the
+# focused client), or just bring if out of range.
+wids=$(herb list_clients --frame="$frame" 2>/dev/null || true)
+target_wid=$(printf '%s\n' "$wids" | sed -n "$(( win + 1 ))p")
+if [ -n "${target_wid:-}" ]; then
+    herb jumpto "$target_wid"
+fi
+herb chain \
+    . set_attr "clients.${WID}.minimized" false \
+    . set_attr "clients.${WID}.floating" false \
+    . bring "$WID"
+herb jumpto "$WID"
+herb raise "$WID"
+
+# Drop the maximize tag if it is now empty. Before merging, move the
+# base tag back into the max tag's index slot — hc_maximize placed the
+# max tag at the base's index, so the base shifted one to the right;
+# restoring the index keeps tag ordering stable across maximize cycles.
+if [ "$(herb attr "tags.by-name.${cur_tag}.client_count" 2>/dev/null || echo 0)" = "0" ]; then
+    max_idx=$(herb attr "tags.by-name.${cur_tag}.index" 2>/dev/null || echo "")
+    if [ -n "$max_idx" ]; then
+        herb move_tag "$orig_tag" "$max_idx" 2>/dev/null || true
+    fi
+    herb merge_tag "$cur_tag" 2>/dev/null || true
+fi
+herb unsetenv "PF_MAX_FRAME_${WID}" 2>/dev/null || true
+herb unsetenv "PF_MAX_WIN_${WID}" 2>/dev/null || true
+
+herb unlock
+trap - EXIT

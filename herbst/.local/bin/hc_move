@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+# hc_move — move a floating window by selecting a new geometry with slop,
+#            then reparent it into the best-matching frame.
+#
+# Usage: hc_move <wid>
+#
+# The script:
+#   1. Floats the window
+#   2. Uses slop to let the user select a rectangle (or point)
+#   3. Finds the frame in the current layout most covered by the selection
+#      (or containing the point)
+#   4. Focuses that frame
+#   5. Brings the window into that frame
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+herb() {
+    herbstclient "$@"
+}
+
+# Convert a flat frame index (e.g. "00") to dotted path ("0.0").
+flat_to_dotted() {
+    printf '%s' "$1" | sed 's/./&./g; s/.$//'
+}
+
+WID=${1:?usage: hc_move <wid>}
+
+# Float the window if not already floating
+herb set_attr "clients.${WID}.floating" true
+
+echo test >> ~/.hcmove
+# Let the user select a rectangle/point with slop
+# -f gives us %wx%h+%x+%y format
+# -b 2 gives a border
+geom=$(slop -f '%wx%h+%x+%y' -b 2 -c 0.9,0.7,0.2,1) || {
+    # User cancelled — restore floating state and exit
+    herb set_attr "clients.${WID}.floating" false
+    exit 0
+}
+
+# Parse the geometry: WxH+X+Y
+# Extract width, height, x, y
+echo $geom >> ~/.hcmove
+read -r width height x y <<<"$geom"
+
+# If width and height are 0, treat it as a point (click location)
+if [ "$width" -eq 0 ] && [ "$height" -eq 0 ]; then
+    # Point selection - use x,y as the point
+    sel_x=$x
+    sel_y=$y
+else
+    # Rectangle selection
+    sel_x=$x
+    sel_y=$y
+    sel_w=$width
+    sel_h=$height
+fi
+
+# Get the focused frame's current selection and index
+# We need to find which frame contains the point or is most covered
+# First, get all leaf frames with their geometries
+
+# Get the root frame path
+root_path="tags.focus.tiling.root"
+
+# Collect all frames with their client counts and geometry info
+# We'll do a recursive traversal
+
+# Temporary file for frame data
+tmpfile=$(mktemp)
+trap 'rm -f "$tmpfile"' EXIT
+
+# Function to collect frames recursively
+collect_frames() {
+    local dotted=$1 flat=$2
+    local out count
+    out=$(herb attr "tags.focus.tiling.root${dotted:+.$dotted}" 2>/dev/null) || return 0
+    # Header line is "N children:" (no trailing period)
+    count=$(printf '%s\n' "$out" | sed -n 's/^\([0-9]*\) children:$/\1/p')
+    if [ -n "$count" ] && [ "$count" -gt 0 ]; then
+        # This is an internal node, recurse to children
+        collect_frames "${dotted:+$dotted.}0" "${flat}0"
+        collect_frames "${dotted:+$dotted.}1" "${flat}1"
+    else
+        # This is a leaf frame - record it
+        # Get the client count and selection
+        local cc_path="tags.focus.tiling.root${dotted:+.$dotted}.client_count"
+        local sel_path="tags.focus.tiling.root${dotted:+.$dotted}.selection"
+        local cc=0 sel=0
+        cc=$(herb attr "$cc_path" 2>/dev/null || echo 0)
+        sel=$(herb attr "$sel_path" 2>/dev/null || echo 0)
+        
+        # Get frame geometry - we need the content geometry
+        # Use the frame's content_geometry attribute
+        local geo_path="tags.focus.tiling.root${dotted:+.$dotted}.content_geometry"
+        local geom_str=$(herb attr "$geo_path" 2>/dev/null || echo "")
+        
+        # Only add if this frame has a valid geometry
+        if [ -n "$geom_str" ]; then
+            echo "${flat}|${cc}|${sel}|${geom_str}" >> "$tmpfile"
+        fi
+    fi
+}
+
+# Collect all leaf frames
+collect_frames "" ""
+
+# Now find the best frame
+best_frame=""
+best_score=-1
+best_cover=0
+
+# Parse the selection geometry into coordinates
+if [ -n "$sel_w" ] && [ -n "$sel_h" ]; then
+    # Rectangle selection: sel_x, sel_y, sel_w, sel_h
+    sel_x1=$sel_x
+    sel_y1=$sel_y
+    sel_x2=$((sel_x + sel_w))
+    sel_y2=$((sel_y + sel_h))
+else
+    # Point selection
+    sel_x1=$sel_x
+    sel_y1=$sel_y
+    sel_x2=$((sel_x + 1))
+    sel_y2=$((sel_y + 1))
+fi
+
+# For each frame, calculate coverage
+while IFS='|' read -r flat cc sel frame_geom; do
+    # Parse frame geometry: WxH+X+Y
+    frame_w=$(echo "$frame_geom" | cut -dx -f1)
+    frame_h=$(echo "$frame_geom" | cut -dx -f2)
+    frame_x=$(echo "$frame_geom" | cut -dx -f3 | cut -d+ -f2)
+    frame_y=$(echo "$frame_geom" | cut -dx -f4 | cut -d+ -f2)
+    
+    # Calculate overlap between selection and frame
+    # Overlap rectangle:
+    #   overlap_left = max(sel_x1, frame_x)
+    #   overlap_right = min(sel_x2, frame_x + frame_w)
+    #   overlap_top = max(sel_y1, frame_y)
+    #   overlap_bottom = min(sel_y2, frame_y + frame_h)
+    
+    overlap_left=$(( sel_x1 > frame_x ? sel_x1 : frame_x ))
+    overlap_right=$(( sel_x2 < frame_x + frame_w ? sel_x2 : frame_x + frame_w ))
+    overlap_top=$(( sel_y1 > frame_y ? sel_y1 : frame_y ))
+    overlap_bottom=$(( sel_y2 < frame_y + frame_h ? sel_y2 : frame_y + frame_h ))
+    
+    # If there's no overlap
+    if [ "$overlap_left" -ge "$overlap_right" ] || [ "$overlap_top" -ge "$overlap_bottom" ]; then
+        cover=0
+    else
+        # Calculate overlap area
+        overlap_w=$(( overlap_right - overlap_left ))
+        overlap_h=$(( overlap_bottom - overlap_top ))
+        cover=$(( overlap_w * overlap_h ))
+    fi
+    
+    # Score: prefer frames with more coverage, break ties by client count (fewer clients = better)
+    if [ "$cover" -gt "$best_cover" ] || { [ "$cover" -eq "$best_cover" ] && [ "$cc" -lt "$best_cc" ] 2>/dev/null; }; then
+        best_frame="$flat"
+        best_cover=$cover
+        best_cc=$cc
+        best_sel=$sel
+    fi
+done < "$tmpfile"
+
+# If no frame was found, just focus the current frame and bring the window
+if [ -z "$best_frame" ]; then
+    herb jumpto "$WID"
+    herb raise "$WID"
+    herb set_attr "clients.${WID}.floating" false
+    exit 0
+fi
+
+# Focus the selected frame using the selection attribute
+# We need to set the selection path from root down to the frame
+dotted=$(flat_to_dotted "$best_frame")
+path="tags.focus.tiling.root"
+
+# Write the selection attribute top-down
+for d in $(printf '%s' "$dotted" | tr '.' ' '); do
+    herb attr "$path.selection" "$d" 2>/dev/null || true
+    path="$path.$d"
+done
+
+# Set the frame's selection to the recorded selection value
+if [ -n "$best_sel" ]; then
+    herb attr "tags.focus.tiling.root${dotted:+.$dotted}.selection" "$best_sel" 2>/dev/null || true
+fi
+
+# Bring the window into this frame
+herb bring "$WID"
+herb jumpto "$WID"
+herb raise "$WID"
+
+# Optionally unfloat the window after bringing it into the tiling layout
+# herb set_attr "clients.${WID}.floating" false

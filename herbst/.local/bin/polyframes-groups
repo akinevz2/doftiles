@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# polyframes-groups
+# Group every client on the focused tag into bar entries. THE single
+# source of truth used by both the bar renderer and (indirectly) the
+# click/scroll handlers — one invocation queries the WM once and emits
+# everything.
+#
+# Input: none. Reads the live WM via hc_get-clients (WM order, never
+# sorted) and hc_get-frame-selection.
+#
+# Output: one line per group, tab-separated, in WM order:
+#   frame \t class \t rep-wid \t is_active \t count \t title \t state
+# with:
+#   frame     frame index of the group ("0" = root frame, "-1" =
+#             unframed window — its own single-window group)
+#   rep-wid   the frame's selected client for tiled groups, else the
+#             window's own wid
+#   is_active 1 if this group holds the globally focused window
+#   count     number of windows sharing the group key
+#   state     min | flt | tiling
+#
+# Grouping rules (a window belongs to exactly ONE group):
+#   min=true or floating_effectively=true -> minflt|<wid>  (solo)
+#   frame = -1                            -> unframed|<wid> (solo)
+#   else                                  -> frame|<frame>|<class>
+set -euo pipefail
+
+DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+tab=$(printf '\t')
+us=$(printf '\001')
+
+rows=$("$DIR/hc_get-clients")
+active_wid=$(herbstclient attr clients.focus.winid 2>/dev/null) || active_wid=""
+
+# One group key per client row, in WM order. This stream is the source
+# of truth for group sizes (counted with grep -c -x -F below).
+keys=$(printf "%s\n" "$rows" | while IFS="$tab" read -r wid cls min ttl flt frame; do
+    [ -z "$wid" ] || [ -z "$cls" ] && continue
+    if [ "$min" = "true" ] || [ "$flt" = "true" ]; then
+        printf "minflt|%s\n" "$wid"
+    elif [ "$frame" = "-1" ]; then
+        printf "unframed|%s\n" "$wid"
+    else
+        printf "frame|%s|%s\n" "$frame" "$cls"
+    fi
+done)
+
+# First-wins dedup in WM order: each key emits one group row. The
+# frame's visible window (hlwm per-frame selection) represents a tiled
+# group; minflt/unframed groups keep their own window.
+seen=
+printf "%s\n" "$rows" | while IFS="$tab" read -r wid cls min ttl flt frame; do
+    [ -z "$wid" ] || [ -z "$cls" ] && continue
+    if [ "$min" = "true" ]; then
+        state="min"
+    elif [ "$flt" = "true" ]; then
+        state="flt"
+    else
+        state="tiling"
+    fi
+    if [ "$state" != "tiling" ]; then
+        key="minflt|$wid"
+    elif [ "$frame" = "-1" ]; then
+        key="unframed|$wid"
+    else
+        key="frame|$frame|$cls"
+    fi
+    case "$seen" in
+        *"$key"$us*) continue ;;
+    esac
+    seen="$seen$key$us"
+
+    # representative: the frame's selected client for tiled frame
+    # groups ("frame|..." keys), else the window itself
+    rep=$wid
+    case $key in
+        frame\|*)
+            vis=$("$DIR/hc_get-frame-selection" "$frame" 2>/dev/null) && rep=$vis
+            ;;
+    esac
+
+    count=$(printf "%s\n" "$keys" | grep -cxF "$key")
+
+    # active: the group holding the globally focused window. Compare
+    # the focused window's own key — computed the same way as above.
+    is_active=0
+    if [ "$wid" = "$active_wid" ] || [ "$rep" = "$active_wid" ]; then
+        is_active=1
+    fi
+
+    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+        "$frame" "$cls" "$rep" "$is_active" "$count" "${ttl:-$cls}" "$state"
+done

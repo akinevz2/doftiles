@@ -11,7 +11,7 @@
 # Enter/left click jumps to the window, right click toggles its
 # minimized state, Shift+Delete closes it; every action quits rofi.
 
-DISPLAY=${DISPLAY:-127.0.0.1:0}
+DISPLAY=${DISPLAY:-localhost:0.0}
 
 herb() {
 	herbstclient "$@"
@@ -32,6 +32,11 @@ client_fields() {
 }
 
 window_rows() {
+	# $1 = optional class filter, $2 = optional frame index filter
+	# (empty string = no filter). Frame filtering keeps the switcher
+	# scoped to one frame + class group.
+	filter_cls=$1
+	filter_frame=$2
 	# Most recently used first, like the old windowcd listing: walk the
 	# X stacking list top-down
 	current_tag=$(herb attr tags.focus.name) || return 1
@@ -42,7 +47,11 @@ window_rows() {
 $(client_fields "$wid")
 EOF
 			[ "$w" = "$wid" ] || continue
-			[ -z "$1" ] || [ "$cls" = "$1" ] || continue
+			[ -z "$filter_cls" ] || [ "$cls" = "$filter_cls" ] || continue
+			# frame filter: normalize hlwm's empty root index to 0
+			frame=$(herb attr "clients.$w.parent_frame.index" 2>/dev/null)
+			[ -z "$frame" ] && frame=0
+			[ -z "$filter_frame" ] || [ "$frame" = "$filter_frame" ] || continue
 			disp=${ttl:-$cls}
 			icon=$(echo "$cls" | tr '[:upper:]' '[:lower:]')
 			if [ "$min" = "true" ]; then
@@ -65,8 +74,10 @@ EOF
 # moved off the custom-action accept (whose flag script mode drops) to
 # hot-key 1, which script mode forwards with the hovered row's info.
 if [ -z "$ROFI_RETV" ]; then
-	exec rofi -show windows -modi "windows:$0 $1" \
+	exec rofi -show windows -modi "windows:$0 $1 $2" \
 		-theme "$HOME/.config/rofi/window-switcher.rasi" \
+		-show-icons \
+		-auto-select \
 		-kb-custom-1 "MouseSecondary"
 fi
 
@@ -80,12 +91,19 @@ case "$ROFI_RETV" in
 		printf '\000use-hot-keys\037true\n'
 		printf '\000prompt\037windows\n'
 		printf '\000no-custom\037true\n'
-		window_rows "$1"
+		window_rows "$1" "$2"
 		;;
 	# Accepted a row: jump to the window (follows it to its tag,
-	# unminimizes and focuses it)
+	# unminimizes and focuses it). When the caller captures stdout
+	# (POLYWINS_WRAP=1), write the wid to a temp file instead — in
+	# script mode anything printed to stdout becomes a new row and
+	# re-renders the list rather than reaching the caller.
 	1)
-		herb jumpto "$ROFI_INFO"
+		if [ "$POLYWINS_WRAP" = "1" ]; then
+			printf "%s\n" "$ROFI_INFO" > "${POLYWINS_SEL:-/tmp/polywins-sel}"
+		else
+			herb jumpto "$ROFI_INFO"
+		fi
 		;;
 	# Shift+Delete: close the window
 	3)

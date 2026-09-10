@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# hc_maximize — toggle a client between its frame and a dedicated
+# "maximized" tag. Fully reversible.
+#
+# Usage: hc_maximize <wid>
+#
+# If the window is on a "<...>-max" tag, delegate to hc_unmaximize
+# (restore to the recorded original tag/frame/index).
+# Otherwise record the window's current tag, frame index, and client
+# index within that frame in hlwm environment variables (setenv) keyed
+# by the window id, then move it to tag "<orig>-max" (created if
+# missing), which holds exactly this window in a single frame with the
+# max algorithm.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+herb() {
+    herbstclient "$@"
+}
+
+WID=${1:?usage: hc_maximize <wid>}
+
+# --- toggle state check ------------------------------------------------
+# ON  = the window currently lives on a "<...>-max" tag -> un-maximize.
+# OFF = otherwise -> maximize.
+# The check is the tag name itself; the saved restore state (env vars)
+# is validated in hc_unmaximize, which falls back to sane defaults when
+# the state is missing (e.g. after a WM restart).
+cur_tag=$(herb attr "clients.${WID}.tag" 2>/dev/null) || cur_tag=""
+case "$cur_tag" in
+    *-max)
+        exec "$HOME/.local/bin/hc_unmaximize" "$WID"
+        ;;
+esac
+
+max_tag="${cur_tag}-max"
+
+trap 'herb unlock' EXIT
+
+# Record where the window lives now (frame index + client index within
+# that frame) in hlwm env vars keyed by wid, so un-maximize can restore
+# it even after the window leaves.
+frame=$(herb attr "clients.${WID}.parent_frame.index" 2>/dev/null) || frame=""
+win=0
+if [ -n "$frame" ] && [ "$frame" != "-1" ]; then
+    i=0
+    for w in $(herb list_clients --frame="$frame" 2>/dev/null); do
+        [ "$w" = "$WID" ] && win=$i && break
+        i=$(( i + 1 ))
+    done
+fi
+herb setenv "PF_MAX_FRAME_${WID}" "$frame"
+herb setenv "PF_MAX_WIN_${WID}" "$win"
+
+herb lock
+herb add "$max_tag" 2>/dev/null || true
+# Place the max tag at the base tag's index so index-based ordering
+# (tag_status order, use_index, the bar's prev/next scroll) treats the
+# max tag as occupying the base's slot; the base shifts one to the
+# right and stays reachable by scrolling (ewmh_labels shows it beside
+# the max label only while it is focused).
+base_idx=$(herb attr "tags.by-name.${cur_tag}.index" 2>/dev/null || echo "")
+if [ -n "$base_idx" ]; then
+    herb move_tag "$max_tag" "$base_idx" 2>/dev/null || true
+fi
+herb attr "clients.$WID.minimized" false
+herb move "$max_tag"
+herb use "$max_tag"
+herb set_layout max
+herb jumpto "$WID"
+herb raise "$WID"
+herb attr "clients.$WID.floating" false
+
+herb unlock
+trap - EXIT

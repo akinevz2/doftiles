@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# hc_get-visible-clients
+# Print the winids of all clients hlwm reports as visible on the
+# currently focused tag, one per line, in WM order. Uses the wm's own
+# `visible` attribute rather than filtering on `minimized` (covers
+# hidden-by-other-means too, e.g. on another monitor).
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+tag=$(herbstclient attr tags.focus.name)
+
+for wid in $(herbstclient list_clients --tag="$tag"); do
+    [ "$(herbstclient attr "clients.$wid.visible")" = "true" ] \
+        && printf "%s\n" "$wid"
+done

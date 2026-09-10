@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# polyframes-scroll <frame> <class> <up|down>
+# Focus the previous/next window within one group (frame + class),
+# including hidden (minimized) members. Rebuilds the group via
+# polyframes-focus — the same fresh data the click handler uses.
+set -euo pipefail
+
+DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+frame=${1:?usage: polyframes-scroll <frame> <class> <up|down>}
+cls=${2:?usage: polyframes-scroll <frame> <class> <up|down>}
+dir=${3:?usage: polyframes-scroll <frame> <class> <up|down>}
+
+# group's wids in WM order
+wids=$("$DIR/polyframes-focus" "$frame" "$cls")
+[ -n "$wids" ] || exit 0
+set -- $wids
+n=$#
+
+active_wid=$(herbstclient attr clients.focus.winid 2>/dev/null) || active_wid=""
+
+# position of the active window (default: before the first)
+pos=0
+i=0
+for w in $wids; do
+    i=$(( i + 1 ))
+    [ "$w" = "$active_wid" ] && pos=$i && break
+done
+
+if [ "$dir" = "up" ]; then
+    # previous with wraparound: before act, or last if act is first
+    if [ "$pos" -le 1 ]; then
+        pos=$n
+    else
+        pos=$(( pos - 1 ))
+    fi
+else
+    # next with wraparound: after act, or first if act is last
+    if [ "$pos" -ge "$n" ] || [ "$pos" -eq 0 ]; then
+        pos=1
+    else
+        pos=$(( pos + 1 ))
+    fi
+fi
+
+eval "target=\${$pos}"
+[ -n "$target" ] && herbstclient jumpto "$target"

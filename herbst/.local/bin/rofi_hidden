@@ -29,10 +29,11 @@ entries=$(list_hidden)
 [ -n "$entries" ] || exit 1
 
 # Show in rofi and get selection
-selection=$(printf '%s' "$entries" | rofi -dmenu -theme ~/.config/rofi/window-ops.rasi -p "hidden" -selected-row 0)
+# Use -format "i" to get the index of the selected row, then match by line number
+selection=$(printf '%s\n' "$entries" | rofi -dmenu -theme ~/.config/rofi/window-switcher.rasi -p "hidden" -selected-row 0 -format 1)
 [ -n "$selection" ] || exit 0
 
-# Find and jump to the selected window
+# Find and jump to the selected window by matching the title
 herb attr clients | while read -r obj _; do
 	case $obj in
 		0x*) 

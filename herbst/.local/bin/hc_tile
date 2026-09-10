@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# hc_tile — tile a (usually floating/minimized) client into the layout.
+#
+# Usage: hc_tile <wid>
+#
+# Finds the closest empty frame related by parent to the window's frame:
+#   1. Walk the frame tree and collect all leaf frames (flat indexes).
+#   2. Prefer the empty leaf whose flat index shares the longest common
+#      prefix with the target's parent_frame.index (closest by parent).
+#   3. If no empty frame exists, perform `herbstclient split auto` to
+#      create one.
+# Then: unminimize + unfloat the window into that frame and focus it.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+herb() {
+    herbstclient "$@"
+}
+
+WID=${1:?usage: hc_tile <wid>}
+
+# Dotted object path segment for a flat frame index ("00" -> "0.0").
+flat_to_dotted() {
+    printf '%s' "$1" | sed 's/./&./g; s/.$//'
+}
+
+# Depth-first collection of all leaf frames as flat indexes.
+# A leaf is a frame node with 0 children (client_count may be 0..n).
+LEAVES=()
+collect_leaves() {
+    local dotted=$1 flat=$2
+    local out count
+    out=$(herb attr "tags.focus.tiling.root${dotted:+.$dotted}" 2>/dev/null) || return 0
+    # Header line is "N children:" (no trailing period)
+    count=$(printf '%s\n' "$out" | sed -n 's/^\([0-9]*\) children:$/\1/p')
+    if [ -n "$count" ] && [ "$count" -gt 0 ]; then
+        collect_leaves "${dotted:+$dotted.}0" "${flat}0"
+        collect_leaves "${dotted:+$dotted.}1" "${flat}1"
+    else
+        LEAVES+=("$flat")
+    fi
+}
+
+# Longest common prefix length of two flat indexes.
+common_prefix_len() {
+    local a=$1 b=$2 n=0 i
+    for (( i=0; i<${#a}; i++ )); do
+        [ "${a:$i:1}" = "${b:$i:1}" ] || break
+        n=$(( n + 1 ))
+    done
+    printf '%s' "$n"
+}
+
+# --- main ---------------------------------------------------------------
+
+# A maximized window must be restored to its original tag/frame first —
+# its recorded location is where it belongs in the layout. hc_unmaximize
+# is a no-op (exit 0) for non-maximized windows.
+if [[ $(herb attr "clients.${WID}.tag" 2>/dev/null || echo "") == *-max ]]; then
+    exec "$HOME/.local/bin/hc_unmaximize" "$WID"
+fi
+
+# Everything from here happens under one lock: find/split the
+# destination frame, point the focused frame at it, then unminimize +
+# unfloat + bring (bring moves the window into the FOCUSED frame). The
+# lock guarantees no hook handler or keybind re-focuses a frame in
+# between, and the trap guarantees the lock is released even on error.
+herb lock
+trap 'herb unlock' EXIT
+
+# The window's frame, read fresh under the lock (a minimized window has
+# no parent_frame -> treat as "" so the prefix ranking still works).
+frame=$(herb attr "clients.${WID}.parent_frame.index" 2>/dev/null) || frame=""
+
+collect_leaves "" ""
+
+# Empty leaves ranked by closeness (longest common prefix) to the
+# window's frame.
+best=""
+best_score=-1
+for leaf in "${LEAVES[@]}"; do
+    dotted=$(flat_to_dotted "$leaf")
+    cc=$(herb attr "tags.focus.tiling.root${dotted:+.$dotted}.client_count" 2>/dev/null || echo 0)
+    if [ "$cc" = "0" ]; then
+        score=$(common_prefix_len "$frame" "$leaf")
+        if [ "$score" -gt "$best_score" ]; then
+            best=$leaf
+            best_score=$score
+        fi
+    fi
+done
+
+herb set_attr "clients.${WID}.minimized" false
+
+herb chain \
+    . set_attr "clients.${WID}.floating" false \
+    . bring "$WID"
+if [ -z "$best" ]; then
+    # No empty frame: split the focused frame; the new (second) child is
+    # empty. Its flat index is the focused frame's index + "1".
+    herb split explode
+    focus_frame=$(herb attr tags.focus.tiling.focused_frame.index)
+    best="${focus_frame}1"
+fi
+
+# Point the focused frame at the destination: set the selection attr on
+# every split node from the ROOT down, one digit per level. The first
+# digit selects a child of the root itself, so the root's own selection
+# must be written too — focus is resolved top-down, and a deep write has
+# no effect until all its ancestors point at it.
+dotted=$(flat_to_dotted "$best")
+path="tags.focus.tiling.root"
+for d in $(printf '%s' "$dotted" | tr '.' ' '); do
+    herb attr "$path.selection" "$d" 2>/dev/null || true
+    path="$path.$d"
+done
+
+
+herb chain \
+    . set_attr "clients.${WID}.floating" false \
+    . bring "$WID"
+
+
+herb jumpto "$WID"
+herb raise "$WID"
+herb unlock
+trap - EXIT

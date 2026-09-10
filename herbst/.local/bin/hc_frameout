@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# hc_frameout [WINID] — print a client's geometry as hlwm expects it for
+# floating_geometry, preferring the live floating geometry over the tiled
+# content geometry (which is stale until the client is floated).
+#   hc_frameout            -> focused client
+#   hc_frameout 0x500003   -> that client
+# Output: WxH+X+Y  (e.g. 800x600+192+108)
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+hc() { herbstclient "$@"; }
+
+winid=${1:-}
+if [ -z "$winid" ]; then
+    winid=$(hc attr clients.focus.winid)
+fi
+
+# Validate the client exists before touching its attributes
+hc attr "clients.$winid.winid" >/dev/null 2>&1 || {
+    echo "hc_frameout: no such client '$winid'" >&2
+    exit 1
+}
+
+geom=$(hc attr "clients.$winid.content_geometry" 2>/dev/null || true)
+# Fall back to content geometry when floating_geometry is unset/stale
+# (never floated yet) or unparseable.
+if ! [[ $geom =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]]; then
+    exit 1
+fi
+[[ $geom =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]] || {
+    echo "hc_frameout: cannot parse geometry '$geom' for $winid" >&2
+    exit 1
+}
+
+echo "$geom"

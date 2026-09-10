@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# hc_focus — Mod-f "focus" behaviour
+#
+# "Focus" is relative to the window's context:
+#   - a window grouped with others in a frame: float the whole frame group
+#     (peek); pressing again returns them all to tiling.
+#   - a lone window in a frame: fullscreen gives more real estate than
+#     floating, so toggle fullscreen instead.
+#   - a single frame on the tag holding multiple clients: toggle the tag's
+#     workspace-wide floating layer.
+#   - in all cases: if a floating window is already on screen (reachable via
+#     tags.focus.floating_focused), first focus it, then un-float it.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+hc() { herbstclient "$@"; }
+addlog() { echo "hc_focus: " "$@"; }
+dotpath() {
+    local idx=$1 out="" i
+    for (( i=0; i<${#idx}; i++ )); do
+        out+=".${idx:$i:1}"
+    done
+    echo "tags.focus.tiling.root$out"
+}
+# Are we currently sitting on a floating window?
+floating_focused=$(hc attr tags.focus.floating_focused 2>/dev/null || echo false)
+focus=$(hc attr clients.focus.winid)
+frame_count=$(hc attr tags.focus.frame_count)
+count=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
+
+addlog enter
+
+hc lock
+hc attr clients.focus.pseudotile off || true
+
+addlog test-isfloating
+if [ "$floating_focused" = "true" ]; then
+    addlog focus is floating
+    # A float is accessible right now: focus it (already focused), then
+    # un-float it and restore the tiling underneath.
+    hc chain \
+        . attr clients.focus.floating off \
+        . unlock \
+        . attr tags.focus.floating_focused on && "$HOME/.local/bin/hc_focus" || exit 0
+    hc jumpto $focus
+    exit 0
+fi
+
+addlog test-canfocusfloating?
+# Does the tag have ANY floating windows at all? (takes priority over
+# maximizing: a float on screen should be focused before anything else)
+# There is no float-count attribute — we probe by trying to enter the
+# floating layer and checking the exit status.
+if [ "$floating_focused" = "false" ] && hc attr tags.focus.floating_focused toggle 2>/dev/null; then
+    addlog jumping to next floating
+    addlog exiting
+    hc unlock
+    exit 0 
+fi
+
+addlog "frame_count $frame_count count $count"
+addlog test-multiframe?
+if [ "$frame_count" -gt 1 ] && [ "$count" -gt 0 ]; then
+    hc attr clients.focus.fullscreen off || true
+    "$HOME/.local/bin/hc_center"
+    hc unlock
+    exit 0
+fi
+
+addlog test-multiclient?
+if [ "$count" -gt 1 ]; then
+   addlog multiple frames and focused has multiple clients
+    # Window is grouped in a frame: float the whole group (peek).
+    # If more windows in focus remain, jump to the next floating window.
+    frame=$("$HOME/.local/bin/hc_current" "parent_frame.index")
+    # Split a concatenated frame index ("012") into a dotted path
+    # ("0.1.2") so it can be used under tags.focus.tiling.root.
+
+    # Grandparent frame: drop the last index component ("012" -> "01").
+    # Flip this frame's algorithm if it is misaligned with the
+    # grandparent's split direction.
+    parent_frame=$(dotpath "$frame")
+    addlog "parent_frame $parent_frame"
+    grandparent_frame=${frame%?}
+    grandparent_frame=$(dotpath "$grandparent_frame")
+    addlog "grandparent_frame $grandparent_frame"
+    grandparent_split=$(hc attr "${grandparent_frame}.split_type" 2>/dev/null || echo "")
+    addlog "grandparent_split $grandparent_split"
+    parent_algo=$(hc attr "${parent_frame}.algorithm" 2>/dev/null || echo "")
+    addlog "parent_algo $parent_algo"
+    hc unlock
+    if [ "$grandparent_split" = "vertical" ]; then
+        hc attr "${parent_frame}.algorithm" horizontal
+    elif [ "$grandparent_split" = "horizontal" ]; then
+        hc attr "${parent_frame}.algorithm" vertical
+    elif [ "$parent_algo" = "max" ]; then
+        hc attr "${parent_frame}.algorithm" grid
+    fi
+    if hc compare "${parent_frame}.algorithm" "=" "grid" 2>/dev/null; then
+        addlog we are griddy
+        hc attr tags.focus.tiling.focused_frame.selection 0
+    fi
+    path=$("$HOME/.local/bin/hc_get-frame-path" "$frame")
+    hc lock
+    while read -r winid geom; do
+        hc attr "clients.$winid.floating_geometry" "$geom"
+    done < <(
+        for winid in $(hc list_clients --frame="$path"); do
+            echo "$winid $("$HOME/.local/bin/hc_frameout" "$winid")"
+        done
+    )
+    for winid in $(hc list_clients --frame="$path"); do
+        hc attr "clients.$winid.floating" on
+    done
+    hc attr "${parent_frame}.algorithm" "${parent_algo}"
+    hc unlock
+    hc bring "$focus"
+    hc jumpto "$focus"
+    exit 0 
+fi
+
+addlog basecase-fullscreen toggle
+hc attr clients.focus.fullscreen toggle || true
+hc attr clients.focus.floating off || true
+hc unlock
+addlog finalexit

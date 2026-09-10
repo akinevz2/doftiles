@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# hc_switcher — rofi window switcher for one (frame, class) group.
+#
+# Usage: hc_switcher <frame> <class> <selected-row> <width-em> <wid1> [wid2...]
+#   <frame>        flat frame index (informational; wids are authoritative)
+#   <class>        prompt text
+#   <selected-row> 0-based row to pre-select (-1 for none)
+#   <width-em>     rofi window width in em
+#   wid...         the group's wids in WM order — one per menu row
+#
+# The menu lines are read from a temp file (NOT piped from the caller):
+# rofi -dmenu reads all of stdin before mapping its window, and a
+# never-EOFing stdin pipe from a long-lived parent leaves rofi windowless
+# while holding the keyboard grab — freezing the WM. A file gives rofi a
+# guaranteed EOF.
+#
+# The chosen row index (0-based) is written to stdout. Escape/cancel
+# prints nothing. The caller (polyframes actions.js) maps the row index
+# back to the wid — no output is expected synchronously; this script is
+# invoked detached.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+frame=${1:?usage: hc_switcher <frame> <class> <selected-row> <width-em> <wid...>}
+cls=${2:?}
+selrow=${3:--1}
+width=${4:-30}
+shift 4
+[ $# -ge 1 ] || { echo "hc_switcher: no wids given" >&2; exit 1; }
+WIDS=("$@")
+
+# Build the menu lines: one title per wid, read fresh from hlwm so the
+# list matches what the bar showed. Indicators:
+#   "-> " — the frame's VISIBLE (selected) client, i.e. the one whose
+#           title the bar label shows. This is the frame's selection,
+#           independent of global keyboard focus.
+#   "*"   — the globally focused window (when different from visible).
+MENU_FILE=$(mktemp /tmp/hc-switcher-menu.XXXXXX)
+trap 'rm -f "$MENU_FILE"' EXIT
+
+# The frame's visible client: selection index S of frame <frame> is the
+# (S+1)-th wid of list_clients --frame=<idx>. The caller passes the wids
+# in exactly that order, so derive the visible row from hlwm directly.
+visible_wid=""
+sel_idx=$(herbstclient attr "tags.focus.tiling.root.$(echo "$frame" | sed 's/./.&/g; s/^\.//').selection" 2>/dev/null || \
+          herbstclient attr tags.focus.tiling.root.selection 2>/dev/null || echo "")
+if [ -n "$sel_idx" ] && [ "$sel_idx" -ge 0 ] 2>/dev/null \
+   && [ "$sel_idx" -lt $# ]; then
+    visible_wid=${WIDS[$sel_idx]}
+fi
+focused_wid=$(herbstclient attr clients.focus.winid 2>/dev/null || true)
+
+i=0
+for wid in "${WIDS[@]}"; do
+    ttl=$(herbstclient attr "clients.${wid}.title" 2>/dev/null || true)
+    min=$(herbstclient attr "clients.${wid}.minimized" 2>/dev/null || true)
+    flt=$(herbstclient attr "clients.${wid}.floating_effectively" 2>/dev/null || true)
+    ind=""
+    [ "$min" = "true" ] && ind=" [min]"
+    [ "$flt" = "true" ] && [ "$min" != "true" ] && ind=" [flt]"
+    line="${ttl:-$cls}${ind}"
+    [ "$wid" = "$visible_wid" ] && line="-> ${line}"
+    [ "$wid" = "$focused_wid" ] && [ "$wid" != "$visible_wid" ] && line="* ${line}"
+    printf '%s\n' "$line" >> "$MENU_FILE"
+    i=$(( i + 1 ))
+done
+
+count=$#
+
+choice=$(rofi -dmenu -i -l "$count" \
+    -selected-row "$selrow" \
+    -theme "$HOME/.config/rofi/window-switcher.rasi" \
+    -theme-str "window { width: ${width}em; }" \
+    -p "$cls" < "$MENU_FILE") || exit 0
+
+[ -n "$choice" ] || exit 0
+
+# Row index of the choice: strip any indicator prefix ("-> " or "* ")
+# and match by exact line.
+plain=$choice
+plain=${plain#"-> "}
+plain=${plain#"* "}
+row=0
+found=""
+while IFS= read -r line; do
+    cmp=$line
+    cmp=${cmp#"-> "}
+    cmp=${cmp#"* "}
+    if [ "$cmp" = "$plain" ]; then
+        found=$row
+        break
+    fi
+    row=$(( row + 1 ))
+done < "$MENU_FILE"
+
+[ -n "$found" ] || exit 0
+
+target=${WIDS[$found]}
+
+# Execute the focus change here — the caller is detached and never
+# reads our stdout. jumpto handles unminimize + raise implicitly.
+herbstclient jumpto "$target"
+herbstclient raise "$target"
+
+# Also emit the chosen wid on stdout (useful for manual debugging;
+# discarded when detached).
+printf '%s\n' "$target"

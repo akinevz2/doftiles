@@ -1,23 +1,170 @@
-#!/bin/bash
-# Herbstluftwm right-click menu for clients
+#!/usr/bin/env bash
+# hc_menu — right-click rofi menu for a herbstluftwm client.
+#
+# Usage: hc_menu [wid]
+#   With a wid: operate on that client.
+#   Without:    resolve the "visible" client of the focused frame —
+#               selection index S of frame index F means the (S+1)-th
+#               wid of `herbstclient list_clients --frame=<idx>`.
+#
+# Menu actions:
+#   Tile           — disable floating (join the tiling layout)
+#   Maximize       — move the window to tag "<current>-max" (created if
+#                    missing), switch to it, set layout "max"
+#   Minimize one   — minimize the target window
+#   Minimize group — minimize every window sharing the target's
+#                    (frame, class) group
+#   Focus          — change the layout algorithm of the target window to "max"
+#   Close          — close the target window
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+# WSLg's Wayland socket would hijack dual-backend rofi; this session is
+# X11-only (VcXsrv).
+unset WAYLAND_DISPLAY
+
+herb() {
+    herbstclient "$@"
+}
+
+# --- resolve the target window -----------------------------------------
+
+resolve_visible_wid() {
+    local sel idx
+    sel=$(herb attr tags.focus.tiling.focused_frame.selection) || return 1
+    idx=$(herb attr tags.focus.tiling.focused_frame.index) || idx=""
+    local wids
+    wids=$(herb list_clients --frame="$idx") || return 1
+    # selection is a 0-based index into the frame's client list
+    printf '%s\n' "$wids" | sed -n "$(( sel + 1 ))p"
+}
+
+WID=${1:-}
+if [ -z "$WID" ]; then
+    WID=$(resolve_visible_wid) || {
+        echo "hc_menu: no focused window" >&2
+        exit 1
+    }
+fi
+
+# --- determine window state for menu filtering -------------------------
+
+# Check if the window is in a max layout frame
+is_max=$(herb attr "clients.${WID}.parent_frame.algorithm" 2>/dev/null || echo "")
+
+# Check if the window is minimized
+is_minimized=$(herb attr "clients.${WID}.minimized" 2>/dev/null || echo "")
+
+# --- build filtered menu -----------------------------------------------
 
 MENU=(
-    "Close\0icon\x1fuser-trash"
-    "Minimize all\0icon\x1fwindow-minimize"
-    "Minimize\0icon\x1fwindow-minimize"
-    "Maximize\0icon\x1fwindow-maximize"
-    "Toggle Focus\0icon\x1fwindow-focus"
-    "Toggle Floating\0icon\x1fwindow-fullscreen"
-    "Resize\0icon\x1fwindow-resize"
-    "Move\0icon\x1fwindow-move"
+    "Tile"
 )
 
-MENU_STR=$'\n'"${MENU[@]}"$'\n'
-selected=$(echo -e "$MENU_STR" | rofi -dmenu -i -no-automatch -no-history -mesg "Window Operations" -theme /home/kine/dots/rofi/.config/rofi/window-ops.rasi)
-
-if [ -n "$selected" ]; then
-    # Extract the command part (before tab)
-    cmd="${selected%%	*}"
-    # Execute via herbstclient chain
-    xmessage "$cmd"
+# Add Focus item only if not in max layout
+if [ "$is_max" != "max" ]; then
+    MENU+=("Focus")
 fi
+
+# Add Maximize always (it's a toggle to max layout)
+MENU+=("Maximize")
+
+# Add minimize/unminimize based on minimized state
+if [ "$is_minimized" = "1" ]; then
+    # Window is already minimized — show Unminimize instead of Minimize
+    MENU+=("Unminimize")
+else
+    MENU+=("Minimize")
+    MENU+=("Minimize all")
+fi
+
+# Close is always last
+MENU+=("Close")
+
+# Prompt = the target window's title; -l = exactly the number of menu
+# options (no empty rows); width constrained via theme-str.
+title=$(herb attr "clients.${WID}.title" 2>/dev/null || true)
+n=${#MENU[@]}
+
+selected=$(printf '%s\n' "${MENU[@]}" | rofi -dmenu -i -no-automatch -no-history \
+    -mesg "Window Operations" -theme "$HOME/.config/rofi/window-ops.rasi" \
+    -theme-str 'window { width: 24em; }' \
+    -l "$n" -p "${title:-window}")
+
+[ -n "$selected" ] || exit 0
+cmd="$selected"
+
+# --- dispatch ----------------------------------------------------------
+
+case "$cmd" in
+    Tile)
+        # Delegate to hc_tile: find the closest empty frame related by
+        # parent (or split auto to create one), then unminimize+unfloat.
+        # A maximized window is first restored to its original spot.
+        "$HOME/.local/bin/hc_unmaximize" "$WID" || true
+        exec "$HOME/.local/bin/hc_tile" "$WID"
+        ;;
+    Maximize)
+        # Reversible toggle: dedicated "<tag>-max" tag with a single
+        # frame in max layout; clicking again restores the window to its
+        # recorded original frame/index.
+        exec "$HOME/.local/bin/hc_maximize" "$WID"
+        ;;
+    Minimize)
+        # If window is already minimized, unminimize it; otherwise minimize it.
+        is_minimized=$(herb attr "clients.${WID}.minimized" 2>/dev/null || echo "")
+        if [ "$is_minimized" = "1" ]; then
+            herb jumpto "${WID}"
+            herb set_attr "clients.${WID}.minimized" false
+        else
+            "$HOME/.local/bin/hc_unmaximize" "$WID" || true
+            herb jumpto "${WID}"
+            herb set_attr "clients.${WID}.minimized" true
+            # If the vacated frame has no more children, merge it away.
+            # (Read the count BEFORE minimizing detached the window's frame
+            # association — after jumpto+minimize, focus has moved on.)
+            if [ "$(herb attr clients.${WID}.parent_frame.client_count 2>/dev/null || echo 1)" = "0" ]; then
+                herb remove
+            fi
+        fi
+        ;;
+    Unminimize)
+        # Unminimize the window if it's minimized
+        herb jumpto "${WID}"
+        herb set_attr "clients.${WID}.minimized" false
+        ;;
+    Minimize\ all)
+        # Get the frame and class of the target window.
+        frame=$(herb attr "clients.${WID}.parent_frame.index" 2>/dev/null || true)
+        cls=$(herb attr "clients.${WID}.class" 2>/dev/null || true)
+        # Check if the target window is already minimized.
+        is_target_minimized=$(herb attr "clients.${WID}.minimized" 2>/dev/null || echo "")
+        if [ "$is_target_minimized" = "1" ]; then
+            # Unminimize the target window only.
+            herb jumpto "${WID}"
+            herb set_attr "clients.${WID}.minimized" false
+        else
+            # Minimize all windows sharing the target's frame + class.
+            "$HOME/.local/bin/hc_unmaximize" "$WID" || true
+            herb set_attr "clients.${WID}.minimized" true
+            for w in $(herb list_clients --frame="$frame" 2>/dev/null); do
+                [ "$w" = "$WID" ] && continue
+                wcls=$(herb attr "clients.${w}.class" 2>/dev/null || true)
+                [ "$wcls" = "$cls" ] && herb set_attr "clients.${w}.minimized" true
+            done
+            # Prune the vacated frame if it emptied out.
+            if [ "$(herb attr clients.${WID}.parent_frame.client_count 2>/dev/null || echo 1)" = "0" ]; then
+                herb remove
+            fi
+        fi
+        ;;
+    Focus)
+        # Change the layout algorithm of the target window to "max"
+        herb attr "clients.${WID}.parent_frame.algorithm" max
+        ;;
+    Close)
+        herb close "$WID"
+        ;;
+esac
