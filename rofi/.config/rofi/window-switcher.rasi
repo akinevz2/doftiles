@@ -18,13 +18,10 @@
 
 configuration {
 	font: "Ubuntu Mono 12";
-	lines: 8;
-	columns: 3;
+	columns: 1;
 	bw: 0;
 	location: 0;
 	padding: 0;
-	show-icons: true;
-	icon-theme: "Reversal-purple-dark";
 	separator-style: "none";
 	hide-scrollbar: true;
 	fullscreen: false;
@@ -58,8 +55,7 @@ window {
 	border: 5px;
 	border-color: @normal-border;
 	border-radius: 0px;
-	padding: 0px;
-	width: 60em;
+	padding: 5px;
 	/* Attach the switcher to the polybar (bottom bar, height 28 + 4 margin) */
 	location: south;
 	y-offset: -38px;
@@ -94,7 +90,7 @@ prompt {
 entry {
 	text-color: @fg;
 	background-color: @bg-alt;
-	placeholder: "filter by window class...";
+	placeholder: "";
 	placeholder-color: @fg-alt;
 }
 
@@ -104,61 +100,46 @@ listview {
 	spacing: 2px;
 	padding: 8px 4px;
 	background-color: @bg;
-	/* grid layout: side-by-side columns, sized to content */
-	columns: 3;
-	flow: horizontal;
-	fixed-columns: false;
-	lines: 1;
-}
-
-element {
+        /* vertical list: one entry per line, sized to entry count.
+           lines is overridden per-call via -l (number of entries). */
+        columns: 1;
+        flow: vertical;
+        fixed-columns: false;
 	padding: 6px 10px 0px 10px;
 	text-color: @fg-alt;
 	background-color: @transparent;
 	border: 0 0 2px 0;
 	border-color: @transparent;
 	border-radius: 0px;
-	/* stack the icon above the title text */
-	orientation: vertical;
-	spacing: 6px;
-	children: [ element-icon, element-text ];
+        children: [ element-text ];
 }
 
-element normal.active,
-element selected.active {
-	text-color: @accent;
-	border-color: @accent;
+/* default rows: dark bg, light gray text — the WHITE highlight is
+   reserved for the selected (keyboard/mouse-hover) row */
+element {
+        background-color: @bg;
+        text-color: @fg-alt;
+		padding: 5px;
 }
 
-/* minimized windows are the dimmest: hidden, listed for recall */
-element normal.urgent,
-element selected.urgent {
-	text-color: #555555;
+/* dmenu renders an icon placeholder box per row by default; we have
+   no icons, so collapse it to zero size */
+element-icon {
+        size: 0;
 }
 
 element selected {
-	background-color: @bg-alt;
-	text-color: @fg;
-	border-color: @accent;
+        background-color: @bg;
+        text-color: #feef69;
+        border-color: @accent;
 }
 
+/* the window that currently has hlwm focus arrives pre-wrapped in a
+   #feef69 pango span from the caller (polywins -markup) */
 element-text {
-	background-color: @transparent;
-	text-color: inherit;
-	vertical-align: 0;
-	horizontal-align: 0.5;
+        background-color: @transparent;
+        text-color: inherit;
+        vertical-align: 0.5;
+        horizontal-align: 0;
 }
 
-element-icon {
-	background-color: @transparent;
-	size: 64px;
-	text-color: inherit;
-	horizontal-align: 0.5;
-	vertical-align: 0.5;
-}
-
-/* "N matching" footer, kept minimal like the hlwm frame borders */
-textbox {
-	text-color: @fg-alt;
-	background-color: @bg;
-}

@@ -25,7 +25,7 @@ configuration {
 	/* Rows are only highlighted by keyboard/click, never by pointer
 	   motion: scrolling confirms immediately, so a row followed by
 	   the pointer would change the target on the way out */
-	hover-select: false;
+	hover-select: true;
 	/* Allow the selected row option from script mode to set the
 	   initially-highlighted row (current workspace) */
 	auto-select: true;
