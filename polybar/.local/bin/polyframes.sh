@@ -25,17 +25,7 @@
 # systemd user unit importing the login env) leaked it in.
 unset WAYLAND_DISPLAY
 
-DIR=$(cd "$(dirname "$0")/../polyframes" && pwd)
+DIR=$(cd "$HOME/.config/polybar/polyframes" && pwd)
 NODE=/home/kine/.config/nvm/versions/node/v26.8.1/bin/node
-
-# Layer selection via -v <layers> (or POLYFRAMES_VERBOSE). Default: OFF.
-if [ "$1" = "-v" ] && [ $# -ge 2 ]; then
-    POLYFRAMES_VERBOSE=${POLYFRAMES_VERBOSE:-$2}
-    export POLYFRAMES_VERBOSE
-    shift 2
-fi
-if [ -n "$POLYFRAMES_VERBOSE" ]; then
-    export POLYFRAMES_VERBOSE
-fi
 
 exec "$NODE" "$DIR/index.js" "$@"
