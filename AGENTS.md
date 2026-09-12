@@ -148,6 +148,11 @@ After changing anything in `services/`, restow and run
     - In the actual scripts use only simple column-wise operations:
       `cut` to select columns, `grep -F` to filter rows, `printf` with
       explicit separators for joining/transforming/mapping rows.
+    - `read` strips leading/trailing IFS-whitespace: with tab-separated
+      fields, an EMPTY FIRST FIELD (e.g. root frame's empty index) is
+      silently eaten and every column shifts. Either guarantee no field
+      is ever empty (normalize at the source, e.g. empty frame index →
+      `0`), or use a non-whitespace separator (`\x01`).
 13. **Rofi dmenu gotchas** (window-switcher): icon placeholders render
     as gray squares unless `element-icon { size: 0; }` is set; pango
     `-markup` is unreliable in dmenu mode (prefer plain-text prefixes

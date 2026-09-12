@@ -11,10 +11,10 @@ alias l='ls'
 alias s='ls -r'
 
 # WM Stuff
-alias sxhkdrc="$EDITOR $HOME/.config/sxhkd"
-alias bspwmrc="$EDITOR $HOME/.config/bspwm"
-alias wmrc="$EDITOR $HOME/.config/herbstluftwm/autostart"
-alias development="cd $HOME/development && bash -c 'cd system/monitoring && npm run tui'"
+alias sxhkdrc="$VISUAL $HOME/.config/sxhkd"
+alias bspwmrc="$VISUAL $HOME/.config/bspwm"
+alias wmrc="$VISUAL $HOME/.config/herbstluftwm/autostart"
+alias development="cd $HOME/development && ls -al personal/ system/ && git status"
 alias sx="sxhkd"
 alias bs="bspwm"
 
