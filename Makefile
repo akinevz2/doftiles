@@ -61,15 +61,15 @@ WM_BINARIES := herbstluftwm herbstclient compton polybar rofi hsetroot xset duns
 
 wm: services
 	@missing=""; \
-		for bin in $(WM_BINARIES); do \
-			command -v "$$bin" >/dev/null 2>&1 || missing="$$missing $$bin"; \
-		done; \
-		if [ -n "$$missing" ]; then \
-			echo "wm: missing required binaries:$$missing" >&2; \
-			echo "wm: install the corresponding packages and re-run" >&2; \
-			exit 1; \
-		fi; \
-	@for pkg in $(WM_PACKAGES); do \
+	for bin in $(WM_BINARIES); do \
+		command -v "$$bin" >/dev/null 2>&1 || missing="$$missing $$bin"; \
+	done; \
+	if [ -n "$$missing" ]; then \
+		echo "wm: missing required binaries:$$missing" >&2; \
+		echo "wm: install the corresponding packages and re-run" >&2; \
+		exit 1; \
+	fi; \
+	for pkg in $(WM_PACKAGES); do \
 		echo "stowing $$pkg"; \
 		$(STOW) -R -t $$HOME "$$pkg"; \
 	done
