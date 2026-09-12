@@ -26,6 +26,6 @@
 unset WAYLAND_DISPLAY
 
 DIR=$(cd "$HOME/.config/polybar/polyframes" && pwd)
-NODE=/home/kine/.config/nvm/versions/node/v26.8.1/bin/node
+NODE=$(which node)
 
 exec "$NODE" "$DIR/index.js" "$@"

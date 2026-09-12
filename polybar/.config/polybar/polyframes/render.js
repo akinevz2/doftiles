@@ -36,7 +36,16 @@ function render(groups, onClick, settings = {}) {
     let shown = 0; // groups actually rendered
     let total = 0; // all groups seen
 
-    for (const g of groups) {
+    // Render order: WM order, but minimized groups are pushed to the
+    // end, after the floating windows. Stable sort — relative order
+    // within each bucket is preserved.
+    const rank = (g) => (g.state === "min" ? 1 : 0);
+    const ordered = groups
+        .map((g, i) => ({ g, i }))
+        .sort((a, b) => rank(a.g) - rank(b.g) || a.i - b.i)
+        .map((e) => e.g);
+
+    for (const g of ordered) {
         total += 1;
         // Defensive: skip malformed rows (empty wid/cls would blank the bar).
         if (!g.cls || !g.rep) {
@@ -64,7 +73,10 @@ function render(groups, onClick, settings = {}) {
         if (s.add_spaces) name = ` ${name} `;
 
         // Color by state: focused (gold underline) / floating / visible /
-        // minimized (dark gray).
+        // minimized (dark gray). A group whose class is not the frame's
+        // selected client's class is not shown on screen — dim it like
+        // minimized windows. This is per-frame (via isVisible), so it
+        // stays correct when focus moves between frames.
         let color = s.visible_text_color;
         let underline = "";
         if (g.isActive === 1 && g.state !== "min") {
@@ -74,6 +86,8 @@ function render(groups, onClick, settings = {}) {
             color = s.floating_text_color;
             underline = s.floating_underline;
         } else if (g.state === "min") {
+            color = s.hidden_text_color;
+        } else if (g.state === "tiling" && !g.isVisible) {
             color = s.hidden_text_color;
         }
         let left = `%{F${color}}`;

@@ -96,6 +96,7 @@ async function dump() {
 const jumpto = (wid) => cmd("jumpto", wid);
 const raise = (wid) => cmd("raise", wid);
 const close = (wid) => cmd("close", wid);
+const remove = () => cmd("remove");
 const lock = () => cmd("lock");
 const unlock = () => cmd("unlock");
 
@@ -109,6 +110,7 @@ module.exports = {
     jumpto,
     raise,
     close,
+    remove,
     lock,
     unlock,
 };

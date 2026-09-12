@@ -8,6 +8,7 @@ const { promisify } = require("node:util");
 const hc = require("./hc");
 const { getClients } = require("./clients");
 const { groupClients, keyOf } = require("./groups");
+const { frameSelection } = require("./frames");
 const { ui, clients: dbgClients } = require("./debug");
 
 const execFileP = promisify(execFile);
@@ -47,6 +48,43 @@ async function getActiveWid() {
  */
 async function switcher(frame, cls) {
     ui("switcher: frame=%s cls=%s", frame, cls);
+
+    // Double-click semantics: if a switcher rofi is already running for
+    // THIS group (same frame + class), dismiss it and focus the frame's
+    // currently visible window instead of re-opening the menu.
+    // Detection uses pgrep -f on the wrapper path + frame + class, so a
+    // switcher opened over another group is left alone.
+    const pid = await findSwitcherPid(frame, cls);
+    if (pid) {
+        ui("switcher: already running for this group (pid %d) -> dismiss + focus visible", pid);
+        try {
+            process.kill(pid, "SIGTERM");
+        } catch (err) {
+            ui("switcher: kill pid %d failed: %s", pid, err.message);
+        }
+        const vis = await frameSelection(frame);
+        const active = await getActiveWid();
+        // The group's visible window is the frame's selected client —
+        // but only when it belongs to this group's class. In a
+        // mixed-class frame the selection can be another group's
+        // window; then this group has no visible window and the click
+        // is a no-op (the menu was just dismissed).
+        const visInGroup = vis && (await frameClients(frame, cls))
+            .some((c) => c.wid === vis);
+        if (visInGroup && vis === active) {
+            // The group's visible window is already focused: minimize it.
+            ui("switcher: group's visible %s is already focused -> minimize", vis);
+            await minimize(vis);
+        } else if (visInGroup) {
+            ui("switcher: focusing group's visible window %s", vis);
+            await hc.jumpto(vis);
+        } else {
+            ui("switcher: frame's selection %s not in group (%s) -> nothing to focus",
+                vis ?? "none", cls);
+        }
+        return;
+    }
+
     const members = await frameClients(frame, cls);
     if (members.length === 0) {
         ui("switcher: no members, aborting");
@@ -89,6 +127,30 @@ async function switcher(frame, cls) {
 }
 
 /**
+ * Find a running hc_switcher process launched for the given frame+class
+ * group, via pgrep -f. The wrapper is invoked as:
+ *   hc_switcher <frame> <cls> <selRow> <widthEm> <wid>...
+ * so matching the wrapper path + frame + class makes the check
+ * group-specific; a switcher over another group won't match.
+ * @param {string} frame flat frame index
+ * @param {string} cls   window class
+ * @returns {Promise<number|null>} pid or null
+ */
+async function findSwitcherPid(frame, cls) {
+    const wrapper = `${process.env.HOME}/.local/bin/hc_switcher`;
+    try {
+        const { stdout } = await execFileP("pgrep", [
+            "-f",
+            `${wrapper} ${frame} ${cls}`,
+        ]);
+        const pid = Number.parseInt(stdout.trim().split("\n")[0], 10);
+        return Number.isInteger(pid) ? pid : null;
+    } catch {
+        return null; // no match (pgrep exits 1) or pgrep missing
+    }
+}
+
+/**
  * Focus previous/next window within one group, wraparound, including
  * minimized members. Port of scroll_focus().
  */
@@ -126,8 +188,11 @@ async function scrollFocus(frame, cls, dir) {
 }
 
 /**
- * Hide/unhide a window. Port of raise_or_minimize(). Reads use
- * floating_effectively; float writes go to the floating preference.
+ * Left click state machine (single-window entries):
+ *   minimized            -> unminimize only (no float changes)
+ *   focused + tiling     -> float (no minimize)
+ *   focused + floating   -> unfloat
+ *   unfocused (any)      -> focus (raise + jumpto)
  */
 async function raiseOrMinimize(wid) {
     ui("raiseOrMinimize: wid=%s", wid);
@@ -138,24 +203,18 @@ async function raiseOrMinimize(wid) {
             (await hc.attr(`clients.${wid}.floating_effectively`)) === "true";
         const active = await getActiveWid();
         if (min) {
-            ui("raiseOrMinimize: %s is minimized -> jumpto+unfloat", wid);
-            await hc.cmd("and", ",", "compare", "tags.focus.curframe_wcount",
-                "gt", "0", ",", "attr", `clients.${wid}.floating`, "true");
+            ui("raiseOrMinimize: %s minimized -> unminimize", wid);
+            await hc.setAttr(`clients.${wid}.minimized`, "false");
             await hc.jumpto(wid);
         } else if (wid === active && flt) {
-            // already-focused floating window: maximize and unfloat
-            ui("raiseOrMinimize: %s focused+floating -> minimize", wid);
-            await hc.setAttr(`clients.${wid}.minimized`, "false");
+            ui("raiseOrMinimize: %s focused+floating -> unfloat + hc_tile", wid);
             await hc.setAttr(`clients.${wid}.floating`, "false");
-        } else if (flt) {
-            ui("raiseOrMinimize: %s floating unfocused -> only focus", wid);
-            await hc.raise(wid);
-            await hc.jumpto(wid);
         } else if (wid === active) {
-            ui("raiseOrMinimize: %s focused tiling -> float+minimize", wid);
-            await hc.setAttr(`clients.${wid}.minimized`, "true");
+            ui("raiseOrMinimize: %s focused tiling -> float", wid);
+            await hc.setAttr(`clients.${wid}.floating`, "true");
+            await hc.raise(wid);
         } else {
-            ui("raiseOrMinimize: %s tiling unfocused -> focus", wid);
+            ui("raiseOrMinimize: %s unfocused -> focus", wid);
             await hc.jumpto(wid);
             await hc.raise(wid);
         }
@@ -236,6 +295,7 @@ async function toggle(wid) {
  */
 async function unminimizeIntoFrame(wid) {
     ui("unminimizeIntoFrame: wid=%s", wid);
+    await hc.lock();
     const frame = (await hc.attr(`clients.${wid}.parent_frame.index`)) ?? "";
     const wids = await hc.listClients(
         frame === "" ? {} : { frame }
@@ -243,19 +303,21 @@ async function unminimizeIntoFrame(wid) {
     const others = wids.filter((w) => w !== wid);
     if (others.length > 0) {
         ui("unminimizeIntoFrame: frame %j has %d other clients -> tile", frame, others.length);
-        await hc.setAttr(`clients.${wid}.minimized`, "false");
         await hc.setAttr(`clients.${wid}.floating`, "false");
+        await hc.setAttr(`clients.${wid}.minimized`, "false");
         await hc.jumpto(wid);
         await hc.raise(wid);
+        await hc.unlock();
         return;
     }
     // Empty frame: unminimize, stay floating, center current size.
     ui("unminimizeIntoFrame: frame %j empty -> center floating", frame);
-    await hc.setAttr(`clients.${wid}.minimized`, "false");
     await hc.setAttr(`clients.${wid}.floating`, "true");
+    await hc.setAttr(`clients.${wid}.minimized`, "false");
     await centerInFrame(wid, frame);
     await hc.jumpto(wid);
     await hc.raise(wid);
+    await hc.unlock();
 }
 
 /**
@@ -307,17 +369,43 @@ async function centerInFrame(wid, frame) {
  * monitors_locked (the unlock can time out while rofi holds the
  * grab), which freezes the WM.
  */
+/**
+ * Middle click state machine:
+ *   unminimized + floating -> unfloat (tile it)
+ *   unminimized + tiling   -> minimize (float + minimize, prune empty frame)
+ *   minimized + floating   -> unminimize + unfloat
+ *   minimized + tiling     -> unminimize only
+ */
 async function minimize(wid) {
     ui("minimize: wid=%s", wid);
     const min = (await hc.attr(`clients.${wid}.minimized`)) === "true";
-    if (!min) {
-        await hc.setAttr(`clients.${wid}.minimized`, "true");
-        await hc.setAttr(`clients.${wid}.floating`, "true");
+    const flt = (await hc.attr(`clients.${wid}.floating`)) === "true";
+    if (!min && flt) {
+        ui("minimize: %s unminimized floating -> unfloat + hc_tile", wid);
+        await hc.setAttr(`clients.${wid}.floating`, "false");
+        // hc_tile re-tiles the layout; run it detached so a slow/hung
+        // script can never wedge this process (and through it, the bar).
+        // ~/.local/bin may not be on PATH for polybar/node, so use the
+        // absolute path.
+        spawnDetached(`${process.env.HOME}/.local/bin/hc_tile`, [wid]);
         return;
     }
-    // await unminimizeIntoFrame(wid);
+    if (!min) {
+        const clients =
+            (await hc.attr(`clients.${wid}.parent_frame.client_count`)) ?? "1";
+        await hc.setAttr(`clients.${wid}.minimized`, "true");
+        await hc.setAttr(`clients.${wid}.floating`, "true");
+        if (Number(clients) <= 1) hc.remove();
+        return;
+    }
     await hc.setAttr(`clients.${wid}.minimized`, "false");
-    await menu(wid);
+    if (flt) {
+        ui("minimize: %s minimized floating -> unminimize+unfloat", wid);
+        await hc.setAttr(`clients.${wid}.floating`, "false");
+    } else {
+        ui("minimize: %s minimized tiling -> unminimize only", wid);
+    }
+    await hc.jumpto(wid);
 }
 
 /**
