@@ -31,21 +31,32 @@ services:
 		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
 
 # update — safely pull the latest changes from origin. Prefers a fast-forward
-# merge; falls back to a normal merge. Only if real conflicts occur does it
-# launch $EDITOR with the current directory plus each conflicting file.
+# merge; falls back to a normal merge. If real conflicts occur, launch $EDITOR
+# with each conflicting file. If the merge is blocked by local uncommitted
+# changes, stage everything and launch $EDITOR with the files to be committed.
+# NOTE: the whole recipe is one shell (backslash continuations) so that
+# `exit` actually stops the target.
 update:
-	@git fetch origin
-	@if git merge --ff-only origin/main 2>/dev/null; then \
-		echo "update: fast-forwarded to origin/main"; exit 0; \
+	@git fetch origin; \
+	if git merge --ff-only origin/main 2>/dev/null; then \
+		echo "update: fast-forwarded to origin/main"; \
+	elif git merge --no-edit origin/main 2>/dev/null; then \
+		echo "update: merged origin/main"; \
+	else \
+		conflicts=$$(git ls-files -u | cut -f2 | sort -u); \
+		if [ -n "$$conflicts" ]; then \
+			exec $$EDITOR "$$PWD" $$conflicts; \
+		fi; \
+		echo "update: merge blocked by local changes; staging for commit" >&2; \
+		git add -A; \
+		modified=$$(git diff --staged --name-only); \
+		exec $$EDITOR "$$PWD" $$modified; \
 	fi
-	@if git merge --no-edit origin/main 2>/dev/null; then \
-		echo "update: merged origin/main"; exit 0; \
-	fi
-	@conflicts=$$(git ls-files -u | cut -f2 | sort -u); \
-		exec $$EDITOR "$$PWD" $$conflicts
 
 # upload — push commits if the worktree is clean; otherwise stage everything
 # and launch $EDITOR with the current directory plus each modified file.
+# If there are staged changes but nothing unstaged/untracked, commit them
+# directly without opening an editor.
 upload:
 	@untracked=$$(git ls-files --others --exclude-standard); \
 	if git diff --quiet && git diff --staged --quiet && [ -z "$$untracked" ]; then \
@@ -58,12 +69,18 @@ upload:
 		fi; \
 		exit 0; \
 	fi; \
+	if git diff --quiet && [ -z "$$untracked" ] && ! git diff --staged --quiet; then \
+		echo "upload: committing staged changes"; \
+		git commit --no-edit && git push; \
+		exit 0; \
+	fi; \
 	git add -A; \
 	modified=$$(git diff --staged --name-only); \
 	exec $$EDITOR "$$PWD" $$modified
 
 # sync — perform update followed by upload only if update succeeded.
-sync: update
+sync:
+	@$(MAKE) update
 	@$(MAKE) upload
 
 # wm — install the window-manager stack (herbstluftwm session, status bar,
