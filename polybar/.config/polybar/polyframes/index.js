@@ -24,7 +24,11 @@ const { render } = require("./render");
 const actions = require("./actions");
 const { ui, isVerbose } = require("./debug");
 
-const SELF = `node ${__filename}`;
+// Click actions must run through the JS shim, because polybar's
+// environment does not include the nvm node bin dir. NOTE: the shim is
+// ~/.config/polybar/scripts/polyframes.sh — NOT ~/.local/bin/polyframes.sh,
+// which is the legacy shell implementation (stowed from herbst/.local/bin).
+const SELF = `bash ${process.env.HOME}/.local/bin/polyframes.sh`;
 
 async function printBar() {
     ui("printBar: start");
