@@ -30,11 +30,17 @@ services:
 	@systemctl --user daemon-reload 2>/dev/null || \
 		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
 
-# update — safely pull the latest changes from origin. If merge errors occur,
+# update — safely pull the latest changes from origin. Prefers a fast-forward
+# merge; falls back to a normal merge. Only if real conflicts occur does it
 # launch $EDITOR with the current directory plus each conflicting file.
 update:
 	@git fetch origin
-	@git merge --no-edit origin/main 2>/dev/null && exit 0
+	@if git merge --ff-only origin/main 2>/dev/null; then \
+		echo "update: fast-forwarded to origin/main"; exit 0; \
+	fi
+	@if git merge --no-edit origin/main 2>/dev/null; then \
+		echo "update: merged origin/main"; exit 0; \
+	fi
 	@conflicts=$$(git ls-files -u | cut -f2 | sort -u); \
 		exec $$EDITOR "$$PWD" $$conflicts
 
