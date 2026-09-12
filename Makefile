@@ -38,16 +38,23 @@ update:
 	@conflicts=$$(git ls-files -u | cut -f2 | sort -u); \
 		exec $$EDITOR "$$PWD" $$conflicts
 
-# upload — push commits only if the directory is clean. Otherwise, stage
-# everything and launch $EDITR with the current directory plus each modified file.
+# upload — push commits if the worktree is clean; otherwise stage everything
+# and launch $EDITOR with the current directory plus each modified file.
 upload:
-	@if git diff --quiet && git diff --staged --quiet; then \
-		echo "upload: nothing to push"; \
+	@untracked=$$(git ls-files --others --exclude-standard); \
+	if git diff --quiet && git diff --staged --quiet && [ -z "$$untracked" ]; then \
+		if git rev-list --count '@{u}..HEAD' >/dev/null 2>&1 && \
+			[ "$$(git rev-list --count '@{u}..HEAD')" -gt 0 ]; then \
+			echo "upload: pushing $(shell git branch --show-current)"; \
+			git push; \
+		else \
+			echo "upload: nothing to push"; \
+		fi; \
 		exit 0; \
-	fi
-	@git add -A
-	@modified=$$(git diff --name-only); \
-		$$EDITOR "$$PWD" $$modified
+	fi; \
+	git add -A; \
+	modified=$$(git diff --staged --name-only); \
+	exec $$EDITOR "$$PWD" $$modified
 
 # sync — perform update followed by upload only if update succeeded.
 sync: update
