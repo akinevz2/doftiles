@@ -372,7 +372,7 @@ async function centerInFrame(wid, frame) {
 /**
  * Middle click state machine:
  *   unminimized + floating -> unfloat (tile it)
- *   unminimized + tiling   -> minimize (float + minimize, prune empty frame)
+ *   unminimized + tiling   -> minimize (stays tiled, prune empty frame)
  *   minimized + floating   -> unminimize + unfloat
  *   minimized + tiling     -> unminimize only
  */
@@ -393,8 +393,11 @@ async function minimize(wid) {
     if (!min) {
         const clients =
             (await hc.attr(`clients.${wid}.parent_frame.client_count`)) ?? "1";
+        // Minimize WITHOUT floating: hlwm >= 0.9.5 keeps a minimized
+        // window tiled, so the tiling preference survives the cycle and
+        // unminimize restores it into the frame as-is.
+        ui("minimize: %s unminimized tiling -> minimize (stays tiled)", wid);
         await hc.setAttr(`clients.${wid}.minimized`, "true");
-        await hc.setAttr(`clients.${wid}.floating`, "true");
         if (Number(clients) <= 1) hc.remove();
         return;
     }

@@ -28,4 +28,21 @@ unset WAYLAND_DISPLAY
 DIR=$(cd "$HOME/.config/polybar/polyframes" && pwd)
 NODE=$(which node)
 
-exec "$NODE" "$DIR/index.js" "$@"
+# Polybar runs under the systemd user manager and never sources nvm's
+# shell init, so `which node` can come up empty (the shim then dies with
+# a cryptic "31: : Permission denied" from exec'ing ""). Fall back to the
+# nvm install (newest version wins), then to a fixed local symlink.
+if [ -z "$NODE" ] || [ ! -x "$NODE" ]; then
+    for n in "$HOME"/.config/nvm/versions/node/*/bin/node; do
+        [ -x "$n" ] && NODE=$n
+    done
+fi
+if [ -z "$NODE" ] || [ ! -x "$NODE" ]; then
+    NODE="$HOME/.local/bin/node"
+fi
+if [ ! -x "$NODE" ]; then
+    echo "polyframes: node not found (PATH lacks nvm; no ~/.local/bin/node)" >&2
+    exit 127
+fi
+
+exec "$NODE" "$DIR/index.js" "$@" 
