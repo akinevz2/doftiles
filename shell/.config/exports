@@ -30,7 +30,7 @@ if [[ $(hostname) == WS* ]]; then
     export DONT_PROMPT_WSL_INSTALL=true
 fi
 
-export PATH=$LOCAL_BIN:$PATH
+export PATH="$LOCAL_BIN:$PATH"
 
 # Terminal preference for mail notifications
 export TERMINAL="alacritty"
