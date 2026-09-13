@@ -5,7 +5,7 @@
 SHELL  := /bin/bash
 STOW   := stow
 
-.PHONY: bash git install services wm update upload sync
+.PHONY: bash git install services wm update upload sync system
 
 install: bash opencode
 
@@ -88,6 +88,35 @@ sync:
 # Fails early if any required system binary is missing.
 WM_PACKAGES := herbst services polybar rofi compton dunst alacritty
 WM_BINARIES := herbstluftwm herbstclient compton polybar rofi hsetroot xset dunst
+
+# system — install system-wide packages (system-*) using sudo stow.
+# Lists files to be deployed, then requests confirmation before
+# restowing to the root filesystem.
+SYSTEM_PACKAGES := $(shell ls -d system-* 2>/dev/null)
+
+system:
+	@echo "system: packages to be installed:"; \
+	for pkg in $(SYSTEM_PACKAGES); do \
+		echo "  $$pkg"; \
+	done; \
+	if [ -z "$(SYSTEM_PACKAGES)" ]; then \
+		echo "system: no system-* packages found"; \
+		exit 0; \
+	fi; \
+	echo ""; \
+	echo "The following files will be deployed to /:"; \
+	for pkg in $(SYSTEM_PACKAGES); do \
+		echo "  Deploying $$pkg:"; \
+		stow -n -v -R -t / "$$pkg" 2>&1 | grep "^LINK:" | cut -d' ' -f2 | sed 's/^/\//'; \
+	done; \
+	read -p "Continue with system installation? [y/N] " confirm; \
+	if echo "$$confirm" | grep -iq "y"; then \
+		sudo stow -R -t / $(SYSTEM_PACKAGES); \
+		echo "system: stow completed"; \
+	else \
+		echo "system: cancelled"; \
+		exit 1; \
+	fi
 
 wm: services
 	@missing=""; \

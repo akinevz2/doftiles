@@ -1,0 +1,12 @@
+[Unit]
+Description=Check for MSI* temp directories on Windows drives
+After=multi-user.target
+ConditionPathExists=/mnt/c
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/check-msi-dirs.sh
+User=root
+
+[Install]
+WantedBy=multi-user.target

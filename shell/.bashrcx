@@ -110,17 +110,36 @@ esac
 # remoteEnv, so we must NOT clobber it here.
 # ─── ssh-agent (use systemd socket, don't launch our own) ────────────────────
 # systemd's ssh-agent.socket listens on a fixed path; just export it and add keys.
-if [ -x "$HOME/.local/bin/check-wsl" ] && "$HOME/.local/bin/check-wsl"; then
-    export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/openssh_agent"
-    # Add default keys if the agent is running but empty.
-    if [ -S "$SSH_AUTH_SOCK" ] && ! ssh-add -l >/dev/null 2>&1; then
-        for _key in "$HOME"/.ssh/id_ed25519 "$HOME"/.ssh/id_rsa; do
-            [ -f "$_key" ] && ssh-add "$_key" 2>/dev/null
-        done
-        unset _key
-    fi
-fi
+# NOTE: commented out until fully configured in stow
+#if [ -x "$HOME/.local/bin/check-wsl" ] && "$HOME/.local/bin/check-wsl"; then
+#    export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/openssh_agent"
+#    # Add default keys if the agent is running but empty.
+#    if [ -S "$SSH_AUTH_SOCK" ] && ! ssh-add -l >/dev/null 2>&1; then
+#        for _key in "$HOME"/.ssh/id_ed25519 "$HOME"/.ssh/id_rsa; do
+#            [ -f "$_key" ] && ssh-add "$_key" 2>/dev/null
+#        done
+#        unset _key
+#    fi
+#fi
 
 # ─── exports & aliases ───────────────────────────────────────────────────────
 [ -f "$HOME/.exports"  ] && source "$HOME/.exports"
 [ -f "$HOME/.aliases"  ] && source "$HOME/.aliases"
+
+# ─── MOTD display ───────────────────────────────────────────────────────────
+# Show MOTD on first shell after boot, or when mail exists.
+# Uses a marker file in /tmp to track if we've already shown MOTD this session.
+_show_motd() {
+    local _motd_marker="/tmp/.motd_shown_${PPID}"
+    local _mail_spool="/var/mail/${USER:-root}"
+
+    # Check if we should show MOTD:
+    # 1. Marker doesn't exist (first shell), OR
+    # 2. Mail file exists and is newer than marker (new mail)
+    if [ ! -f "$_motd_marker" ] || { [ -f "$_mail_spool" ] && [ "$_mail_spool" -nt "$_motd_marker" ]; }; then
+        cat /etc/motd 2>/dev/null || true
+        touch "$_motd_marker"
+    fi
+}
+# Only show MOTD in interactive shells
+case $- in *i*) _show_motd ;; esac

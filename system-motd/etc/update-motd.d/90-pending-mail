@@ -1,0 +1,7 @@
+#!/bin/bash
+# Print pending mail from mail spool
+# This script is called by update-motd.d during login
+
+if [ -f /var/mail/$USER ] || [ -f /var/spool/mail/$USER ]; then
+    mail -H 2>/dev/null || true
+fi
