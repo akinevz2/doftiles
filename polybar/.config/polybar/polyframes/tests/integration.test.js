@@ -276,9 +276,10 @@ test("integration: 2-frame split, frames showing different window classes", asyn
         const labels = bar.split(/%{F#888888}·%{F-}/);
         assert.equal(labels.length, 2);
         for (const label of labels) {
-            assert.match(label, /%{A1:node index\.js raise_or_minimize 0x[0-9a-f]+:}/,
-                "count==1 groups use raise_or_minimize");
-            assert.match(label, /%{A4:node index\.js scroll_focus [01] "/);
+            assert.match(label, /%{A1:node index\.js toggle_focus 0x[0-9a-f]+:}/,
+                "count==1 groups use toggle_focus");
+            assert.match(label, /%{A4:node index\.js scroll_focus 0x[0-9a-f]+ up:}/,
+                "scroll actions carry the representative wid");
         }
     } finally {
         await teardown();

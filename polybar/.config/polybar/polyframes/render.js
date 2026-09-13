@@ -100,14 +100,14 @@ function render(groups, onClick, settings = {}) {
 
         if (shown !== 0) out += sep;
 
-        // On-click actions. A1: lone window -> raise_or_minimize; group ->
+        // On-click actions. A1: lone window -> toggle_focus; group ->
         // switcher scoped to frame + class. Frame/class are quoted so
         // polybar passes them as separate argv items.
         // A2 (right): hc_menu rofi menu on the representative window.
         // A3 (middle): minimize without floating (unminimize+menu when
         // already minimized).
         if (g.count === 1) {
-            out += `%{A1:${onClick} raise_or_minimize ${g.rep}:}`;
+            out += `%{A1:${onClick} toggle_focus ${g.rep}:}`;
         }
         if (g.count > 1) {
             out += `%{A1:${onClick} switcher ${g.frame} "${g.cls}":}`;
@@ -115,10 +115,13 @@ function render(groups, onClick, settings = {}) {
         // A2 (right): minimize without floating (unminimize+menu when
         // already minimized).
         // A3 (middle): hc_menu rofi menu on the representative window.
-        out += `%{A2:${onClick} minimize ${g.rep}:}`;
+        out += `%{A2:${onClick} dismiss ${g.rep}:}`;
         out += `%{A3:${onClick} menu ${g.rep}:}`;
-        out += `%{A4:${onClick} scroll_focus ${g.frame} "${g.cls}" up:}`;
-        out += `%{A5:${onClick} scroll_focus ${g.frame} "${g.cls}" down:}`;
+        // Scroll actions carry the representative WID, not frame+class —
+        // the handler re-resolves the window's frame/class live at
+        // click time, so the group membership is always current.
+        out += `%{A4:${onClick} scroll_focus ${g.rep} up:}`;
+        out += `%{A5:${onClick} scroll_focus ${g.rep} down:}`;
         out += name;
         out += "%{A}%{A}%{A}%{A}%{A}";
 
@@ -127,9 +130,16 @@ function render(groups, onClick, settings = {}) {
 
     if (total > s.max_windows) out += `+${total - s.max_windows}`;
     if (total === 0) {
-        // Empty desktop: left click launches the rofi_tags workspace
-        // switcher (all tags, scroll to cycle, click to jump).
-        out += `%{A1:rofi_tags:}${s.empty_desktop_message}%{A}`;
+        // Empty desktop — consistent with single-window group handling:
+        // left click -> hidden windows selector (rofi_hidden), like
+        // toggle_focus's unminimize step; right click -> window
+        // switcher (rofi_windows), like dismiss/menu's window ops;
+        // scroll up -> app launcher (rofi_launch); scroll down -> tag
+        // switcher (rofi_tags). All bare commands exec'd by polybar
+        // directly; the scripts guard WAYLAND_DISPLAY themselves.
+        out += `%{A1:rofi_windows:}%{A3:rofi_launch:}`
+            + `%{A4:rofi_hidden:}%{A5:rofi_tags:}`
+            + `${s.empty_desktop_message}%{A}%{A}%{A}%{A}`;
     }
     dbg("render: shown=%d total=%d, bar length=%d", shown, total, out.length);
     dir("format", "bar", out);

@@ -8,8 +8,8 @@
 //                               frames,format (comma-separated).
 //   node index.js <action> [args...]
 //       switcher <frame> <class>
-//       scroll_focus <frame> <class> <up|down>
-//       raise_or_minimize <wid>
+//       scroll_focus <wid> <up|down>
+//       toggle_focus <wid>
 //       close <wid>
 //       window_ops <wid>
 //       toggle <wid>
@@ -129,10 +129,10 @@ async function main(argv) {
     const table = {
         switcher: actions.switcher,
         scroll_focus: actions.scrollFocus,
-        raise_or_minimize: actions.raiseOrMinimize,
+        toggle_focus: actions.toggleFocus,
         close: actions.close,
         toggle: actions.toggle,
-        minimize: actions.minimize,
+        dismiss: actions.dismiss,
         menu: actions.menu,
     };
     const handler = table[fn];

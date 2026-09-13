@@ -86,7 +86,7 @@ test("left click: lone window raises/minimizes itself; multi-window group opens 
     const bar = render(groups, ONCLICK);
 
     // The minimized Alacritty is a solo label -> A1 carries its wid.
-    assert.match(bar, /%{A1:node index\.js raise_or_minimize 0xm\d+:}/);
+    assert.match(bar, /%{A1:node index\.js toggle_focus 0xm\d+:}/);
     // Tiled groups -> A1 carries frame + quoted class.
     assert.match(bar, /%{A1:node index\.js switcher 0 "code":}/);
     assert.match(bar, /%{A1:node index\.js switcher 1 "Alacritty":}/);
@@ -96,17 +96,17 @@ test("right click minimizes without floating; middle click opens hc_menu", async
     const groups = await groupClients(CLIENTS, "", selFn);
     const bar = render(groups, ONCLICK);
 
-    assert.match(bar, /%{A2:node index\.js minimize 0xa2:}/);
+    assert.match(bar, /%{A2:node index\.js dismiss 0xa2:}/);
     assert.match(bar, /%{A3:node index\.js menu 0xa2:}/);
 });
 
-test("scroll handlers are scoped to the label's frame and class, with explicit direction", async () => {
+test("scroll handlers carry the label's representative wid, with explicit direction", async () => {
     const groups = await groupClients(CLIENTS, "", selFn);
     const bar = render(groups, ONCLICK);
 
-    assert.match(bar, /%{A4:node index\.js scroll_focus 0 "code" up:}/);
-    assert.match(bar, /%{A5:node index\.js scroll_focus 0 "code" down:}/);
-    assert.match(bar, /%{A4:node index\.js scroll_focus 1 "Alacritty" up:}/);
+    assert.match(bar, /%{A4:node index\.js scroll_focus 0xa2 up:}/);
+    assert.match(bar, /%{A5:node index\.js scroll_focus 0xa2 down:}/);
+    assert.match(bar, /%{A4:node index\.js scroll_focus 0xb1 up:}/);
 });
 
 test("the globally focused window's label is visually distinguished (focused format)", async () => {
@@ -140,8 +140,8 @@ test("forbidden classes are never rendered", async () => {
     assert.equal(render(groups, ONCLICK), "");
 });
 
-test("empty desktop renders the placeholder message with a rofi_tags click handler", () => {
-    assert.equal(render([], ONCLICK), "%{A1:rofi_tags:}Desktop%{A}");
+test("empty desktop renders the placeholder message with rofi_hidden (A1), rofi_windows (A3), rofi_tags (A4) and rofi_launch (A5) click handlers", () => {
+    assert.equal(render([], ONCLICK), "%{A1:rofi_hidden:}%{A3:rofi_windows:}%{A4:rofi_tags:}%{A5:rofi_launch:}Desktop%{A}%{A}%{A}%{A}");
 });
 
 test("titles are truncated to char_limit with an ellipsis", async () => {
