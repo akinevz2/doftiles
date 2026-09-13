@@ -31,3 +31,6 @@ if [[ $(hostname) == WS* ]]; then
 fi
 
 export PATH=$LOCAL_BIN:$PATH
+
+# Terminal preference for mail notifications
+export TERMINAL="alacritty"
