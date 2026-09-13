@@ -9,6 +9,19 @@ configuration {
 	display-ssh: " SSH";
 	display-drun: " Applications";
 	display-combi: " ";
+	click-to-exit: true;
+	/* Rows are only highlighted by keyboard/click, never by pointer
+	   motion: scrolling confirms immediately, so a row followed by
+	   the pointer would change the target on the way out */
+	hover-select: true;
+	/* Allow the selected row option from script mode to set the
+	   initially-highlighted row (current workspace) */
+	auto-select: true;
+	/* Disable MousePrimary as an entry selector. Without this you can't
+	   use MousePrimary as an entry acceptor. */
+	me-select-entry: "";
+	/* Accept an entry with a single left click */
+	me-accept-entry: [ MousePrimary, MouseDPrimary ];
 }
 
 * {
