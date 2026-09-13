@@ -2,9 +2,11 @@
     ### Display ###
 
     # Which monitor should the notifications be displayed on.
-    monitor = DisplayPort-1
+    # 0 means current monitor (follows mouse pointer if follow=mouse)
 
-    # Display notification on focused monitor.  Possible modes are:
+    monitor = 0
+
+    # Display notification on focused monitor. Possible modes are:
     #   mouse: follow mouse pointer
     #   keyboard: follow window with keyboard focus
     #   none: don't follow anything
@@ -15,11 +17,13 @@
     #
     # If this option is set to mouse or keyboard, the monitor option
     # will be ignored.
-    follow = none
+    follow = mouse
 
     # The geometry of the window:
     #   [{width}]x{height}[+/-{x}+/-{y}]
     # The geometry of the message window.
+    # Positioned bottom-right, above polybar
+    geometry = "500x0-500+15"
     # The height is measured in number of notifications everything else
     # in pixels.  If the width is omitted but the height is given
     # ("-geometry x2"), the message window expands over the whole screen
@@ -29,7 +33,6 @@
     # the top and down respectively.
     # The width can be negative.  In this case the actual width is the
     # screen width minus the width defined in within the geometry option.
-    geometry = "630x7-7-30"
 
     # Show how many messages are currently hidden (because of geometry).
     indicate_hidden = no
@@ -46,7 +49,6 @@
     # The height of the entire notification.  If the height is smaller
     # than the font height and padding combined, it will be raised
     # to the font height and padding.
-    notification_height = 0
 
     # Draw a line of "separator_height" pixel height between two
     # notifications.
@@ -54,10 +56,14 @@
     separator_height = 1
 
     # Padding between text and separator.
-    padding = 25
+    padding = 15
 
     # Horizontal padding.
     horizontal_padding = 50
+
+    # Where the notification appears relative to the screen.
+    # Possible values: top-left, top-center, top-right, middle-left, middle-center, middle-right, bottom-left, bottom-center, bottom-right
+    origin = bottom-right
 
     # Defines width in pixels of frame around the notification window.
     # Set to 0 to disable.
@@ -86,7 +92,7 @@
 
     ### Text ###
 
-    font = Fira Code 14
+    font = Ubuntu Mono 12
 
     # The spacing between lines.  If the height is smaller than the
     # font height, it will get raised to the font height.
@@ -196,20 +202,6 @@
 
     # Define the class of the windows spawned by dunst
     class = Dunst
-
-    # Print a notification on startup.
-    # This is mainly for error detection, since dbus (re-)starts dunst
-    # automatically after a crash.
-    startup_notification = false
-
-    # Manage dunst's desire for talking
-    # Can be one of the following values:
-    #  crit: Critical features. Dunst aborts
-    #  warn: Only non-fatal warnings
-    #  mesg: Important Messages
-    #  info: all unimportant stuff
-    # debug: all less than unimportant stuff
-    verbosity = mesg
 
     # Define the corner radius of the notification window
     # in pixel size. If the radius is 0, you have no rounded
