@@ -10,9 +10,9 @@ if [ -z "$mail_content" ]; then
 fi
 
 if command -v herbstclient >/dev/null 2>&1; then
-    herbstclient spawn "$TERMINAL" -e "$SHELL" -c "mail -p; exec $SHELL"
+    herbstclient spawn "$TERMINAL" -e "$SHELL" -c "mail -p; exec $SHELL -c mail"
 elif command -v "$TERMINAL" >/dev/null 2>&1; then
-    $TERMINAL -e "$SHELL" -c "mail -p; exec $SHELL"
+    $TERMINAL -e "$SHELL" -c "mail -p; exec $SHELL -c mail"
 else
     mail -p 2>/dev/null || echo "No mail client available"
 fi

@@ -1,6 +1,6 @@
 [Unit]
 Description=compton compositor (inside VcXsrv)
-After=herbst.target
+After=herbst.service
 Requires=basic.target
 BindsTo=herbst.service
 
