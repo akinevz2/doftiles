@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# hc_floatx — Mod-x "float/fix" behaviour.
+#
+# Precedence:
+# 1. un-float the focused float
+# 2. focus a floating window, clean it, center it in its frame
+# 3. multiframe + non-max algorithm: float the whole frame group
+#    preserving geometry
+# 4. center + float the focused tiling window (in its frame)
+# 5. nothing applicable → use_previous
+#
+# Runs unlocked: none of these steps needs a lock, and a failed
+# command inside "chain ! lock ... ! unlock" skips the unlock and
+# freezes the WM (lesson from 2026-09-12).
+
+set -uo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+hc() { herbstclient "$@"; }
+
+# Read the focused window's float state unconditionally — a floating
+# window is focused even when the focused frame has zero tiling
+# clients, so guarding this on frame_clients would skip the un-float
+# branch entirely.
+focus_float=$(hc attr clients.focus.floating_effectively 2>/dev/null || echo "")
+
+# floating_effectively prints true/false (not 1/0) via attr
+if [ "$focus_float" = "1" ] || [ "$focus_float" = "true" ]; then
+    # 1. un-float ALL floating windows on the focused tag, then
+    #    restore focus to the originally focused window
+    orig=$("$HOME/.local/bin/hc_current")
+    tag=$(hc attr clients.focus.tag 2>/dev/null)
+    if [ "$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)" -eq 1 ]; then
+        "$HOME/.local/bin/hc_tile" "$orig" 2>/dev/null
+    fi
+    for winid in $(hc attr clients | grep -oE '0x[0-9a-f]+' | sort -u); do
+        if [ "$(hc attr "clients.$winid.tag" 2>/dev/null)" = "$tag" ] \
+           && [ "$(hc attr "clients.$winid.floating" 2>/dev/null)" = "true" ]; then
+            hc attr "clients.$winid.fullscreen" off 2>/dev/null
+            hc attr "clients.$winid.pseudotile" off 2>/dev/null
+            hc attr "clients.$winid.floating" off 2>/dev/null
+        fi
+    done
+    # restore focus to the originally focused window; if the focused
+    # frame holds exactly one window (the un-floated one), navigate to
+    # the closest empty frame (or split a new one) so it tiles alone
+    [ -n "$orig" ] && hc bring "$orig" 2>/dev/null
+    exit 0
+fi
+
+if hc attr tags.focus.floating_focused on 2>/dev/null; then
+    # 2. focus a floating window, clean it, center it in its frame
+    hc attr clients.focus.fullscreen off 2>/dev/null
+    hc attr clients.focus.pseudotile off 2>/dev/null
+    "$HOME/.local/bin/hc_center" frame 2>/dev/null
+    exit 0
+fi
+
+frame_count=$(hc attr tags.focus.frame_count)
+algo=$(hc attr tags.focus.tiling.focused_frame.algorithm 2>/dev/null || echo "")
+
+if [ "$frame_count" -gt 1 ] && [ "$algo" != "max" ]; then
+    # 3. multiframe + non-max: float the whole frame group, preserving
+    #    each window's geometry (same dance as hc_focus used to do)
+    focus_winid=$("$HOME/.local/bin/hc_current")
+    frame=$("$HOME/.local/bin/hc_current" "parent_frame.index")
+    # Split a concatenated frame index ("012") into a dotted path
+    # ("0.1.2") under tags.focus.tiling.root
+    parent_frame="tags.focus.tiling.root"
+    for (( i=0; i<${#frame}; i++ )); do
+        parent_frame+=".${frame:$i:1}"
+    done
+    # Grandparent: same path minus the last index component
+    gp_idx=${frame%?}
+    gp_path="tags.focus.tiling.root"
+    for (( i=0; i<${#gp_idx}; i++ )); do
+        gp_path+=".${gp_idx:$i:1}"
+    done
+    grandparent_split=$(hc attr "${gp_path}.split_type" 2>/dev/null || echo "")
+    parent_algo=$(hc attr "${parent_frame}.algorithm" 2>/dev/null || echo "")
+    if [ "$parent_algo" = "max" ]; then
+        hc attr "${parent_frame}.algorithm" grid 2>/dev/null
+    elif [ "$grandparent_split" = "vertical" ]; then
+        hc attr "${parent_frame}.algorithm" horizontal 2>/dev/null
+    elif [ "$grandparent_split" = "horizontal" ]; then
+        hc attr "${parent_frame}.algorithm" vertical 2>/dev/null
+    fi
+    if hc compare "${parent_frame}.algorithm" "=" "grid" 2>/dev/null; then
+        hc attr tags.focus.tiling.focused_frame.selection 0 2>/dev/null
+    fi
+    path=$("$HOME/.local/bin/hc_get-frame-path" "$frame")
+    for winid in $(hc list_clients --frame="$path"); do
+        geom=$(hc attr "clients.$winid.content_geometry" 2>/dev/null)
+        [ -n "$geom" ] && hc attr "clients.$winid.floating_geometry" "$geom" 2>/dev/null
+    done
+    for winid in $(hc list_clients --frame="$path"); do
+        hc attr "clients.$winid.floating" on 2>/dev/null
+    done
+    hc attr "${parent_frame}.algorithm" "$parent_algo" 2>/dev/null
+    hc bring "$focus_winid" 2>/dev/null
+    hc jumpto "$focus_winid" 2>/dev/null
+    # NOTE: the frame the group floated out of is intentionally KEPT —
+    # un-floating (branch 1) puts them all back into it
+    exit 0
+fi
+
+frame_clients=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
+if [ "$frame_clients" -gt 0 ]; then
+    # 4. center + float the focused tiling window (in its frame)
+    "$HOME/.local/bin/hc_center" frame 2>/dev/null
+    hc attr clients.focus.floating on 2>/dev/null
+    if [ "$frame_count" -gt 1 ] \
+       && [ "$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)" -lt 1 ]; then
+        hc remove 2>/dev/null
+    fi
+    exit 0
+fi
+
+hc use_previous

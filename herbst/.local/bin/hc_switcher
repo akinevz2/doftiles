@@ -71,35 +71,20 @@ done
 
 count=$#
 
+# -format i makes rofi print the selected ROW INDEX (-1 on cancel)
+# instead of the line text — duplicate titles in a group would
+# otherwise all match the first row in a text comparison.
 choice=$(rofi -dmenu -i -l "$count" \
+    -format i \
     -selected-row "$selrow" \
     -theme "$HOME/.config/rofi/window-switcher.rasi" \
     -theme-str "window { width: ${width}em; }" \
     -p "$cls" < "$MENU_FILE") || exit 0
 
 [ -n "$choice" ] || exit 0
+[ "$choice" -ge 0 ] 2>/dev/null || exit 0
 
-# Row index of the choice: strip any indicator prefix ("-> " or "* ")
-# and match by exact line.
-plain=$choice
-plain=${plain#"-> "}
-plain=${plain#"* "}
-row=0
-found=""
-while IFS= read -r line; do
-    cmp=$line
-    cmp=${cmp#"-> "}
-    cmp=${cmp#"* "}
-    if [ "$cmp" = "$plain" ]; then
-        found=$row
-        break
-    fi
-    row=$(( row + 1 ))
-done < "$MENU_FILE"
-
-[ -n "$found" ] || exit 0
-
-target=${WIDS[$found]}
+target=${WIDS[$choice]}
 
 # Execute the focus change here — the caller is detached and never
 # reads our stdout. jumpto handles unminimize + raise implicitly.

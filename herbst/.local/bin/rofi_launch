@@ -1,0 +1,11 @@
+#!/bin/sh
+# rofi_launch — the app launcher (same command as the WM autostart's
+# $APPLAUNCHER keybind). Invoked directly by polybar as a bare command
+# from the polyframes empty-desktop A2 click action.
+
+# WSLg exposes a Wayland socket that dual-backend rofi autodetects —
+# it then aborts with "requires the layer shell protocol". This
+# session is X11-only; never let the variable reach rofi.
+unset WAYLAND_DISPLAY
+
+exec rofi -modi drun,run -show drun -theme "${HOME}/.config/rofi/launcher.rasi" "$@"

@@ -27,25 +27,35 @@ dotpath() {
 }
 # Are we currently sitting on a floating window?
 floating_focused=$(hc attr tags.focus.floating_focused 2>/dev/null || echo false)
-focus=$(hc attr clients.focus.winid)
+# With no tiling windows on the tag there is no focused client at
+# all — clients.focus.* reads fail and set -e would kill the script
+# before the float branches run. Tolerate that.
+focus=$(hc attr clients.focus.winid 2>/dev/null || echo "")
 frame_count=$(hc attr tags.focus.frame_count)
 count=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
 
 addlog enter
 
+# Guarantee the WM is never left locked: with set -e, ANY failing
+# command between lock and unlock would abort the script and leak the
+# lock (WM appears frozen). The trap releases it on every exit path.
 hc lock
-hc attr clients.focus.pseudotile off || true
+hc_unlocked=0
+unlock() {
+    addlog unlocking
+    [ "$hc_unlocked" -eq 0 ] && herbstclient unlock && hc_unlocked=1 || true
+}
+trap unlock EXIT
+[ -n "$focus" ] && hc attr clients.focus.pseudotile off || true
 
 addlog test-isfloating
 if [ "$floating_focused" = "true" ]; then
     addlog focus is floating
-    # A float is accessible right now: focus it (already focused), then
-    # un-float it and restore the tiling underneath.
-    hc chain \
-        . attr clients.focus.floating off \
-        . unlock \
-        . attr tags.focus.floating_focused on && "$HOME/.local/bin/hc_focus" || exit 0
-    hc jumpto $focus
+    # Un-float the focused float, then re-enter the floating layer if
+    # another float remains — repeated Mod-f unfloats them one by one.
+    hc attr clients.focus.floating off || true
+    hc unlock
+    hc_unlocked=1
     exit 0
 fi
 
@@ -58,72 +68,49 @@ if [ "$floating_focused" = "false" ] && hc attr tags.focus.floating_focused togg
     addlog jumping to next floating
     addlog exiting
     hc unlock
+    hc_unlocked=1
     exit 0 
 fi
 
 addlog "frame_count $frame_count count $count"
-addlog test-multiframe?
-if [ "$frame_count" -gt 1 ] && [ "$count" -gt 0 ]; then
-    hc attr clients.focus.fullscreen off || true
-    "$HOME/.local/bin/hc_center"
+algo=$(hc attr tags.focus.tiling.focused_frame.algorithm 2>/dev/null || echo "")
+addlog "algo $algo"
+
+addlog test-fullscreen?
+# Lone, non-floating window in a max-layout frame with multiple frames
+# on screen: fullscreen gives more real estate than floating.
+if [ "$frame_count" -gt 1 ] && [ "$count" -eq 1 ] && [ "$algo" = "max" ]; then
+    addlog fullscreen lone window
+    hc attr clients.focus.fullscreen toggle || true
     hc unlock
+    hc_unlocked=1
     exit 0
 fi
 
-addlog test-multiclient?
-if [ "$count" -gt 1 ]; then
-   addlog multiple frames and focused has multiple clients
-    # Window is grouped in a frame: float the whole group (peek).
-    # If more windows in focus remain, jump to the next floating window.
-    frame=$("$HOME/.local/bin/hc_current" "parent_frame.index")
-    # Split a concatenated frame index ("012") into a dotted path
-    # ("0.1.2") so it can be used under tags.focus.tiling.root.
-
-    # Grandparent frame: drop the last index component ("012" -> "01").
-    # Flip this frame's algorithm if it is misaligned with the
-    # grandparent's split direction.
-    parent_frame=$(dotpath "$frame")
-    addlog "parent_frame $parent_frame"
-    grandparent_frame=${frame%?}
-    grandparent_frame=$(dotpath "$grandparent_frame")
-    addlog "grandparent_frame $grandparent_frame"
-    grandparent_split=$(hc attr "${grandparent_frame}.split_type" 2>/dev/null || echo "")
-    addlog "grandparent_split $grandparent_split"
-    parent_algo=$(hc attr "${parent_frame}.algorithm" 2>/dev/null || echo "")
-    addlog "parent_algo $parent_algo"
-    hc unlock
-    if [ "$grandparent_split" = "vertical" ]; then
-        hc attr "${parent_frame}.algorithm" horizontal
-    elif [ "$grandparent_split" = "horizontal" ]; then
-        hc attr "${parent_frame}.algorithm" vertical
-    elif [ "$parent_algo" = "max" ]; then
-        hc attr "${parent_frame}.algorithm" grid
+addlog basecase-float the focused window
+# Nothing reachable to focus and no group/fullscreen case: float the
+# focused window (centered), then we can Mod-f again to un-float it.
+# (focus is empty when there is no client at all — nothing to float.)
+if [ -n "$focus" ]; then
+    hc attr clients.focus.fullscreen off || true
+    # Resizable window (no fixed size hints): give it half the
+    # workspace's width and height before floating it.
+    # content_geometry is a single WxH+X+Y string (width first)
+    if [ "$(hc attr "clients.$focus.sizehints_floating" 2>/dev/null || echo false)" = "true" ]; then
+        geom=$(hc attr tags.focus.tiling.root.content_geometry)
+        addlog geom $geom
+        if [[ "$geom" =~ ^([0-9]+)x([0-9]+)\+([0-9]+)\+([0-9]+)$ ]]; then
+            ww=${BASH_REMATCH[1]}; wh=${BASH_REMATCH[2]}
+            wx=${BASH_REMATCH[3]}; wy=${BASH_REMATCH[4]}
+            w2=$((ww / 2)); h2=$((wh / 2))
+            x2=$((wx + (ww - w2) / 2)); y2=$((wy + (wh - h2) / 2))
+            hc attr "clients.$focus.floating_geometry" "${w2}x${h2}+${x2}+${y2}"
+        fi
     fi
-    if hc compare "${parent_frame}.algorithm" "=" "grid" 2>/dev/null; then
-        addlog we are griddy
-        hc attr tags.focus.tiling.focused_frame.selection 0
-    fi
-    path=$("$HOME/.local/bin/hc_get-frame-path" "$frame")
-    hc lock
-    while read -r winid geom; do
-        hc attr "clients.$winid.floating_geometry" "$geom"
-    done < <(
-        for winid in $(hc list_clients --frame="$path"); do
-            echo "$winid $("$HOME/.local/bin/hc_frameout" "$winid")"
-        done
-    )
-    for winid in $(hc list_clients --frame="$path"); do
-        hc attr "clients.$winid.floating" on
-    done
-    hc attr "${parent_frame}.algorithm" "${parent_algo}"
-    hc unlock
-    hc bring "$focus"
-    hc jumpto "$focus"
-    exit 0 
+    # center within the workspace (not the frame)
+    "$HOME/.local/bin/hc_center" root || true
+    hc attr clients.focus.floating on || true
 fi
-
-addlog basecase-fullscreen toggle
-hc attr clients.focus.fullscreen toggle || true
-hc attr clients.focus.floating off || true
 hc unlock
+hc_unlocked=1
 addlog finalexit

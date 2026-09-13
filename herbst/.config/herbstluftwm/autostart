@@ -57,7 +57,7 @@ herb spawn polybar single
 # TERMINAL="gnome-terminal --zoom 1.5"
 TERMINAL="alacritty"
 ROFITHEME=${HOME}/.config/rofi/launcher.rasi
-APPLAUNCHER="rofi -modi drun,run -show drun -theme ${ROFITHEME}"
+APPLAUNCHER="${HOME}/.local/bin/rofi_launch"
 SCREENSHOTTER="scrot"
 APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
 
@@ -93,7 +93,7 @@ keyreg $ModShift-e          chain . split horizontal . cycle_frame
 keyreg $Mod-s               chain : lock \
                                   :  or , jumpto urgent \
                                         , and ! compare tags.focus.curframe_wcount gt 1 \
-                                              ! cycle -1 \
+                                              ! cycle \
                                         , and . set_attr clients.focus.floating off \
                                                 . pseudotile toggle \
                                   : unlock                
@@ -112,7 +112,7 @@ keyreg $Mod-c       or \
                         , jumpto urgent
 keyreg $Mod-w       chain : lock : or , and \
                             ! compare tags.focus.curframe_wcount gt 1 \
-                            ! cycle \
+                            ! cycle -1 \
                        , focus --level=frame up \
                        , cycle_frame : unlock
 
@@ -129,25 +129,26 @@ keyreg $ModShift-d  or \
 keyreg $Mod-d   or \
                 , and \
                     . compare tags.focus.curframe_wcount gt 3 \
-                            . cycle_layout +1 max horizontal grid \
+                            . cycle_layout +1 max vertical grid horizontal \
                 , and \
                     . compare tags.focus.curframe_wcount = 2 \
                     . cycle_layout +1 vertical max grid \
-                , cycle_layout -1 grid max
+                , cycle_layout -1 vertical horizontal max
 
 # rotate layout
 # flip layout
 keyreg $Mod-r               or , and . compare tags.focus.curframe_wcount gt 1 . chain ! lock ! rotate ! rotate ! unlock , cycle_frame
 
-# peek floats; when the floating layer is empty (or every float is
-# hidden), offer the hidden windows via rofi
 keyreg $ModShift-z          attr clients.focus.minimized toggle
-keyreg $Mod-z               or \
-                                . attr tags.focus.floating_focused toggle \
-                                . spawn ~/.local/bin/rofi_hidden 
+# peek floats; when the floating layer is empty (or every float is
+# hidden), offer the hidden windows via rofi; rofi_hidden exits
+# non-zero when nothing is hidden, so fall back to the previous tag.
+# Wrapped in sh -c because "spawn" itself is always truthy — the or
+# chain has to see the script's exit code.
+keyreg $Mod-g               spawn sh -c '~/.local/bin/rofi_hidden || herbstclient use_previous'
 
 # tag switcher
-keyreg $Mod-g               spawn ~/.local/bin/rofi_tags
+keyreg $Mod-t               spawn ~/.local/bin/rofi_tags
 
 # contextual focus: peek-float frame groups, fullscreen lone windows,
 # toggle workspace floats; un-floats an accessible float first (hc_focus)
@@ -159,20 +160,11 @@ keyreg $Mod-f               spawn ~/.local/bin/hc_focus
 keyreg $ModCtrl-f          spawn ~/.local/bin/hc_full_focus
 keyreg $ModShift-f          attr tags.focus.floating toggle
 
-# fullscreen / float
-keyreg $Mod-x               chain \
-                            ! lock \
-                            ! or , try bring urgent \
-                                 , or : attr clients.focus.floating toggle \
-                                        : attr tags.focus.floating_focused on \
-                                 , spawn ~/.local/bin/hc_center \
-                            ! and , compare clients.focus.floating_effectively = 1 \
-                                  , chain . attr clients.focus.fullscreen off \
-                                          . attr clients.focus.pseudotile off \
-                                          . attr clients.focus.floating off \
-                                  , and : compare tags.focus.tiling.focused_frame.client_count lt 1 \
-                                        : remove \
-                            ! unlock
+# fullscreen / float — logic lives in hc_floatx: hlwm's or/and can't
+# express this (or doesn't accept "." separators, and it short-circuits
+# on a successful compare BEFORE reaching a later spawn in the same
+# branch — verified empirically). The script also needs no lock.
+keyreg $Mod-x               spawn ~/.local/bin/hc_floatx
 
 # split into direction
 keyreg $Mod-v               chain , split right  0.5 , cycle_frame

@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# hc_center — center the focused window within the focused frame.
-# Uses hc_current to resolve client attributes and
-# tags.focus.tiling.focused_frame.content_geometry as the target rect.
+# hc_center — center the focused window, PRESERVING its current size,
+# with clamping so it never overflows the target rect.
+# Usage: hc_center [frame|root]
+#   frame (default) — center within the focused frame
+#                    (tags.focus.tiling.focused_frame.content_geometry)
+#   root            — center within the workspace
+#                    (tags.focus.tiling.root.content_geometry)
 
 set -euo pipefail
 
@@ -12,7 +16,14 @@ herb() {
     herbstclient "$@"
 }
 
-frame_geom=$(herb attr tags.focus.tiling.root.content_geometry)
+target=${1:-root}
+case "$target" in
+    frame) geo_path=tags.focus.tiling.focused_frame.content_geometry ;;
+    root)  geo_path=tags.focus.tiling.root.content_geometry ;;
+    *) echo "hc_center: unknown target '$target' (use frame|root)" >&2; exit 1 ;;
+esac
+
+frame_geom=$(herb attr "$geo_path")
 [[ $frame_geom =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]] || {
     echo "hc_center: cannot parse frame geometry '$frame_geom'" >&2
     exit 1
@@ -24,9 +35,9 @@ fy=${BASH_REMATCH[4]}
 
 # Prefer the client's floating geometry; fall back to content geometry
 # when the window is tiled (floating_geometry is stale until floated).
-win_geom=$(hc_current content_geometry 2>/dev/null || true)
+win_geom=$(hc_current floating_geometry 2>/dev/null || true)
 if ! [[ $win_geom =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]]; then
-    win_geom=$(hc_current floating_geometry 2>/dev/null || true)
+    win_geom=$(hc_current content_geometry 2>/dev/null || true)
 fi
 [[ $win_geom =~ ^([0-9]+)x([0-9]+) ]] || {
     echo "hc_center: cannot parse window geometry '$win_geom'" >&2
@@ -35,8 +46,23 @@ fi
 ww=${BASH_REMATCH[1]}
 wh=${BASH_REMATCH[2]}
 
+# Bounds check: a window that doesn't FIT the target rect must be
+# shrunk to the rect's size — clamping position alone would still let
+# it extend far off-screen. Sizes that fit are preserved as-is.
+if [ "$ww" -gt "$fw" ]; then ww=$fw; fi
+if [ "$wh" -gt "$fh" ]; then wh=$fh; fi
+
+# Centered position within the target rect
 wx=$((fx + (fw - ww) / 2))
 wy=$((fy + (fh - wh) / 2))
+
+# Clamp: window can't start before or end after the target rect.
+# (After the shrink above, wx/wy are already inside — this is a
+# safety net for rounding and unexpected inputs.)
+if [ "$wx" -lt "$fx" ]; then wx=$fx; fi
+if [ $((wx + ww)) -gt $((fx + fw)) ]; then wx=$((fx + fw - ww)); fi
+if [ "$wy" -lt "$fy" ]; then wy=$fy; fi
+if [ $((wy + wh)) -gt $((fy + fh)) ]; then wy=$((fy + fh - wh)); fi
 
 winid=$(hc_current winid)
 

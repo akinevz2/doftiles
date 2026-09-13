@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
-# hc_tile — tile a (usually floating/minimized) client into the layout.
+# hc_tile — navigate to the closest empty frame, or create one.
 #
-# Usage: hc_tile <wid>
+# Usage: hc_tile [wid]
 #
-# Finds the closest empty frame related by parent to the window's frame:
-#   1. Walk the frame tree and collect all leaf frames (flat indexes).
-#   2. Prefer the empty leaf whose flat index shares the longest common
-#      prefix with the target's parent_frame.index (closest by parent).
-#   3. If no empty frame exists, perform `herbstclient split auto` to
-#      create one.
-# Then: unminimize + unfloat the window into that frame and focus it.
+#   a) If an empty leaf frame exists, focus the one whose flat index
+#      shares the longest common prefix with the window's
+#      parent_frame.index (closest by parent). No empty frame:
+#   b) `split auto` the focused frame and focus the new empty child.
+# Navigates/focuses frames ONLY — never touches client state.
 
 set -euo pipefail
 
@@ -21,7 +19,9 @@ herb() {
     herbstclient "$@"
 }
 
-WID=${1:?usage: hc_tile <wid>}
+# Optional: window whose parent frame the empty frame should be
+# closest to. Without it the ranking falls back to prefix length 0.
+WID=${1:-}
 
 # Dotted object path segment for a flat frame index ("00" -> "0.0").
 flat_to_dotted() {
@@ -57,24 +57,27 @@ common_prefix_len() {
 
 # --- main ---------------------------------------------------------------
 
-# A maximized window must be restored to its original tag/frame first —
-# its recorded location is where it belongs in the layout. hc_unmaximize
-# is a no-op (exit 0) for non-maximized windows.
-if [[ $(herb attr "clients.${WID}.tag" 2>/dev/null || echo "") == *-max ]]; then
-    exec "$HOME/.local/bin/hc_unmaximize" "$WID"
-fi
-
-# Everything from here happens under one lock: find/split the
-# destination frame, point the focused frame at it, then unminimize +
-# unfloat + bring (bring moves the window into the FOCUSED frame). The
-# lock guarantees no hook handler or keybind re-focuses a frame in
-# between, and the trap guarantees the lock is released even on error.
+# Under one lock: find/split the destination frame and point the
+# focused frame at it. The trap guarantees the lock is released even
+# on error.
 herb lock
 trap 'herb unlock' EXIT
 
-# The window's frame, read fresh under the lock (a minimized window has
-# no parent_frame -> treat as "" so the prefix ranking still works).
-frame=$(herb attr "clients.${WID}.parent_frame.index" 2>/dev/null) || frame=""
+# If the FOCUSED frame is already empty, there is nothing to navigate
+# to — stay put (navigating away would strand the caller's focus).
+if herb compare "tags.focus.curframe_wcount" "=" "0"; then
+    herb unlock
+    trap - EXIT
+    exit 0
+fi
+
+# Reference frame for the closeness ranking (a minimized window has no
+# parent_frame; empty wid -> "" so the ranking still works).
+if [ -n "$WID" ]; then
+    frame=$(herb attr "clients.${WID}.parent_frame.index" 2>/dev/null) || frame=""
+else
+    frame=$(herb attr tags.focus.tiling.focused_frame.index 2>/dev/null) || frame=""
+fi
 
 collect_leaves "" ""
 
@@ -94,17 +97,15 @@ for leaf in "${LEAVES[@]}"; do
     fi
 done
 
-herb set_attr "clients.${WID}.minimized" false
-
-herb chain \
-    . set_attr "clients.${WID}.floating" false \
-    . bring "$WID"
 if [ -z "$best" ]; then
-    # No empty frame: split the focused frame; the new (second) child is
-    # empty. Its flat index is the focused frame's index + "1".
-    herb split explode
-    focus_frame=$(herb attr tags.focus.tiling.focused_frame.index)
-    best="${focus_frame}1"
+    # No empty frame: split the focused frame and focus its new empty
+    # child. split auto REPLACES the focused frame with a split whose
+    # children are <old-index>0 (the old content) and <old-index>1
+    # (empty) — so the new empty leaf is the pre-split focused index
+    # with a "1" appended.
+    pre=$(herb attr tags.focus.tiling.focused_frame.index)
+    herb split auto
+    best="${pre}1"
 fi
 
 # Point the focused frame at the destination: set the selection attr on
@@ -119,13 +120,6 @@ for d in $(printf '%s' "$dotted" | tr '.' ' '); do
     path="$path.$d"
 done
 
-
-herb chain \
-    . set_attr "clients.${WID}.floating" false \
-    . bring "$WID"
-
-
-herb jumpto "$WID"
-herb raise "$WID"
+herb bring $WID
 herb unlock
 trap - EXIT

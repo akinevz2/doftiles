@@ -73,9 +73,14 @@ EOF
 # class to filter by travels along in the mode command. Right click is
 # moved off the custom-action accept (whose flag script mode drops) to
 # hot-key 1, which script mode forwards with the hovered row's info.
+# PROMPT/widthEm (both optional, in that order) override the mode name
+# and window width — the empty-desktop invocation passes "windows"
+# prompt + a narrower width so the title reads correctly.
 if [ -z "$ROFI_RETV" ]; then
-	exec rofi -show windows -modi "windows:$0 $1 $2" \
+	mode_prompt=${PROMPT:-windows}
+	exec rofi -show "$mode_prompt" -modi "${mode_prompt}:$0 $1 $2" \
 		-theme "$HOME/.config/rofi/window-switcher.rasi" \
+		-theme-str "window { width: ${WIDTH_EM:-40}em; }" \
 		-show-icons \
 		-auto-select \
 		-kb-custom-1 "MouseSecondary"
@@ -93,28 +98,66 @@ case "$ROFI_RETV" in
 		printf '\000no-custom\037true\n'
 		window_rows "$1" "$2"
 		;;
-	# Accepted a row: jump to the window (follows it to its tag,
-	# unminimizes and focuses it). When the caller captures stdout
-	# (POLYWINS_WRAP=1), write the wid to a temp file instead — in
-	# script mode anything printed to stdout becomes a new row and
-	# re-renders the list rather than reaching the caller.
+	# Accepted a row: left click behavior
+	# - If NOT minimized and on different tag → jumpto
+	# - If minimized → jumpto
+	# - If on same tag and not focused → focus
+	# - If focused and not floating → float
+	# - If focused and floating → minimize
 	1)
 		if [ "$POLYWINS_WRAP" = "1" ]; then
 			printf "%s\n" "$ROFI_INFO" > "${POLYWINS_SEL:-/tmp/polywins-sel}"
 		else
-			herb jumpto "$ROFI_INFO"
+			minimized=$(herb attr "clients.$ROFI_INFO.minimized" 2>/dev/null)
+			floating=$(herb attr "clients.$ROFI_INFO.floating" 2>/dev/null)
+			current_tag=$(herb attr "tags.focus.name" 2>/dev/null)
+			window_tag=$(herb attr "clients.$ROFI_INFO.tag" 2>/dev/null)
+
+			if [ "$minimized" = "true" ]; then
+				# Minimized: always jumpto (unminimize + focus)
+				herb jumpto "$ROFI_INFO"
+			elif [ "$window_tag" != "$current_tag" ]; then
+				# Not minimized and on different tag → jumpto
+				herb jumpto "$ROFI_INFO"
+			elif ! herb compare "clients.$ROFI_INFO.tag" = "tags.focus.name" 2>/dev/null; then
+				# On same tag but not currently focused → focus
+				herb jumpto "$ROFI_INFO"
+			else
+				# On same tag and focused:
+				# - If focused and not floating → float
+				# - If focused and floating → minimize
+				if [ "$floating" != "true" ]; then
+					herb set_attr "clients.$ROFI_INFO.floating" true
+				else
+					herb set_attr "clients.$ROFI_INFO.minimized" true
+				fi
+			fi
 		fi
 		;;
-	# Shift+Delete: close the window
-	3)
-		wmctrl -ic "$ROFI_INFO"
-		;;
-	# Right click: unminimize if hidden, minimize otherwise
+	# Right click behavior:
+	# - On another tag → bring (don't switch tags)
+	# - On focused tag but not focused → focus and make floating
+	# - On focused tag and already focused → minimize
 	10)
-		if [ "$(herb attr "clients.$ROFI_INFO.minimized" 2>/dev/null)" = "true" ]; then
-			herb jumpto "$ROFI_INFO"
-		else
+		current_tag=$(herb attr "tags.focus.name" 2>/dev/null)
+		minimized=$(herb attr "clients.$ROFI_INFO.minimized" 2>/dev/null)
+		window_tag=$(herb attr "clients.$ROFI_INFO.tag" 2>/dev/null)
+		focused=$(herb attr "clients.focus.winid" 2>/dev/null)
+
+		if [ "$window_tag" != "$current_tag" ]; then
+			# On another tag → bring (don't switch tags)
+			herb bring "$ROFI_INFO"
+		elif [ "$ROFI_INFO" = "$focused" ]; then
+			# On focused tag and already focused → minimize
 			herb set_attr "clients.$ROFI_INFO.minimized" true
+		else
+			# On focused tag but not focused → focus and make floating
+			herb jumpto "$ROFI_INFO"
+			herb set_attr "clients.$ROFI_INFO.floating" true
+			# If already minimized, unminimize
+			if [ "$minimized" = "true" ]; then
+				herb set_attr "clients.$ROFI_INFO.minimized" false
+			fi
 		fi
 		;;
 esac
