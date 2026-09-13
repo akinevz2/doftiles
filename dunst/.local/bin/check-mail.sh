@@ -4,12 +4,14 @@
 # Click the notification (or run read-mail.sh) to open terminal and view mail
 
 if [ ! -f /var/mail/$USER ] && [ ! -f /var/spool/mail/$USER ]; then
-    exit 0
+    echo "Mail not configured correctly"
+    exit 1
 fi
 
 mail_content=$(mail -H 2>/dev/null)
 
 if [ -z "$mail_content" ]; then
+    echo "No mail content"
     exit 0
 fi
 
