@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-export DISPLAY="localhost:0.0"
 unset WAYLAND_DISPLAY
+export DISPLAY="localhost:0.0"
+source ${HOME}/.exports
 
 herb() {
     herbstclient "$@"
@@ -55,7 +56,6 @@ herb spawn polybar single
 
 # LAUNCHERS
 # TERMINAL="gnome-terminal --zoom 1.5"
-TERMINAL="alacritty"
 ROFITHEME=${HOME}/.config/rofi/launcher.rasi
 APPLAUNCHER="${HOME}/.local/bin/rofi_launch"
 SCREENSHOTTER="scrot"
