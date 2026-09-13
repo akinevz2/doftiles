@@ -360,6 +360,13 @@
     newline = wrap
     ignore_newline = no
 
+[mail]
+    # Notifications from Mail check script
+    appname = "Mail"
+    urgency = critical
+    history_ignore = no
+    newline = wrap
+
 #[ignore]
 #    # This notification will not be displayed
 #    summary = "foobar"
