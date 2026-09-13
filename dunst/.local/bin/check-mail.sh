@@ -17,11 +17,11 @@ mail_count=$(echo "$mail_content" | wc -l | tr -d ' ')
 body="You have $mail_count unread message(s)"
 
 if command -v notify-send >/dev/null 2>&1; then
-    action=$(notify-send --action 'default=View in terminal' \
+    action=$(notify-send --action 'read-mail=View in terminal' \
         -u critical -a "Mail" -t 0 \
         "Unread mail" "$body" -i mail 2>/dev/null)
     
-    if [ "$action" = "View in terminal" ]; then
+    if [ "$action" = "read-mail" ]; then
         if [ -x "$HOME/.local/bin/read-mail.sh" ]; then
             $HOME/.local/bin/read-mail.sh
         else
@@ -30,3 +30,4 @@ if command -v notify-send >/dev/null 2>&1; then
         fi
     fi
 fi
+
