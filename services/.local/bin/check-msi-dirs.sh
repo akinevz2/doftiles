@@ -12,7 +12,7 @@ _show_notification() {
     if [ "$ACTION" = "view-mail" ] && [ -x "$HOME/.local/bin/read-mail.sh" ]; then
         $HOME/.local/bin/read-mail.sh
     else
-        notify-send -u warning -a "Mail" -t 5 \
+        notify-send -u critical -a "Mail" -t 5 \
             "Cannot open mail viewer\n(read-mail.sh not found)"
     fi
 }

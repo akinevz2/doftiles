@@ -1,20 +1,17 @@
-# ~/.config/systemd/user/dunst.service
 [Unit]
-Description=Dunst notification daemon (inside VcXsrv)
+Description=Check for temp directories on Windows mounts
 After=herbst.target
 Requires=basic.target
 BindsTo=herbst.service
 
 [Service]
-Type=simple
+Type=oneshot
 Environment=DISPLAY=localhost:0.0
 # WSLg exposes a Wayland socket (wayland-0) that dual-backend apps like
 # rofi 2.0 autodetect; force the whole WM session onto X11/VcXsrv.
 Environment=XDG_SESSION_TYPE=x11
 UnsetEnvironment=WAYLAND_DISPLAY
-ExecStart=/usr/bin/dunst
-Restart=on-failure
-RestartSec=3
+ExecStart=%h/.local/bin/check-msi-dirs.sh
 
 [Install]
 WantedBy=default.target
