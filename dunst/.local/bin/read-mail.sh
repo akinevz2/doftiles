@@ -5,7 +5,7 @@
 
 mail_content=$(mail -H 2>/dev/null)
 if [ -z "$mail_content" ]; then
-    notify-send -u warning -a "Mail" "No mail to display"
+    notify-send -u low -a "Mail" "No mail to display"
     exit 0
 fi
 
