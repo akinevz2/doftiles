@@ -352,6 +352,14 @@
     format = "<b>SYSTEM</b>:\n%b\n<i>%s</i>"
 	history_ignore = yes
 
+[msi-check]
+    # Notifications from MSI Check script
+    appname = "MSI Check"
+    urgency = critical
+    history_ignore = no
+    newline = wrap
+    ignore_newline = no
+
 #[ignore]
 #    # This notification will not be displayed
 #    summary = "foobar"

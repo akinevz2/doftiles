@@ -1,0 +1,13 @@
+#!/bin/bash
+# Run mail -H in a new terminal
+# TERMINAL is defined in .exports
+
+if command -v "$TERMINAL" >/dev/null 2>&1; then
+    if [ "$TERMINAL" = "alacritty" ]; then
+        $TERMINAL -e mail -H
+    else
+        $TERMINAL -e "mail -H"
+    fi
+else
+    mail -H 2>/dev/null || echo "No terminal emulator or mail client found"
+fi
