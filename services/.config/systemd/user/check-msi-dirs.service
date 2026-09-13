@@ -5,7 +5,6 @@ Requires=herbst.service
 
 [Service]
 Type=oneshot
-KillMode=none
 Environment=DISPLAY=localhost:0.0
 # WSLg exposes a Wayland socket (wayland-0) that dual-backend apps like
 # rofi 2.0 autodetect; force the whole WM session onto X11/VcXsrv.

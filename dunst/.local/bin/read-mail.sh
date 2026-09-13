@@ -3,6 +3,7 @@
 # Called as action from dunst notification
 # Uses herbstclient spawn to avoid X server issues
 
+source $HOME/.exports
 mail_content=$(mail -H 2>/dev/null)
 if [ -z "$mail_content" ]; then
     notify-send -u low -a "Mail" "No mail to display"
