@@ -87,7 +87,7 @@ sync:
 # launcher, compositor, notifications, terminal, systemd user units).
 # Fails early if any required system binary is missing.
 WM_PACKAGES := herbst services polybar rofi compton dunst alacritty
-WM_BINARIES := herbstluftwm herbstclient compton polybar rofi hsetroot xset dunst
+WM_BINARIES := herbstluftwm herbstclient compton polybar rofi hsetroot xset dunst notify-send
 
 # system — install system-wide packages (system-*) using sudo stow.
 # Lists files to be deployed, then requests confirmation before
