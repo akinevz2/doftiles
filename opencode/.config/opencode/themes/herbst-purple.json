@@ -1,0 +1,218 @@
+{
+  "$schema": "https://opencode.ai/theme.json",
+  "defs": {
+    "herbst-bg": "#222222",
+    "herbst-tint": "#2C001E",
+    "herbst-accent": "#eeeeee",
+    "herbst-accent-dark": "#feef69",
+    "herbst-sec": "#888888",
+    "herbst-sec-dark": "#222222",
+    "herbst-border": "#666666",
+    "herbst-border-dark": "#333333",
+    "herbst-urgent": "#feef69",
+    "herbst-success": "#00AA00",
+    "herbst-error": "#FF6600"
+  },
+  "theme": {
+    "primary": {
+      "dark": "herbst-accent",
+      "light": "herbst-urgent"
+    },
+    "secondary": {
+      "dark": "herbst-accent-dark",
+      "light": "herbst-sec-dark"
+    },
+    "accent": {
+      "dark": "herbst-accent-dark",
+      "light": "herbst-bg"
+    },
+    "error": {
+      "dark": "herbst-error",
+      "light": "herbst-error"
+    },
+    "warning": {
+      "dark": "herbst-urgent",
+      "light": "herbst-urgent"
+    },
+    "success": {
+      "dark": "herbst-accent-dark",
+      "light": "herbst-success"
+    },
+    "info": {
+      "dark": "herbst-accent-dark",
+      "light": "herbst-accent-dark"
+    },
+    "text": {
+      "dark": "herbst-accent",
+      "light": "herbst-sec-dark"
+    },
+    "textMuted": {
+      "dark": "herbst-sec",
+      "light": "herbst-tint"
+    },
+    "background": {
+      "dark": "herbst-tint",
+      "light": "herbst-sec"
+    },
+    "backgroundPanel": {
+      "dark": "herbst-bg",
+      "light": "herbst-sec"
+    },
+    "backgroundElement": {
+      "dark": "herbst-sec-dark",
+      "light": "herbst-border"
+    },
+    "border": {
+      "dark": "herbst-border",
+      "light": "herbst-border"
+    },
+    "borderActive": {
+      "dark": "herbst-accent-dark",
+      "light": "herbst-sec"
+    },
+    "borderSubtle": {
+      "dark": "herbst-bg",
+      "light": "herbst-border-dark"
+    },
+    "diffAdded": {
+      "dark": "#2d4a3d",
+      "light": "#a8ffaa"
+    },
+    "diffRemoved": {
+      "dark": "#4a2d2d",
+      "light": "#ffaaaa"
+    },
+    "diffContext": {
+      "dark": "herbst-sec",
+      "light": "#f0e6f0"
+    },
+    "diffHunkHeader": {
+      "dark": "herbst-accent",
+      "light": "herbst-sec"
+    },
+    "diffHighlightAdded": {
+      "dark": "#3d6a4d",
+      "light": "#b8ffb8"
+    },
+    "diffHighlightRemoved": {
+      "dark": "#6a4a4a",
+      "light": "#ffbfb8"
+    },
+    "diffAddedBg": {
+      "dark": "#2d4a3d",
+      "light": "#e8f8e8"
+    },
+    "diffRemovedBg": {
+      "dark": "#4a2d2d",
+      "light": "#ffe8e8"
+    },
+    "diffContextBg": {
+      "dark": "herbst-sec-dark",
+      "light": "#f8f0f8"
+    },
+    "diffLineNumber": {
+      "dark": "herbst-sec",
+      "light": "herbst-border"
+    },
+    "diffAddedLineNumberBg": {
+      "dark": "#2d4a3d",
+      "light": "#e8f8e8"
+    },
+    "diffRemovedLineNumberBg": {
+      "dark": "#4a2d2d",
+      "light": "#ffe8e8"
+    },
+    "markdownText": {
+      "dark": "herbst-sec",
+      "light": "herbst-sec-dark"
+    },
+    "markdownHeading": {
+      "dark": "herbst-accent",
+      "light": "herbst-accent-dark"
+    },
+    "markdownLink": {
+      "dark": "herbst-accent",
+      "light": "herbst-sec"
+    },
+    "markdownLinkText": {
+      "dark": "herbst-accent-dark",
+      "light": "herbst-sec"
+    },
+    "markdownCode": {
+      "dark": "herbst-accent",
+      "light": "herbst-sec"
+    },
+    "markdownBlockQuote": {
+      "dark": "#222222",
+      "light": "#e0d0e0"
+    },
+    "markdownEmph": {
+      "dark": "herbst-sec",
+      "light": "herbst-sec"
+    },
+    "markdownStrong": {
+      "dark": "herbst-accent-dark",
+      "light": "herbst-sec-dark"
+    },
+    "markdownHorizontalRule": {
+      "dark": "herbst-border-dark",
+      "light": "herbst-sec"
+    },
+    "markdownListItem": {
+      "dark": "herbst-accent-dark",
+      "light": "herbst-sec"
+    },
+    "markdownListEnumeration": {
+      "dark": "herbst-sec",
+      "light": "herbst-sec"
+    },
+    "markdownImage": {
+      "dark": "herbst-border-dark",
+      "light": "herbst-sec"
+    },
+    "markdownImageText": {
+      "dark": "herbst-accent",
+      "light": "herbst-sec"
+    },
+    "markdownCodeBlock": {
+      "dark": "#1a0010",
+      "light": "#e8f0ff"
+    },
+    "syntaxComment": {
+      "dark": "herbst-accent-dark",
+      "light": "herbst-accent"
+    },
+    "syntaxKeyword": {
+      "dark": "#aa55ff",
+      "light": "#8b008b"
+    },
+    "syntaxFunction": {
+      "dark": "herbst-sec",
+      "light": "herbst-sec"
+    },
+    "syntaxVariable": {
+      "dark": "#ffffff",
+      "light": "#000000"
+    },
+    "syntaxString": {
+      "dark": "#55aa88",
+      "light": "#006400"
+    },
+    "syntaxNumber": {
+      "dark": "#ff5588",
+      "light": "#8b0000"
+    },
+    "syntaxType": {
+      "dark": "#88aaff",
+      "light": "#0000ff"
+    },
+    "syntaxOperator": {
+      "dark": "#ff8855",
+      "light": "#ff0000"
+    },
+    "syntaxPunctuation": {
+      "dark": "herbst-sec",
+      "light": "herbst-sec"
+    }
+  }
+}
