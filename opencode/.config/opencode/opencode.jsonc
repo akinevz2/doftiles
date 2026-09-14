@@ -41,7 +41,7 @@
       "*.env.example": "allow"
     },
     "bash": {
-      "*>*": "deny",
+      "*>*": "ask",
       "*>>*": "ask",
       "*.git/*": "deny",
       "rm *": "ask",
