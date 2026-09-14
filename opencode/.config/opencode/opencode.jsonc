@@ -1,9 +1,62 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "enabled_providers": [
+    "rarebox",
+    "localhost"
+  ],
+  "default_agent": "plan",
+  "formatter": true,
+  "lsp": true,
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      ".git/**"
+    ]
+  },
+  "permission": {
+    "doom_loop": "deny",
+    "external_directory": {
+      "~/dots/**": "allow",
+      "~/development/**": "allow"
+    },
+    "webfetch": "allow",
+    "websearch": "allow",
+    "edit": {
+      "~/.*/**": "deny",
+      "~/.aliases": "ask",
+      "~/.exports": "ask",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      ".git/**": "deny",
+      "/tmp/**": "deny",
+      ".opencode/system/**": "allow"
+    },
+    "read": {
+      ".git/*": "ask",
+      "~/.aliases": "allow",
+      "~/.exports": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    },
+    "bash": {
+      "*>*": "deny",
+      "*>>*": "ask",
+      "*.git/*": "deny",
+      "rm *": "ask",
+      "echo *": "ask",
+      "cat *": "ask",
+      "rmdir *": "ask",
+      "git *": "ask",
+      "mv *": "ask",
+      "npm *": "ask",
+    }
+  },
   "provider": {
-    "ollama": {
+    "rarebox": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Ollama (ws-rarebox)",
+      "name": "ws-rarebox",
       "options": {
         "baseURL": "http://ws-rarebox:11434/v1",
         "apiKey": "ollama"
@@ -17,6 +70,9 @@
             "context": 202752,
             "output": 202752
           }
+        },
+        "glm-4.7-performance:latest": {
+          "name": "GLM 4.7 Performance",
         },
         "laguna-xs-2.1:latest": {
           "name": "Laguna XS 2.1",
@@ -67,12 +123,17 @@
     },
     "localhost": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Localhost (ws-rarebox)",
+      "name": "localhost",
       "options": {
         "baseURL": "http://localhost:11434/v1",
-        "apiKey": "ollama"
+        "apiKey": "ollama",
+        "timeout": false,
+        "headerTimeout": false,
       },
       "models": {
+        "glm-4.7-performance:latest": {
+          "name": "GLM 4.7 Performance",
+        },
         "hf.co/unsloth/GLM-4.7-Flash-GGUF:UD-Q4_K_XL": {
           "name": "GLM 4.7 Flash",
           "tool_call": true,
@@ -89,33 +150,6 @@
           "limit": {
             "context": 262144,
             "output": 262144
-          }
-        },
-        "nemotron-3.5-lightning:latest": {
-          "name": "Nemotron 3.5 Lightning",
-          "tool_call": true,
-          "reasoning": true,
-          "limit": {
-            "context": 1048576,
-            "output": 1048576
-          }
-        },
-        "qwen3-coder:latest": {
-          "name": "Qwen3 Coder",
-          "tool_call": true,
-          "reasoning": false,
-          "limit": {
-            "context": 262144,
-            "output": 262144
-          }
-        },
-        "hf.co/TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF:IQ4_XS": {
-          "name": "GLM 4.7 Flash Claude Opus 4.5 High Reasoning Distill (IQ4_XS)",
-          "tool_call": false,
-          "reasoning": false,
-          "limit": {
-            "context": 202752,
-            "output": 202752
           }
         },
         "hf.co/ryzdfm/qwen2.5-coder-3b-claude_opus_4.6-distilled:Q4_K_M": {
