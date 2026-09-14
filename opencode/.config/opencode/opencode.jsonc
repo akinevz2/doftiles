@@ -48,6 +48,15 @@
       "echo *": "ask",
       "cat *": "ask",
       "rmdir *": "ask",
+      "git status *": "allow",
+      "git diff *": "allow",
+      "git log *": "allow",
+      "git show *": "allow",
+      "git grep *": "allow",
+      "git push *": "ask",
+      "git pull *": "ask",
+      "git commit *": "ask",
+      "git add *": "ask",
       "git *": "ask",
       "mv *": "ask",
       "npm *": "ask",
@@ -63,7 +72,7 @@
       },
       "models": {
         "hf.co/unsloth/GLM-4.7-Flash-GGUF:UD-Q4_K_XL": {
-          "name": "GLM 4.7 Flash",
+          "name": "GLM 4.7 Flash (131K ctx)",
           "tool_call": true,
           "reasoning": true,
           "limit": {
@@ -71,11 +80,20 @@
             "output": 202752
           }
         },
-        "glm-4.7-performance:latest": {
-          "name": "GLM 4.7 Performance",
+        "glm-4.7-quant": {
+          "name": "GLM 4.7 Quant (65K ctx)"
         },
-        "laguna-xs-2.1:latest": {
-          "name": "Laguna XS 2.1",
+        "glm-4.7-performance": {
+          "name": "GLM 4.7 Performance (51K ctx)"
+        },
+        "deepseek-r1-performance": {
+          "name": "DeepSeek R1 Performance (46K ctx)"
+        },
+        "laguna-xs-performance": {
+          "name": "Laguna XS Performance (65K ctx)"
+        },
+        "laguna-xs-2.1": {
+          "name": "Laguna XS 2.1 (262K ctx)",
           "tool_call": true,
           "reasoning": true,
           "limit": {
@@ -83,8 +101,8 @@
             "output": 262144
           }
         },
-        "nemotron-3.5-lightning:latest": {
-          "name": "Nemotron 3.5 Lightning",
+        "nemotron-3.5-lightning": {
+          "name": "Nemotron 3.5 Lightning (1048K ctx)",
           "tool_call": true,
           "reasoning": true,
           "limit": {
@@ -92,8 +110,8 @@
             "output": 1048576
           }
         },
-        "qwen3-coder:latest": {
-          "name": "Qwen3 Coder",
+        "qwen3-coder": {
+          "name": "Qwen3 Coder (262K ctx)",
           "tool_call": true,
           "reasoning": false,
           "limit": {
@@ -102,7 +120,7 @@
           }
         },
         "hf.co/TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF:IQ4_XS": {
-          "name": "GLM 4.7 Flash Claude Opus 4.5 High Reasoning Distill (IQ4_XS)",
+          "name": "GLM 4.7 Flash Claude Opus 4.5 High Reasoning Distill (IQ4_XS) (202K ctx)",
           "tool_call": false,
           "reasoning": false,
           "limit": {
@@ -111,7 +129,7 @@
           }
         },
         "hf.co/ryzdfm/qwen2.5-coder-3b-claude_opus_4.6-distilled:Q4_K_M": {
-          "name": "Qwen2.5 Coder 3B Claude Opus 4.6 Distilled (Q4_K_M)",
+          "name": "Qwen2.5 Coder 3B Claude Opus 4.6 Distilled (Q4_K_M) (32K ctx)",
           "tool_call": true,
           "reasoning": false,
           "limit": {
@@ -131,11 +149,8 @@
         "headerTimeout": false,
       },
       "models": {
-        "glm-4.7-performance:latest": {
-          "name": "GLM 4.7 Performance",
-        },
         "hf.co/unsloth/GLM-4.7-Flash-GGUF:UD-Q4_K_XL": {
-          "name": "GLM 4.7 Flash",
+          "name": "GLM 4.7 Flash (131K ctx)",
           "tool_call": true,
           "reasoning": true,
           "limit": {
@@ -143,23 +158,17 @@
             "output": 202752
           }
         },
-        "laguna-xs-2.1:latest": {
-          "name": "Laguna XS 2.1",
-          "tool_call": true,
-          "reasoning": true,
-          "limit": {
-            "context": 262144,
-            "output": 262144
-          }
+        "glm-4.7-quant": {
+          "name": "GLM 4.7 Quant (65K ctx)"
         },
-        "hf.co/ryzdfm/qwen2.5-coder-3b-claude_opus_4.6-distilled:Q4_K_M": {
-          "name": "Qwen2.5 Coder 3B Claude Opus 4.6 Distilled (Q4_K_M)",
-          "tool_call": true,
-          "reasoning": false,
-          "limit": {
-            "context": 32768,
-            "output": 32768
-          }
+        "deepseek-r1-performance": {
+          "name": "DeepSeek R1 Performance (46K ctx)"
+        },
+        "glm-4.7-performance": {
+          "name": "GLM 4.7 Performance (51K ctx)"
+        },
+        "laguna-xs-performance": {
+          "name": "Laguna XS Performance (65K ctx)"
         }
       }
     }
