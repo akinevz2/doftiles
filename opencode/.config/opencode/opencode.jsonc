@@ -4,7 +4,7 @@
     "rarebox",
     "localhost"
   ],
-  "default_agent": "plan",
+  "default_agent": "detailed",
   "formatter": true,
   "lsp": true,
   "watcher": {
@@ -71,8 +71,35 @@
         "apiKey": "ollama"
       },
       "models": {
+        "nemotron-3.5-lightning": {
+          "name": "Nemotron 3.5 Lightning (1M ctx)",
+          "tool_call": true,
+          "reasoning": true,
+          "limit": {
+            "context": 1048576,
+            "output": 1048576
+          }
+        },
+        "laguna-xs-2.1": {
+          "name": "Laguna XS 2.1 (262K ctx)",
+          "tool_call": true,
+          "reasoning": true,
+          "limit": {
+            "context": 262144,
+            "output": 262144
+          }
+        },
+        "glm-4.7-flash": {
+          "name": "GLM 4.7 Flash (202K ctx)",
+          "tool_call": true,
+          "reasoning": true,
+          "limit": {
+            "context": 202752,
+            "output": 202752
+          }
+        },
         "hf.co/unsloth/GLM-4.7-Flash-GGUF:UD-Q4_K_XL": {
-          "name": "GLM 4.7 Flash (131K ctx)",
+          "name": "GLM 4.7 Flash GGUF (131K ctx)",
           "tool_call": true,
           "reasoning": true,
           "limit": {
@@ -89,27 +116,6 @@
         "deepseek-r1-performance": {
           "name": "DeepSeek R1 Performance (46K ctx)"
         },
-        "laguna-xs-performance": {
-          "name": "Laguna XS Performance (65K ctx)"
-        },
-        "laguna-xs-2.1": {
-          "name": "Laguna XS 2.1 (262K ctx)",
-          "tool_call": true,
-          "reasoning": true,
-          "limit": {
-            "context": 262144,
-            "output": 262144
-          }
-        },
-        "nemotron-3.5-lightning": {
-          "name": "Nemotron 3.5 Lightning (1048K ctx)",
-          "tool_call": true,
-          "reasoning": true,
-          "limit": {
-            "context": 1048576,
-            "output": 1048576
-          }
-        },
         "qwen3-coder": {
           "name": "Qwen3 Coder (262K ctx)",
           "tool_call": true,
@@ -120,7 +126,7 @@
           }
         },
         "hf.co/TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF:IQ4_XS": {
-          "name": "GLM 4.7 Flash Claude Opus 4.5 High Reasoning Distill (IQ4_XS) (202K ctx)",
+          "name": "GLM 4.7 Opus 4.5 Distill (IQ4_XS) (202K ctx)",
           "tool_call": false,
           "reasoning": false,
           "limit": {
@@ -129,7 +135,7 @@
           }
         },
         "hf.co/ryzdfm/qwen2.5-coder-3b-claude_opus_4.6-distilled:Q4_K_M": {
-          "name": "Qwen2.5 Coder 3B Claude Opus 4.6 Distilled (Q4_K_M) (32K ctx)",
+          "name": "Qwen2.5 Coder Opus 4.6 Distill (Q4_K_M) (32K ctx)",
           "tool_call": true,
           "reasoning": false,
           "limit": {
@@ -149,23 +155,24 @@
         "headerTimeout": false,
       },
       "models": {
-        "hf.co/unsloth/GLM-4.7-Flash-GGUF:UD-Q4_K_XL": {
-          "name": "GLM 4.7 Flash (131K ctx)",
+        "glm-4.7-flash": {
+          "name": "GLM 4.7 Flash (202K ctx)",
           "tool_call": true,
-          "reasoning": true,
-          "limit": {
-            "context": 202752,
-            "output": 202752
-          }
+          "reasoning": true
+        },
+        "hf.co/unsloth/GLM-4.7-Flash-GGUF:UD-Q4_K_XL": {
+          "name": "GLM 4.7 Flash GGUF (131K ctx)",
+          "tool_call": true,
+          "reasoning": true
+        },
+        "glm-4.7-performance": {
+          "name": "GLM 4.7 Performance (51K ctx)"
         },
         "glm-4.7-quant": {
           "name": "GLM 4.7 Quant (65K ctx)"
         },
         "deepseek-r1-performance": {
           "name": "DeepSeek R1 Performance (46K ctx)"
-        },
-        "glm-4.7-performance": {
-          "name": "GLM 4.7 Performance (51K ctx)"
         },
         "laguna-xs-performance": {
           "name": "Laguna XS Performance (65K ctx)"
