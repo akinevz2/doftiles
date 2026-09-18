@@ -41,6 +41,8 @@ style = "Bold"
 family = "Ubuntu Mono"
 style = "Italic"
 
+# --- Keyboard Bindings Section ---
+
 [[keyboard.bindings]]
 action = "Paste"
 key = "V"
@@ -81,10 +83,34 @@ action = "DecreaseFontSize"
 key = "Key4"
 mods = "Control"
 
+# Ctrl + Left Arrow (Move word left)
+[[keyboard.bindings]]
+key = "Left"
+mods = "Control"
+chars = "\u001bb"
+
+# Ctrl + Right Arrow (Move word right)
+[[keyboard.bindings]]
+key = "Right"
+mods = "Control"
+chars = "\u001bf"
+
+# Ctrl + Backspace (Delete word backward)
+[[keyboard.bindings]]
+key = "Back"
+mods = "Control"
+chars = "\u0017"
+
+# Ctrl + Delete (Delete word forward)
+[[keyboard.bindings]]
+key = "Delete"
+mods = "Control"
+chars = "\u001bd"
+
+# --- End Keyboard Bindings ---
+
 [selection]
 semantic_escape_chars = """,│`|:"' ()[]{}<>"""
 
 [window]
 opacity = 0.85
-
-[keyboard]
