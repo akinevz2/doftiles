@@ -29,8 +29,12 @@ if [[ $(hostname) == WS* ]]; then
     # Allows VS Code usage within the X11
     export DONT_PROMPT_WSL_INSTALL=true
 fi
+if [[ $(hostname) == WS-MINIFRIDGE ]]; then
+    export DISPLAY=localhost:1.0
+fi
 
-export PATH="$LOCAL_BIN:$PATH"
+export BUNPATH="${HOME}/.bun/bin"
+export PATH="$LOCAL_BIN:$BUNPATH:$PATH"
 
 # Terminal preference for mail notifications
 export TERMINAL="alacritty"
