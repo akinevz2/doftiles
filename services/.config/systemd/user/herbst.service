@@ -1,17 +1,17 @@
 # ~/.config/systemd/user/herbstluftwm.service
 [Unit]
 Description=herbstluftwm window manager (inside VcXsrv)
-After=basic.target
-Requires=basic.target
+After=xvfb.service
+Requires=xvfb.service
 
 [Service]
 Type=simple
-Environment=DISPLAY=localhost:0.0
+Environment=DISPLAY=localhost:1.0
 # WSLg exposes a Wayland socket (wayland-0) that dual-backend apps like
 # rofi 2.0 autodetect; force the whole WM session onto X11/VcXsrv.
 Environment=XDG_SESSION_TYPE=x11
 UnsetEnvironment=WAYLAND_DISPLAY
-ExecStartPre=/bin/bash -c 'until xset -display localhost:0.0 q >/dev/null 2>&1; do sleep 1; done'
+ExecStartPre=/bin/bash -c 'until xset -display localhost:1.0 q >/dev/null 2>&1; do sleep 1; done'
 ExecStart=/usr/bin/herbstluftwm
 Restart=on-failure
 RestartSec=3
