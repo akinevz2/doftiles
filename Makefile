@@ -5,10 +5,10 @@
 SHELL  := /bin/bash
 STOW   := stow
 
-.PHONY: bash git install services wm update upload sync system
+.PHONY: bash git install services wm update upload sync system status
 
-install: bash opencode
 
+install: bash opencode wm
 
 bash: git
 	@$(STOW) -R -t $$HOME shell
@@ -23,12 +23,22 @@ git:
 opencode:
 	@$(STOW) -R -t $$HOME opencode
 
+SERVICE_ORDER := xvfb x11vnc herbst novnc dunst compton
 # services — stow the systemd user units (herbst, compton). After editing
 # anything under services/, restow and run `systemctl --user daemon-reload`.
 services:
 	@$(STOW) -R -t $$HOME services
 	@systemctl --user daemon-reload 2>/dev/null || \
 		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
+	@for service in $(SERVICE_ORDER); do \
+		systemctl --user restart "$$service" || systemctl --user status "$$service"; \
+	done
+	@echo restarted services
+
+status:
+	@for service in $(SERVICE_ORDER); do \
+		SYSTEMD_PAGER="less" systemctl --user status "$$service" || true; \
+	done
 
 # update — safely pull the latest changes from origin. Prefers a fast-forward
 # merge; falls back to a normal merge. If real conflicts occur, launch $EDITOR
