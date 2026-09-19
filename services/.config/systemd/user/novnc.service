@@ -10,7 +10,7 @@ Environment=DISPLAY=localhost:1.0
 # rofi 2.0 autodetect; force the whole WM session onto X11/VcXsrv.
 Environment=XDG_SESSION_TYPE=x11
 UnsetEnvironment=WAYLAND_DISPLAY
-ExecStart=/usr/share/novnc/utils/novnc_proxy --vnc localhost:5900 --listen 0.0.0.0:6080
+ExecStart=/usr/share/novnc/utils/novnc_proxy --vnc localhost:5900 --listen localhost:6080
 Restart=on-failure
 
 [Install]
