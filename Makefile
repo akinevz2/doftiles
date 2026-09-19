@@ -36,9 +36,15 @@ services:
 	@echo restarted services
 
 status:
-	@for service in $(SERVICE_ORDER); do \
-		SYSTEMD_PAGER="less" systemctl --user status "$$service" || true; \
-	done
+	@missing=""; \
+	for service in $(SERVICE_ORDER); do \
+		SYSTEMD_PAGER="less" systemctl --user status "$$service" 2>/dev/null  || true; \
+		systemctl --user is-active "$$service" >/dev/null || missing="$$missing $$service"; \
+	done; \
+	if [ -n "$$missing" ]; then \
+		echo ""; \
+		echo "Missing services: $$missing"; \
+	fi
 
 # update — safely pull the latest changes from origin. Prefers a fast-forward
 # merge; falls back to a normal merge. If real conflicts occur, launch $EDITOR
