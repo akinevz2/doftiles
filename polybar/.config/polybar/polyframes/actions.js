@@ -211,9 +211,9 @@ async function scrollFocus(wid, dir) {
     // (rofi_tags).
     if (members.length === 1 && members[0].min) {
         const wid = members[0].wid;
-        await hc.attr(`clients.${wid}.minimized`, false);
         if (dir === "up") {
             ui("scrollFocus: minimized %s up -> jumpto", wid);
+            await hc.attr(`clients.${wid}.minimized`, false);
             await hc.jumpto(wid);
         } else {
             ui("scrollFocus: minimized %s down -> tag switcher", wid);
@@ -241,13 +241,14 @@ async function scrollFocus(wid, dir) {
         }
         // down: focused -> minimize (keep frame); unfocused -> tag
         // switcher (rofi_tags).
-        if (wid !== active) {
+        if (wid === active) {
             ui("scrollFocus: solo %s down (focused) -> minimize (keep frame)", wid);
             await hc.setAttr(`clients.${wid}.minimized`, "true");
             return;
         }
         ui("scrollFocus: solo %s down (unfocused) -> tag switcher", wid);
-        spawnDetached(`${process.env.HOME}/.local/bin/rofi_tags`, []);
+        await hc.raise(wid);
+        await hc.jumpto(wid);
         return;
     }
 
@@ -295,10 +296,11 @@ async function toggleFocus(wid) {
         const flt =
             (await hc.attr(`clients.${wid}.floating_effectively`)) === "true";
         const active = await getFocusedWid();
-        if (min && !flt) {
+        if (min && flt) {
             ui("toggleFocus: %s minimized -> unminimize", wid);
             await runHelper(`${process.env.HOME}/.local/bin/hc_tile`, [wid]);
             await hc.setAttr(`clients.${wid}.minimized`, "false");
+            await hc.setAttr(`clients.${wid}.floating`, "false");
             await hc.jumpto(wid);
         } else if (flt && wid === active) {
             // Focused floating: re-tile it. hc_tile navigates to the
@@ -507,15 +509,11 @@ async function dismiss(wid) {
         // Unminimize: restore and center
         ui("dismiss: %s minimized -> unminimize", wid);
         await hc.setAttr(`clients.${wid}.minimized`, "false");
+        await hc.setAttr(`clients.${wid}.floating`, "true");
         if (flt) {
-            // Floating: focus, then center in root
-            await hc.jumpto(wid);
             await runHelper(`${process.env.HOME}/.local/bin/hc_center`, ["root"]);
-        } else {
-            // Tiling: unfloat and focus
-            await hc.setAttr(`clients.${wid}.floating`, "false");
-            await hc.jumpto(wid);
         }
+        await hc.jumpto(wid);
         return;
     }
 
@@ -527,7 +525,7 @@ async function dismiss(wid) {
     const active = await getFocusedWid();
 
     // If tiling and focused: simply minimize
-    if (!flt && wid === active) {
+    if (flt && wid === active) {
         ui("dismiss: %s tiling and focused -> minimize", wid);
         await hc.setAttr(`clients.${wid}.minimized`, "true");
         return;
@@ -563,13 +561,17 @@ async function dismiss(wid) {
                 await hc.lock();
                 await hc.remove();
             }
-            await hc.jumpto(active);
+            if (wid !== active)
+                await hc.jumpto(active);
         } finally {
             await hc.unlock();
         }
 
         ui("dismiss: %s frame not empty after minimization (wcount=%d)", wid, newFrameClients);
+        return
     }
+
+    await hc.setAttr(`clients.${wid}.minimized`, "true");
 }
 
 /**
