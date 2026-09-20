@@ -11,9 +11,9 @@ alias l='ls'
 alias s='ls -r'
 
 # WM Stuff
-alias sxhkdrc="$VISUAL $HOME/.config/sxhkd"
-alias bspwmrc="$VISUAL $HOME/.config/bspwm"
-alias wmrc="$VISUAL $HOME/.config/herbstluftwm/autostart"
+# alias sxhkdrc="$VISUAL $HOME/.config/sxhkd"
+# alias bspwmrc="$VISUAL $HOME/.config/bspwm"
+alias autostart="$VISUAL --new-window $HOME/dots $HOME/.config/herbstluftwm/autostart"
 alias development="cd $HOME/development && ls -al personal/ system/ && git status"
 alias sx="sxhkd"
 alias bs="bspwm"
