@@ -33,8 +33,10 @@ floating_focused=$(hc attr tags.focus.floating_focused 2>/dev/null || echo false
 focus=$(hc attr clients.focus.winid 2>/dev/null || echo "")
 frame_count=$(hc attr tags.focus.frame_count)
 count=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
+algo=$(hc attr tags.focus.tiling.focused_frame.algorithm 2>/dev/null || echo "")
 
 addlog enter
+addlog "algo $algo"
 
 # Guarantee the WM is never left locked: with set -e, ANY failing
 # command between lock and unlock would abort the script and leak the
@@ -73,8 +75,6 @@ if [ "$floating_focused" = "false" ] && hc attr tags.focus.floating_focused togg
 fi
 
 addlog "frame_count $frame_count count $count"
-algo=$(hc attr tags.focus.tiling.focused_frame.algorithm 2>/dev/null || echo "")
-addlog "algo $algo"
 
 addlog test-fullscreen?
 # Lone, non-floating window in a max-layout frame with multiple frames
@@ -82,6 +82,13 @@ addlog test-fullscreen?
 if [ "$frame_count" -gt 1 ] && [ "$count" -eq 1 ] && [ "$algo" = "max" ]; then
     addlog fullscreen lone window
     hc attr clients.focus.fullscreen toggle || true
+    hc unlock
+    hc_unlocked=1
+    exit 0
+fi
+
+if [ "$count" -gt 1 ] && [ "$algo" != "max" ]; then
+    hc attr tags.focus.tiling.focused_frame.algorithm max || true
     hc unlock
     hc_unlocked=1
     exit 0

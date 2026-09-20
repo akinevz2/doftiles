@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# hc-filter-geom — parse herbstluftwm geometry format (wxh+x+y) and output 4 space-separated numbers.
+# Usage: echo "827x434+18+462" | hc-filter-geom
+# Output: 827 434 18 462
+# The output can be parsed by `read -r w h x y`.
+
+set -euo pipefail
+
+# Read geometry from stdin, trimming any trailing whitespace/newlines
+geometry=$(cat)
+
+# Parse: widthxheight+xoffset+yoffset
+# Replace all delimiters (x, +, -) with spaces to handle negative coordinates
+read -r w h x y <<< "$(echo "$geometry" | awk '{gsub(/x/," "); gsub(/[+-]/," "); print}')"
+
+echo "$w $h $x $y"

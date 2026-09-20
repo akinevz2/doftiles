@@ -21,7 +21,7 @@ herb() {
 
 # Optional: window whose parent frame the empty frame should be
 # closest to. Without it the ranking falls back to prefix length 0.
-WID=${1:-}
+WID=${1:-$(hc_current)}
 
 # Dotted object path segment for a flat frame index ("00" -> "0.0").
 flat_to_dotted() {
@@ -120,6 +120,5 @@ for d in $(printf '%s' "$dotted" | tr '.' ' '); do
     path="$path.$d"
 done
 
-herb bring $WID
 herb unlock
 trap - EXIT
