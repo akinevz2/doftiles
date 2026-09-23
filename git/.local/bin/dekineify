@@ -39,7 +39,7 @@ bold() {
 # Function to insert warning at the start of file
 insert_warning() {
     local relative_path="$1"
-    echo -e "\033[33mWARNING: you're not kine, you should customise $relative_path\033[0m"
+    echo -e "echo \"\033[33mWARNING: you're not kine, you should customise $relative_path\033[0m\""
 }
 
 # Function to check if creator is present in customizable files (case insensitive)
