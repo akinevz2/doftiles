@@ -2,6 +2,19 @@
 
 set -euo pipefail
 
+# f) Define color functions with fallback to plain echo
+if ! command -v yellow &>/dev/null; then
+    yellow() {
+        echo "$@"
+    }
+fi
+
+if ! command -v green &>/dev/null; then
+    green() {
+        echo "$@"
+    }
+fi
+
 # a) Check being run inside ~/dots
 SCRIPT_DIR="$(pwd)"
 DOTS_DIR="$(realpath "$HOME/dots")"
@@ -53,19 +66,34 @@ fi
 # d) Read wm.requires and filter comment lines
 REQUIRES_FILE="wm.requires"
 
-REQUIRES_BIN=($(grep -vi '^#' "$REQUIRES_FILE"))
+ignore_final() {
+    if [[ $# -eq 1 ]]; then
+        grep -vi '^#' "$1" | head -n -1
+    else
+        cat
+    fi
+}
+
+REQUIRES_BIN=($(ignore_final "$REQUIRES_FILE"))
 DEPLOY_SCRIPT_PATH="$(realpath "$DEPLOY_SCRIPT_PATH")"
+success="already installed!"
 
 # e) For each binary, invoke the deploy script and execute the output
 echo "Requirements from wm.requires:"
 for binary in "${REQUIRES_BIN[@]}"; do
-    echo "$binary required"
+    echo -n "$binary required: "
+    if command -v $binary 2&>/dev/null; then
+        yellow $success
+        continue
+    fi
     DEPLOY_CMD=$("$DEPLOY_SCRIPT_PATH" "$binary")
+    echo ""
     echo -n "Install: [$DEPLOY_CMD]? [Y/n]"
     read -sn1 -r confirm
     echo
     if [ $? -eq 0 ] && [ -n "$DEPLOY_CMD" ] && grep -iE "^y" <<<`echo $confirm` ; then
         DEPLOY_CMD=$("$DEPLOY_SCRIPT_PATH" "install" "$binary")
+        green $DEPLOY_CMD
         $DEPLOY_CMD
     else
         echo "Error: '$binary' not installed"
