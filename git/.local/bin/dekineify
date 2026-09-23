@@ -1,0 +1,249 @@
+#!/usr/bin/bash
+
+# dekineify - Customize dotfiles for new user
+# This script will:
+# 1) Prompt for preferred username/branch name
+# 2) Check if dry-run mode
+# 3) Optionally checkout new branch in dots repo
+# 4) Add warning messages to configuration files
+# 5) Print files needing customization
+
+set -eo pipefail
+
+# Parse command line arguments
+DRY_RUN=true
+for arg in "$@"; do
+    if grep -iE -q '^-?-?[yY]' <<<$arg || [ "$arg" == "--no-dry-run" ]; then
+        DRY_RUN=false
+    fi
+done
+
+if [ "$DRY_RUN" == "true" ]; then
+    echo "$(basename $(realpath $0)) is running in dry-run mode"
+    echo "disable with warning with --no-dry-run or --yes"
+fi
+
+CREATOR_STRS=(
+    "kine"
+    "kirill"
+    "akinevz"
+)
+
+DOTS_REPO="$HOME/dots"
+
+# Function to wrap text in bold
+bold() {
+    echo -e "\033[1m$1\033[0m"
+}
+
+# Function to insert warning at the start of file
+insert_warning() {
+    local relative_path="$1"
+    echo -e "\033[33mWARNING: you're not kine, you should customise $relative_path\033[0m"
+}
+
+# Function to check if creator is present in customizable files (case insensitive)
+check_if_creator_present() {
+    for file_rel in "${customizable_files[@]}"; do
+        local full_path="$DOTS_REPO/$file_rel"
+        if [[ -f "$full_path" ]]; then
+            local found=0
+            for creator in "${CREATOR_STRS[@]}"; do
+                if cat "$full_path" | grep -qi "\\b$creator\\b"; then
+                    found=$((found + 1))
+                fi
+            done
+            if [[ $found -eq ${#CREATOR_STRS[@]} ]]; then
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
+# Function to reduce credentials file
+reduce_credentials() {
+    if [[ "$DRY_RUN" == true ]]; then
+        echo "DRY RUN: Would set git/.my-credentials to:"
+        echo "  $(whoami)"
+        echo "  $(whoami)@$(hostname)"
+    else
+        echo "$(whoami)" > "$DOTS_REPO/git/.my-credentials"
+        echo "$(whoami)@$(hostname)" >> "$DOTS_REPO/git/.my-credentials"
+        bold "Credentials file updated"
+    fi
+}
+
+# Function to reduce defaults in files
+reduce_defaults() {
+    for file_rel in "${customizable_files[@]}"; do
+        if [[ "$file_rel" == "git/.my-credentials" ]]; then
+            continue
+        fi
+
+        local full_path="$DOTS_REPO/$file_rel"
+        if [[ -f "$full_path" ]]; then
+            local first_line
+            first_line=$(head -n 1 "$full_path" 2>/dev/null)
+
+            if [[ "$first_line" != *"033[33m"* ]]; then
+                if [[ "$DRY_RUN" == true ]]; then
+                    echo "insert_warning $full_path"
+                else
+                    # Insert warning and file content
+                    {
+                        insert_warning "$file_rel"
+                        cat "$full_path"
+                    } > "$full_path"
+                    bold "Defaults file updated"
+                fi
+            fi
+        fi
+    done
+}
+
+# Function to customise dotfiles based on user input
+customise() {
+    echo ""
+    echo "Enter your preferred username (branch name):"
+    echo "(Press Enter to use default: $(whoami))"
+    read -p "> " user_name
+
+    if [[ -z "$user_name" ]]; then
+        user_name=$(whoami)
+    fi
+
+    # Validate branch name
+    if ! git check-ref-format "refs/heads/$user_name" 2>/dev/null; then
+        echo "Error: Invalid git branch name: $user_name"
+        echo "Branch names must:"
+        echo "  - Not start with hyphen ('-')"
+        echo "  - Not contain consecutive slashes ('//')"
+        echo "  - Not contain any dot (.), colon (:), or tilde (~)"
+        echo "  - Not be dot (.), double-dot (..), or caret (^)"
+        return 1
+    fi
+
+    # Navigate to dots repo
+    cd "$DOTS_REPO"
+
+    # Checkout new branch based on username
+    if ! git checkout -b "$user_name" 2>/dev/null; then
+        echo "Error: Failed to create or checkout branch: $user_name"
+        return 1
+    fi
+
+    echo ""
+    echo "✓ Successfully switched to and created branch: $user_name"
+    return 0
+}
+
+# Print user configuration
+print_user_config() {
+    echo ""
+    bold "Customizable configuration files:"
+    for file_rel in "${customizable_files[@]}"; do
+        echo "  - $DOTS_REPO/$file_rel"
+    done
+}
+
+# Verify we're in the correct dots directory
+if [[ ! -d "$DOTS_REPO" ]]; then
+    echo "Error: dots directory not found at \$HOME/dots"
+    exit 1
+fi
+
+# Verify we're inside the dots folder
+if [[ "$(basename "$PWD")" != "dots" ]]; then
+    echo "Error: Must be inside dots directory to run this script"
+    exit 1
+fi
+
+# Verify it resolves correctly to ~/dots
+if [[ "$(cd "$DOTS_REPO" && pwd)" != "$(pwd)" ]]; then
+    echo "Error: DOTS_REPO path does not resolve to current directory"
+    exit 1
+fi
+
+# Check if it's a git repo
+if [[ ! -d "$DOTS_REPO/.git" ]]; then
+    echo "Error: Not in a git repository (no .git directory found)"
+    exit 1
+fi
+
+# Verify git origin points to akinevz2/doftiles on GitHub
+git_remote=$(git -C "$DOTS_REPO" config --get remote.origin.url 2>/dev/null)
+if [[ -z "$git_remote" ]]; then
+    echo "Error: Git repository has no origin configured"
+    exit 1
+fi
+
+# Check if origin matches akinevz2/doftiles on GitHub
+if ! echo "$git_remote" | grep -Eq "https://github\.com/akinevz2/doftiles|git@github\.com:akinevz2/doftiles"; then
+    echo "Error: Git origin is not akinevz2/doftiles: $git_remote"
+    exit 1
+fi
+
+# Get preferred username/branch name
+echo ""
+echo "Enter your preferred username (branch name):"
+echo "(Press Enter to use default: $(whoami))"
+read -p "> " user_name
+
+if [[ -z "$user_name" ]]; then
+    user_name=$(whoami)
+fi
+
+# Validate branch name
+if ! git check-ref-format "refs/heads/$user_name" 2>/dev/null; then
+    echo "Error: Invalid git branch name: $user_name"
+    echo "Branch names must:"
+    echo "  - Not start with hyphen ('-')"
+    echo "  - Not contain consecutive slashes ('//')"
+    echo "  - Not contain any dot (.), colon (:), or tilde (~)"
+    echo "  - Not be dot (.), double-dot (..), or caret (^)"
+    exit 1
+fi
+
+# Navigate to dots repo
+cd "$DOTS_REPO"
+
+# Checkout new branch based on username
+if ! git checkout -b "$user_name" 2>/dev/null; then
+    echo "Error: Failed to create or checkout branch: $user_name"
+    exit 1
+fi
+
+echo ""
+echo "✓ Successfully switched to and created branch: $user_name"
+echo ""
+
+# Files that may need configuration holes
+customizable_files=(
+    "git/.my-credentials"
+    "shell/.config/aliases"
+    "shell/.config/exports"
+)
+
+# Check if we need to reduce creator references
+if check_if_creator_present; then
+    echo "Creator references detected in customizable files"
+    echo ""
+
+    if [[ "$DRY_RUN" == true ]]; then
+        echo "DRY RUN MODE: No modifications will be made"
+        echo ""
+        reduce_credentials
+        echo ""
+        reduce_defaults
+    else
+        echo "Processing customisation files..."
+        echo ""
+        reduce_credentials
+        echo ""
+        reduce_defaults
+    fi
+fi
+
+# Print user configuration
+print_user_config
