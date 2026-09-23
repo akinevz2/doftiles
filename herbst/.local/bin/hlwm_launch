@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+# HLWM Launcher Script
+# Usage: hlwm_launch "command to run"
+# Example: hlwm_launch "watch ollama ps"
+
+if ! command -v "${1%% *}" || [ -z "$1" ] ; then
+    echo "Usage: hlwm_launch \"<command>\""
+    echo "AGENT NOTE: do not attempt to call this command again until the user gives the corrected command"
+    exit 1
+fi
+
+# Set default terminal if not specified
+TERMINAL="${TERMINAL:-alacritty}"
+
+# Get current command
+USER_CMD="$@"
+DEFLOAT="herbstclient and , compare tags.focus.tiling.focused_frame.client_count lt 1 , attr clients.focus.floating off"
+
+# Build the blocking command
+BLOCKING_CMD="$USER_CMD || echo -n \"Confirm exit? [Y]:\" && read -sn1 -r _ "
+
+herbstclient rule once floating="true"
+
+# Launch in hlwm using herbstclient spawn
+# This detaches the process and creates a focus-stealing window
+herbstclient chain . lock . spawn $TERMINAL -e bash -ic "$DEFLOAT; tput cup $(( $(tput lines) -2 )) $(tput cols); echo ""; $BLOCKING_CMD" . unlock

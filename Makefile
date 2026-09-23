@@ -4,13 +4,37 @@
 # rather than overwritten.
 SHELL  := /bin/bash
 STOW   := stow
+MAKE   := make
 
-.PHONY: bash git install services wm update upload sync system status
+SERVICES_FILE := service.order
+WM_PACKAGES := wm.packages
+WM_BINARIES := wm.requires
 
+# Load configuration from external files
+SERVICE_ORDER := $(shell grep -vi '^#' $(SERVICES_FILE))
+WM_PACKAGES := $(shell grep -vi '^#' $(WM_PACKAGES))
+WM_BINARIES := $(shell head -1 $(WM_BINARIES) | grep -vi '^#')
 
-install: bash opencode wm
+MAKEFILES := $(wildcard Makefile*)
+ALL_TARGETS := $(foreach mf,$(MAKEFILES),$(shell grep -hE '^[a-zA-Z_-]+:' $(mf) | sed 's/://'))
+PHONY_LIST := $(sort $(ALL_TARGETS))
 
-bash: git
+.PHONY: $(PHONY_LIST) system depends install
+
+install: status system 
+
+status: sync services-status
+
+depends: bash wm
+	@$(STOW) -R -t $$HOME depends
+	@if ! ls -al *.packages *.requires *.order; then \
+		exit 1; \
+	fi
+
+# bash metapackage
+bash: shell git opencode task
+
+shell:
 	@$(STOW) -R -t $$HOME shell
 	@chmod +x shell/.local/bin/install/bashrc
 	~/.local/bin/install/bashrc
@@ -23,22 +47,26 @@ git:
 opencode:
 	@$(STOW) -R -t $$HOME opencode
 
-SERVICE_ORDER := xvfb x11vnc herbst novnc dunst compton
-# services — stow the systemd user units (herbst, compton). After editing
-# anything under services/, restow and run `systemctl --user daemon-reload`.
-services:
-	@$(STOW) -R -t $$HOME services
-	@systemctl --user daemon-reload 2>/dev/null || \
-		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
-	@for service in $(SERVICE_ORDER); do \
-		systemctl --user restart "$$service" || systemctl --user status "$$service"; \
-	done
-	@echo restarted services
+task:
+	@$(STOW) -R -t $$HOME task
 
-status:
-	@for service in $(SERVICE_ORDER); do \
-		SYSTEMD_PAGER="less" systemctl --user status "$$service" || true; \
-	done
+wm: herbstluftwm alacritty dunst compton
+
+herbstluftwm:
+	@$(STOW) -R -t $$HOME herbst
+	@herbstclient reload
+
+alacritty:
+	@$(STOW) -R -t $$HOME alacritty
+
+compton:
+	@$(STOW) -R -t $$HOME compton
+
+dunst:
+	@$(STOW) -R -t $$HOME dunst
+
+# sync — perform update followed by upload only if update succeeded.
+sync: update upload
 
 # update — safely pull the latest changes from origin. Prefers a fast-forward
 # merge; falls back to a normal merge. If real conflicts occur, launch $EDITOR
@@ -88,59 +116,118 @@ upload:
 	modified=$$(git diff --staged --name-only); \
 	exec $$EDITOR "$$PWD" $$modified
 
-# sync — perform update followed by upload only if update succeeded.
-sync:
-	@$(MAKE) update
-	@$(MAKE) upload
-
-# wm — install the window-manager stack (herbstluftwm session, status bar,
-# launcher, compositor, notifications, terminal, systemd user units).
-# Fails early if any required system binary is missing.
-WM_PACKAGES := herbst services polybar rofi compton dunst alacritty
-WM_BINARIES := herbstluftwm herbstclient compton polybar rofi hsetroot xset dunst notify-send
-
-# system — install system-wide packages (system-*) using sudo stow.
-# Lists files to be deployed, then requests confirmation before
-# restowing to the root filesystem.
+# wm:
+services-status: services-available services-installed
+ 
+# packages:
 SYSTEM_PACKAGES := $(shell ls -d system-* 2>/dev/null)
 
-system:
-	@echo "system: packages to be installed:"; \
-	for pkg in $(SYSTEM_PACKAGES); do \
-		echo "  $$pkg"; \
-	done; \
-	if [ -z "$(SYSTEM_PACKAGES)" ]; then \
-		echo "system: no system-* packages found"; \
-		exit 0; \
-	fi; \
-	echo ""; \
-	echo "The following files will be deployed to /:"; \
-	for pkg in $(SYSTEM_PACKAGES); do \
-		echo "  Deploying $$pkg:"; \
-		stow -n -v -R -t / "$$pkg" 2>&1 | grep "^LINK:" | cut -d' ' -f2 | sed 's/^/\//'; \
-	done; \
-	read -p "Continue with system installation? [y/N] " confirm; \
-	if echo "$$confirm" | grep -iq "y"; then \
-		sudo stow -R -t / $(SYSTEM_PACKAGES); \
-		echo "system: stow completed"; \
-	else \
-		echo "system: cancelled"; \
-		exit 1; \
-	fi
-
-wm: services
+wm-packages: restart-services
 	@missing=""; \
 	for bin in $(WM_BINARIES); do \
 		command -v "$$bin" >/dev/null 2>&1 || missing="$$missing $$bin"; \
 	done; \
 	if [ -n "$$missing" ]; then \
-		echo "wm: missing required binaries:$$missing" >&2; \
-		echo "wm: install the corresponding packages and re-run" >&2; \
+		echo "packages: missing required binaries:$$missing" >&2; \
+		echo "packages: install the corresponding packages and re-run" >&2; \
 		exit 1; \
+	fi
+
+system-packages: wm-packages
+	@if [ -z "$(SYSTEM_PACKAGES)" ]; then \
+		echo "packages: no system-* packages found; skipping"; \
+		exit 0; \
 	fi; \
-	for pkg in $(WM_PACKAGES); do \
-		echo "stowing $$pkg"; \
-		$(STOW) -R -t $$HOME "$$pkg"; \
+	echo "packages: packages to be installed:"; \
+	for pkg in $(SYSTEM_PACKAGES); do \
+		echo "  $$pkg"; \
+	done; \
+	echo ""; \
+	echo "Pending updates to /"; \
+	for pkg in $(SYSTEM_PACKAGES); do \
+		stow -n -v -R -t/ "$$pkg" 2>&1 | grep -E "^(UN)?LINK:" | awk -F' ' '{sub(/:/, "", $$1); print "/" $$2 " " $$1}'; \
+		echo ""; \
+	done; \
+	read -p "Continue with system installation? [y/N] " confirm; \
+	if echo "$$confirm" | grep -iq "^y"; then \
+		sudo stow -R -t / $(SYSTEM_PACKAGES); \
+		echo "packages: stow completed"; \
+	else \
+		echo "packages: cancelled"; \
+		exit 0; \
+	fi
+
+services-available:
+	@echo ""
+	@echo "Available service files: "
+	@for package in $(shell find . -name "*.service" | awk -F'[\\.]?/' '{print ($$1  != "" ? $$1 : $$2) "/" $$NF}'); do \
+		echo -n "$$package: "; \
+		systemctl --user is-active "$$(basename $$package)" --no-pager | sed 's/^\(active\)/\x1b[32m\1\x1b[0m/'; \
+	done
+
+services-installed:
+	@echo ""
+	@missing=""
+	@echo "Installed services: "; \
+	for service in $(SERVICE_ORDER); do \
+		systemctl --user is-active "$$service" >/dev/null && (systemctl --user status "$$service" --no-pager | head -n1 | sed 's/^\(.*\) -/\x1b[32m\1\x1b[0m:/' ) || missing="$$missing $$service"; \
+	done; \
+	if [ -n "$$missing" ]; then \
+		echo ""; \
+		echo -e "Missing services:\033[33m$$missing\033[0m"; \
+	fi
+
+check-services: services-available
+	@echo ""
+	@$(STOW) -R -t $$HOME services
+	@systemctl --user daemon-reload 2>/dev/null || \
+		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
+	@if [ ! -f "$(SERVICES_FILE)" ]; then \
+		echo ""; \
+		echo -e "\033[31mERROR: $(SERVICES_FILE) file not found.\033[0m"; \
+		exit 1; \
+	fi
+	@for service in $(SERVICE_ORDER); do \
+		systemctl --user enable --now "$$service" || echo "check-services: failed to enable and start $$service"; \
+	done && echo "Enabled services: $(SERVICE_ORDER)"
+
+restart-services: services-status
+	@echo ""
+	@for service in $(SERVICE_ORDER); do \
+		echo "preparing restart for $$service"; \
 	done
 	@systemctl --user daemon-reload 2>/dev/null || \
-		echo "wm: systemctl --user daemon-reload failed (systemd not running?)" >&2
+		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
+	@if [ -z "$(SERVICE_ORDER)" ]; then \
+		echo ""; \
+		echo -e "\033[31mERROR: Service order defined by $(SERVICES_FILE) file is empty.\033[0m"; \
+		exit 1; \
+	fi
+	@echo -n "Continue with restarting wm? [y/N] "
+	@read -r line; \
+	if [ "$$line" != "y" ] && [ "$$line" != "Y" ]; then \
+		echo "services: cancelled"; \
+		echo ""; \
+		exit 0; \
+	fi; \
+	for service in $(SERVICE_ORDER); do \
+		systemctl --user restart "$$service" || systemctl --user status "$$service"; \
+	done; \
+	echo "services: restarted"
+
+
+wm-services: check-services  
+	@for pkg in $(WM_PACKAGES); do \
+		echo "stowing $$pkg"; \
+		$(STOW) -R -t $$HOME "$$pkg"; \
+	done; \
+	read -p "Restart all wm services? [y/N] " confirm; \
+	if echo "$$confirm" | grep -iq "^y"; then \
+		$(MAKE) services; \
+	else \
+		echo "services: cancelled"; \
+		exit 0; \
+	fi
+
+system: depends wm-services system-packages
+	@echo -e "system: \033[1;33mfresh\033[0m"

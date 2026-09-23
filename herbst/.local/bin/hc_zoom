@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+
+set -o pipefail
+
+# Padding in pixels (applied during maximize, default: 20)
+PADDING=20
+
+# hc-zoom: Toggle maximize/restore for focused floating window
+# - First press: Maximize floating geometry while preserving aspect ratio
+# - Second press: Restore to cached tiling geometry, clear cache, unfloat
+
+# Get current focused window and monitor geometry
+winid=$(herbstclient attr clients.focus.winid)
+screen_geom=$(herbstclient attr monitors.focus.content_geometry)
+# Check if the window is floating
+is_floating=$(herbstclient attr tags.focus.floating_focused)
+
+echo "[DEBUG] winid: $winid"
+echo "[DEBUG] screen_geom: $screen_geom"
+echo "[DEBUG] is_floating: $is_floating"
+
+# Parse screen geometry using hc-filter-geom
+read -r sw sh sx sy <<< "$(echo "$screen_geom" | hc-filter-geom)"
+
+echo "[DEBUG] Screen: sx=$sx, sy=$sy, sw=$sw, sh=$sh"
+
+# Get current floating geometry and parse using hc-filter-geom
+current_geom=$(herbstclient attr clients.focus.floating_geometry)
+echo "[DEBUG] Current geometry: $current_geom"
+read -r cw ch cx cy <<< "$(echo "$current_geom" | hc-filter-geom)"
+
+echo "[DEBUG] Current geometry: cx=$cx, cy=$cy, cw=$cw, ch=$ch"
+
+# Check cache
+cache_exists=$(herbstclient get_attr "clients.${winid}.my_tiling_geom" 2>/dev/null || echo "")
+if [ -n "$cache_exists" ]; then
+    echo "[DEBUG] Cache exists, restoring if floating..."
+    if [ "$is_floating" == "true" ]; then
+        # Restore from cache
+        cached_geom=$(herbstclient get_attr "clients.${winid}.my_tiling_geom")
+        # Parse cached geometry using hc-filter-geom
+        read -r cached_w cached_h cached_x cached_y <<< "$(echo "$cached_geom" | hc-filter-geom)"
+
+        echo "[DEBUG] Cached geometry: ${cached_w}x${cached_h}+${cached_x}+${cached_y}"
+
+        # Restore to cached geometry (keeping original position from cache)
+        herbstclient set_attr "clients.${winid}.floating_geometry" "${cached_w}x${cached_h}+${cached_x}+${cached_y}"
+    else
+        herbstclient set_attr "clients.${winid}.floating" on
+    fi
+    # Clear the cache
+    herbstclient remove_attr "clients.${winid}.my_tiling_geom"
+    echo "[DEBUG] Cache cleared"
+    exit 0
+else
+    echo "[DEBUG] No cache found, proceeding with maximize"
+fi
+
+# If not floating, first maximize (skip cache for non-floating windows)
+if [ "$is_floating" != "true" ]; then
+    echo "[DEBUG] Setting floating on"
+    herbstclient set_attr "clients.${winid}.floating" on
+fi
+
+# Get the current tiling geometry using content_geometry
+tiling_geom=$(herbstclient attr clients.focus.content_geometry)
+herbstclient new_attr string "clients.${winid}.my_tiling_geom" "$tiling_geom"
+echo "[DEBUG] Saved tiling geometry: $tiling_geom"
+
+# Calculate max dimensions preserving aspect ratio
+# Strategy: find which screen dimension constraints the size more tightly
+echo "[DEBUG] Calculating max dimensions..."
+echo "[DEBUG] cw=$cw, ch=$ch, sw=$sw, sh=$sh"
+
+# To preserve aspect ratio, find the limiting dimension
+# Compare: scaled_width vs scaled_height
+if (( (sw - PADDING) * ch < cw * sh )); then
+    # Screen is narrower relative to window → width is the limiting factor
+    echo "[DEBUG] Screen width is more restrictive"
+    new_w=$(( sw - PADDING ))
+    new_h=$(( $new_w * $ch / $cw ))
+else
+    # Screen is taller relative to window → height is the limiting factor
+    echo "[DEBUG] Screen height is more restrictive"
+    new_h=$(( sh - PADDING ))
+    new_w=$(( $new_h * $cw / $ch ))
+fi
+
+# Center the maximized window
+center_x=$((sx + (sw - new_w) / 2))
+center_y=$((sy + (sh - new_h) / 2))
+
+echo "[DEBUG] Final dimensions: new_w=$new_w, new_h=$new_h"
+echo "[DEBUG] Center position: center_x=$center_x, center_y=$center_y"
+
+# Apply new floating geometry
+herbstclient attr "clients.${winid}.floating_geometry" "${new_w}x${new_h}+${center_x}+${center_y}"
+
+echo "[DEBUG] Applied floating_geometry: ${new_w}x${new_h}+${center_x}+${center_y}"
+
+# Convert to floating
+herbstclient attr "clients.${winid}.floating" on
+echo "[DEBUG] Set floating on"

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 unset WAYLAND_DISPLAY
-export DISPLAY="localhost:1.0"
 source ${HOME}/.exports
 
 herb() {
@@ -10,29 +9,6 @@ herb() {
 
 keyreg() {
     herb keybind "$@"
-}
-
-spawn_in_frame() {
-    # 1. Get the layout layout tree of the focused frame
-    # If the frame is empty, 'dump' returns a clean layout string with no windows
-    local frame_dump=$(herbstclient dump)
-
-    # 2. Check if the active frame has a window or is an empty leaf
-    # (An empty frame leaf in herbstluftwm dump typically looks like (clients vertical:0))
-    if [[ "$frame_dump" == *"(clients"*":0)"* ]]; then
-        # Capture the geometric coordinates of the empty frame
-        # Format: X Y WIDTH HEIGHT
-        read -r fx fy fw fh <<< $(herbstclient attr players.focus.geometry)
-        
-        # Spawn the window and use a one-time rule to map it directly to those coordinates
-        herbstclient rule once class='.*' floating=on floating_geometry="${fw}x${fh}+${fx}+${fy}"
-    else
-        # If the frame isn't empty, just let it float normally
-        herbstclient rule once class='.*' floating=on floatplacement=smart
-    fi
-    
-    # Execute your application (e.g., alacritty, st, kitty)
-    herbstclient spawn "$@"
 }
 
 ### CONFIG ###
@@ -157,8 +133,8 @@ keyreg $Mod-f               spawn ~/.local/bin/hc_focus
 # fullscreen
 # full focus: fullscreen priority — un-float floats, un-fullscreen+float
 # fullscreened windows, fullscreen everything else (hc_full_focus)
-keyreg $ModCtrl-f          spawn ~/.local/bin/hc_full_focus
-keyreg $ModShift-f          attr tags.focus.floating toggle
+keyreg $ModCtrl-f           spawn ~/.local/bin/hc_full_focus
+keyreg $ModShift-f          spawn ~/.local/bin/hc_zoom
 
 # fullscreen / float — logic lives in hc_floatx: hlwm's or/and can't
 # express this (or doesn't accept "." separators, and it short-circuits

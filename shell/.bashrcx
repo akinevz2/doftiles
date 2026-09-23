@@ -80,7 +80,7 @@ case $- in
                 __*) return ;;
                 *=*) return ;;   # assignments, incl. PROMPT_COMMAND itself
             esac
-            __title_set "${BASH_COMMAND%% *}"
+            __title_set "${BASH_COMMAND}"
         }
         __title_idle() {
             __title_set "bash ${PWD/#$HOME/~}"
