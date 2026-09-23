@@ -70,7 +70,10 @@ reduce_credentials() {
     else
         echo "$(whoami)" > "$DOTS_REPO/git/.my-credentials"
         echo "$(whoami)@$(hostname)" >> "$DOTS_REPO/git/.my-credentials"
-        bold "Credentials file updated"
+        bold "Credentials file updated, loading..."
+        if ! command -vq load-credentials; then
+            echo "git global credentials left untouched"
+        fi
     fi
 }
 
