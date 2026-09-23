@@ -37,3 +37,4 @@ export PATH="$LOCAL_BIN:$BUNPATH:$PATH"
 
 # Terminal preference for mail notifications
 export TERMINAL="alacritty"
+export TERMINAL_launch="$TERMINAL -e"
