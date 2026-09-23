@@ -1,0 +1,4 @@
+#!/bin/bash
+
+ONDEPLOY=$(realpath ~/.local/bin/install/on.deploy)
+
