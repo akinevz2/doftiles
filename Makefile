@@ -122,7 +122,8 @@ services-status: services-available services-installed
 # packages:
 SYSTEM_PACKAGES := $(shell ls -d system-* 2>/dev/null)
 
-wm-packages: restart-services
+wm-packages: shell
+	@~/.local/bin/on.deploy wm
 	@missing=""; \
 	for bin in $(WM_BINARIES); do \
 		command -v "$$bin" >/dev/null 2>&1 || missing="$$missing $$bin"; \
@@ -133,7 +134,7 @@ wm-packages: restart-services
 		exit 1; \
 	fi
 
-system-packages: wm-packages
+system-packages: wm-packages restart-services
 	@if [ -z "$(SYSTEM_PACKAGES)" ]; then \
 		echo "packages: no system-* packages found; skipping"; \
 		exit 0; \
@@ -229,5 +230,5 @@ wm-services: check-services
 		exit 0; \
 	fi
 
-system: depends wm-services system-packages
+system: system-packages wm-services depends 
 	@echo -e "system: \033[1;33mfresh\033[0m"
