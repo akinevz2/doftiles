@@ -1,0 +1,97 @@
+#!/bin/bash
+
+if ! command -v herbstutil; then
+    echo "herbstutil isn't installed"
+    if command -v bun npm; then
+        COMMAND=$(command -v bun && echo "bun")
+        COMMAND=$(command -v npm && echo "npm")
+        echo "use $COMMAND install -g herbstutil, version info:"
+        $COMMAND -g info herbstutil 
+        exit 1
+    fi
+    echo "install bun (or npm)"
+    exit 1
+fi
+# Get all tags from herbstclient via herbstutil and jq
+ALL_TAGS=$(herbstclient attr tags.by-name. | herbstutil | jq -r ".children[]")
+
+# function filter constructors for is_bash, is_opencode, is_code
+mk_filter_contains() {
+    local haystack="$1"
+    local needle="$2"
+    [[ "$haystack" == *"$needle"* ]]
+}
+
+mk_filter_startswith() {
+    local haystack="$1"
+    local needle="$2"
+    [[ "$haystack" == "$needle"* ]]
+}
+
+# function filters
+startswith_bash() {
+    mk_filter_startswith "$1" "bash"
+}
+
+startswith_OC() {
+    mk_filter_startswith "$1" "OC"
+}
+
+contains_Code() {
+    mk_filter_contains "$1" "Code"
+}
+
+contains_Term() {
+    local haystack="$1"
+    if [[ -z "$TERMINAL" ]]; then
+        return 1
+    fi
+    local lc_haystack=$(echo "$haystack" | tr '[:upper:]' '[:lower:]')
+    local lc_terminal=$(echo "$TERMINAL" | tr '[:upper:]' '[:lower:]')
+    mk_filter_contains "$lc_haystack" "$lc_terminal"
+}
+
+cwd_of_bash() {
+    wid=$1
+    pid=$(herbstclient attr clients.$wid.pid)
+    readlink /proc/$(pgrep -P "$pid" bash)/cwd
+}
+
+cwd_of() {
+    wid=$1
+    ARG=$(title_of "$wid")
+    if startswith_bash "$ARG"; then
+        cwd_of_bash "$wid"
+        return
+    fi
+    pid=$(herbstclient attr clients.$wid.pgid)
+    children=$(pgrep -wP "$pid")
+    while read -r child; do
+        cwd=$(readlink /proc/"$child"/cwd 2>/dev/null)
+        if [ -n "$cwd" ]; then
+            echo -n "$cwd"
+            exit 0
+        fi
+        # echo test ${cwd} $ARG 1>&2
+    done <<< "$children"
+}
+
+title_of() {
+    wid=$1
+    herbstclient attr clients.$wid.title
+}
+
+for tag in $ALL_TAGS; do
+    tag="${tag%.}"
+    echo "$tag:"
+    WIDS=$(herbstclient list_clients --tag="$tag")
+    for wid in $WIDS; do
+        CWD=$(cwd_of $wid)
+        TITLE=$(title_of $wid)
+        if [ -n "$CWD" ]; then
+            echo "wid: $wid"
+            echo "- $TITLE"
+            echo "- $CWD"
+        fi
+    done
+done
