@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# a) Accept binary name from command line
+BINARY_NAME="$1"
+
+if [ -z "$BINARY_NAME" ]; then
+    echo "$(basename $0): returns package name for a binary"
+    echo "pass 'install' to perform platform-specific installation"
+    echo "Usage: ubuntu.deploy [install] <binary_name>"
+    exit 1
+fi
+
+if [ "$1" == "install" ]; then
+    BINARY_NAME="$2"
+fi
+
+# b) Find the package that contains the binary using apt-cache
+PKGS=($(apt-cache search $BINARY_NAME 2>/dev/null)) || {
+    echo "Error: Unable to find package containing binary '$BINARY_NAME'"
+    echo "Running 'apt-cache search' failed"
+    exit 1
+}
+
+# Track the package with the longest substring match of BINARY_NAME
+LONGEST_PKG=""
+LONGEST_MATCH_LENGTH=0
+
+for pkg in $PKGS; do
+    # Find all substrings of BINARY_NAME that exist in pkg
+    # We iterate through all possible suffixes of BINARY_NAME and check if they match a substring in pkg
+    for (( i=0; i <= ${#BINARY_NAME}; i++ )); do
+        CURRENT_SUBSTRING="${BINARY_NAME:i}"
+        if echo "$pkg" | grep -Fq "${CURRENT_SUBSTRING}"; then
+            CURRENT_MATCH_LENGTH=${#CURRENT_SUBSTRING}
+            # Save if this is the longest match so far
+            if [ $CURRENT_MATCH_LENGTH -gt $LONGEST_MATCH_LENGTH ]; then
+                LONGEST_MATCH_LENGTH=$CURRENT_MATCH_LENGTH
+                LONGEST_PKG="$pkg"
+            fi
+        fi
+    done
+done
+
+if [ -z "$LONGEST_PKG" ]; then
+    echo "Error: No match found for binary '$BINARY_NAME' in any package"
+    exit 1
+fi
+
+PKG="$LONGEST_PKG"
+
+if [ "$1" == "install" ]; then
+    # c) Print the apt install command
+    echo "sudo apt install ${PKG}"
+    exit 0
+fi
+echo "${PKG}"
+# for pkg in "${PKGS% - %#}"; do
+#     echo ${pkg}
+# done
+

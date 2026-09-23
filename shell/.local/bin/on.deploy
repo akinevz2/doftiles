@@ -1,0 +1,73 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# a) Check being run inside ~/dots
+SCRIPT_DIR="$(pwd)"
+DOTS_DIR="$(realpath "$HOME/dots")"
+
+if [ "$SCRIPT_DIR" != "$DOTS_DIR" ]; then
+    echo "Error: This script must be run inside the ~/dots directory"
+    exit 1
+fi
+
+# b) Check current directory has git origin of "akinevz2/doftiles"
+REMOTE_URL=$(git remote get-url origin 2>/dev/null) || {
+    echo "Error: Not a git repository or unable to get remote URL"
+    exit 1
+}
+
+if ! echo "$REMOTE_URL" | grep -q "akinevz2/doftiles"; then
+    echo "Error: Git origin is not set to akinevz2/doftiles"
+    echo "Current origin: $REMOTE_URL"
+    exit 1
+fi
+
+# c) Determine which deploy script to use based on wm.requires line 2
+# First, filter comment lines from wm.requires
+DEPLOY_SCRIPT=""
+DEPLOY_BIN_DIR="$HOME/.local/bin/install"
+
+if [ ! -f "wm.requires" ]; then
+    echo "Error: wm.requires not found in current directory"
+    exit 1
+fi
+
+# Get the last non-comment line from wm.requires
+DEPLOY_SCRIPT_NAME=$(grep -v '^#' "wm.requires" | tail -1)
+
+if [ -z "$DEPLOY_SCRIPT_NAME" ]; then
+    echo "Error: Unable to determine deploy target from wm.requires"
+    exit 1
+fi
+
+# Construct deploy script filename
+DEPLOY_FULLNAME="${DEPLOY_SCRIPT_NAME}.deploy"
+DEPLOY_SCRIPT_PATH="$DEPLOY_BIN_DIR/$DEPLOY_FULLNAME"
+
+if [ ! -f "$DEPLOY_SCRIPT_PATH" ]; then
+    echo "Error: Deploy script not found: $DEPLOY_FULLNAME"
+    exit 1
+fi
+
+# d) Read wm.requires and filter comment lines
+REQUIRES_FILE="wm.requires"
+
+REQUIRES_BIN=($(grep -vi '^#' "$REQUIRES_FILE"))
+DEPLOY_SCRIPT_PATH="$(realpath "$DEPLOY_SCRIPT_PATH")"
+
+# e) For each binary, invoke the deploy script and execute the output
+echo "Requirements from wm.requires:"
+for binary in "${REQUIRES_BIN[@]}"; do
+    echo "$binary required"
+    DEPLOY_CMD=$("$DEPLOY_SCRIPT_PATH" "$binary")
+    echo -n "Install: [$DEPLOY_CMD]? [Y/n]"
+    read -sn1 -r confirm
+    echo
+    if [ $? -eq 0 ] && [ -n "$DEPLOY_CMD" ] && grep -iE "^y" <<<`echo $confirm` ; then
+        DEPLOY_CMD=$("$DEPLOY_SCRIPT_PATH" "install" "$binary")
+        $DEPLOY_CMD
+    else
+        echo "Error: '$binary' not installed"
+    fi
+done
