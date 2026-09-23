@@ -203,7 +203,7 @@ restart-services: services-status
 		echo -e "\033[31mERROR: Service order defined by $(SERVICES_FILE) file is empty.\033[0m"; \
 		exit 1; \
 	fi
-	@echo -n "Proceed? [y/N] "
+	@echo -n "Continue with restarting wm? [y/N] "
 	@read -r line; \
 	if [ "$$line" != "y" ] && [ "$$line" != "Y" ]; then \
 		echo "services: cancelled"; \
