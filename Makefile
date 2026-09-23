@@ -19,7 +19,7 @@ MAKEFILES := $(wildcard Makefile*)
 ALL_TARGETS := $(foreach mf,$(MAKEFILES),$(shell grep -hE '^[a-zA-Z_-]+:' $(mf) | sed 's/://'))
 PHONY_LIST := $(sort $(ALL_TARGETS))
 
-.PHONY: $(PHONY_LIST) system depends install
+.PHONY: $(PHONY_LIST) system depends install status
 
 install: status system 
 
@@ -217,18 +217,11 @@ restart-services: services-status
 	echo "services: restarted"
 
 
-wm-services: check-services  
+deploy-services: check-services  
 	@for pkg in $(WM_PACKAGES); do \
 		echo "stowing $$pkg"; \
 		$(STOW) -R -t $$HOME "$$pkg"; \
-	done; \
-	read -p "Restart all wm services? [y/N] " confirm; \
-	if echo "$$confirm" | grep -iq "^y"; then \
-		$(MAKE) services; \
-	else \
-		echo "services: cancelled"; \
-		exit 0; \
-	fi
+	done
 
-system: system-packages wm-services depends 
+system: system-packages deploy-services depends 
 	@echo -e "system: \033[1;33mfresh\033[0m"
