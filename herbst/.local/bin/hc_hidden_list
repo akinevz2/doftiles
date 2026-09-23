@@ -33,4 +33,4 @@ selection=$(printf '%s\n' "$entries" | cut -f1 | rofi -dmenu -theme ~/.config/ro
 
 target=$(printf '%s\n' "$entries" | awk -F'\t' -v want="$selection" '$1 == want { print $3; exit }')
 
-[ -n "$target" ] && herb chain . focus "$target" . set_attr clients.focus.floating on
+[ -n "$target" ] && herb chain . bring "$target" . set_attr clients.focus.floating off
