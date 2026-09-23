@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# opencode-remote-add: Add a new remote opencode configuration
+#
+# This command runs a general-purpose opencode agent to fetch and add a new remote configuration.
+#
+# Usage:
+#   opencode-remote-add
+#
+# Implementation:
+#   Executes: opencode run --agent general 'please print two lines with words "cluck?" and "cluck cluck!"'
+#
+# Note: This is a placeholder command that performs a specific opencode agent task.

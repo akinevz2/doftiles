@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+# opencode-remote: Interact with opencode on remote hosts
+#
+# Usage:
+#   opencode-remote <provider-search>
+#   opencode-remote <provider-name> <model-search>
+#
+# Arguments:
+#   1) Provider name substring to match (if provided)
+#   2) Model name substring to match (if two arguments provided)
+#
+# Behavior:
+#   Single argument: Perform substring match against providers in ~/.config/opencode/opencode.jsonc
+#     - Output the "provider" child object
+#     - Map to "name" field if exists
+#     - Multiple matches: print each on separate lines, exit with code 1
+#
+#   Two arguments:
+#     - First arg is provider name (exact match expected)
+#     - Second arg is model substring to match in "opencode models" output
+#     - Filter results by the provider name
+#     - If one model matches: print its fully qualified name from "opencode models"
+#     - Multiple matches: print each line (use grep), exit with code 1
+#     - No matches: run opencode-remote-add command
+#
+# Implementation Notes:
+#   - Uses grep for substring matching on providers
+#   - Uses grep for substring matching on models
+#   - Proper error handling with exit codes
+#   - Calls opencode-remote-add when no models match
+#
+# Example:
+#   opencode-remote ws-vision
+#   opencode-remote localhost glm
