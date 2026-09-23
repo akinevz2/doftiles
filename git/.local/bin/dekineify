@@ -92,13 +92,10 @@ reduce_defaults() {
             local first_line
             first_line=$(head -n 1 "$full_path" 2>/dev/null)
 
-            if [[ "$first_line" != *"033[33m"* ]]; then
-                if is_dry; then
-                    printf "echo "
-                    insert_warning "$file_rel"
-                else
+            if ! is_dry; then
+                if [[ "$first_line" != *"033[33m"* ]]; then
                     # Insert warning and file content
-                    echo "$full_path" -> "${full_path}.old"
+                    mv "$file_rel" "${file_rel}.old"
                     ( printf "echo ";
                         insert_warning "$file_rel";
                         echo "";
@@ -107,6 +104,7 @@ reduce_defaults() {
                     bold "$full_path updated"
                 fi
             fi
+            insert_warning "$file_rel"
         fi
     done
 }
