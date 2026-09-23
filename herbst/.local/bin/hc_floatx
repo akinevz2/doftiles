@@ -28,10 +28,16 @@ focus_float=$(hc attr clients.focus.floating_effectively 2>/dev/null || echo "")
 frame_clients=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
 algo=$(hc attr tags.focus.tiling.focused_frame.algorithm 2>/dev/null || echo "")
 # floating_effectively prints true/false (not 1/0) via attr
+# Grab handle to current winid
+orig=$("$HOME/.local/bin/hc_current")
+
 if [ "$focus_float" = "true" ]; then
+    if [ "$algo" == "max" ] && hc compare tags.focus.frame_count = 1; then
+        hc attr clients.focus.minimized true
+        exit 0
+    fi
+
     # If focused window IS floating, un-float it
-    # Grab handle to current winid
-    orig=$("$HOME/.local/bin/hc_current")
     # Check if currently focused (destination) frame is not maximized
     if [ "$algo" == "max" ] && [ ! "$frame_clients" -eq 0 ]; then
         # Frame was already maximized below us
@@ -40,8 +46,9 @@ if [ "$focus_float" = "true" ]; then
         # we focus the maximized client
         "$HOME/.local/bin/hc_center" frame 2>/dev/null
         hc attr tags.focus.floating_focused off
+        exit 0
     fi
-
+    
     # We have an empty frame
     # We unfloat all floating windows on this tag
     tag=$(hc attr clients.focus.tag 2>/dev/null)
@@ -53,16 +60,27 @@ if [ "$focus_float" = "true" ]; then
             hc attr "clients.$winid.floating" off 2>/dev/null
         fi
     done
-    # And return focus to the original window
-    [ -n "$orig" ] && hc jumpto "$orig" 2>/dev/null
     exit 0
 fi
 
-focus_winid=$("$HOME/.local/bin/hc_current")
-hc attr clients.focus.fullscreen off 2>/dev/null
-hc attr clients.focus.pseudotile off 2>/dev/null
+if [ "$frame_clients" -eq 0 ]; then
+    # client_count == 0 AND cannot focus floating → remove focused frame
+    if hc attr tags.focus.curframe_wcount && hc compare tags.focus.frame_count gt 1; then
+        hc remove 
+        exit 0
+    fi
+    hc use_previous
+    hc spawn ~/.local/bin/hc_hidden_list
+fi
+
+
+hc attr clients.focus.fullscreen off 2>/dev/null || true
+hc attr clients.focus.pseudotile off 2>/dev/null || true
+
+
 
 # Check if we can change focus to floating window
+focus_winid=$("$HOME/.local/bin/hc_current")
 if hc attr tags.focus.floating_focused on 2>/dev/null; then
     # Check if we're focusing a bag of windows
     if [ "$algo" == "max" ] && [ "$frame_clients" -gt 1 ]; then
@@ -75,32 +93,11 @@ if hc attr tags.focus.floating_focused on 2>/dev/null; then
         hc attr clients.$floating.floating off
         # If we can focus next floating window then we finish
         if hc attr tags.focus.floating_focused on 2>/dev/null; then
+            hc jumpto "$focus_winid"
+            "$HOME/.local/bin/hc_center" root 2>/dev/null
             exit 0
         fi
     fi
-    exit 0
-else
-    if [ "$frame_clients" -eq 0 ]; then
-        # client_count == 0 AND cannot focus floating → remove focused frame
-        hc remove 
-        exit 0
-    fi
-
-    if [ "$algo" != "max" ]; then
-        hc attr tags.focus.tiling.focused_frame.algorithm max 2>/dev/null
-    fi
-    frame_clients=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
-
-    if [ "$frame_clients" -gt 0 ]; then
-        hc attr clients.focus.floating on 2>/dev/null
-        frame_clients=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
-        if [ "$frame_clients" -eq 0 ]; then
-            hc remove
-        fi
-        "$HOME/.local/bin/hc_center" root 2>/dev/null
-        exit 0
-    fi
-
-    # Fallback
-    hc use_previous 
 fi
+
+hc attr clients.focus.floating on
