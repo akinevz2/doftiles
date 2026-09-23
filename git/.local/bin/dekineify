@@ -91,9 +91,10 @@ reduce_defaults() {
                     echo "insert_warning $full_path"
                 else
                     # Insert warning and file content
+                    mv "$full_path" "$full_path".old
                     {
                         insert_warning "$file_rel"
-                        cat "$full_path"
+                        cat "$full_path".old
                     } > "$full_path"
                     bold "Defaults file updated"
                 fi
@@ -186,7 +187,7 @@ fi
 
 # Get preferred username/branch name
 echo ""
-echo "Enter your preferred username (branch name):"
+echo "Enter your preferred username:"
 echo "(Press Enter to use default: $(whoami))"
 read -p "> " user_name
 
