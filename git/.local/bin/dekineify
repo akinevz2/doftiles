@@ -42,7 +42,7 @@ bold() {
 # Function to insert warning at the start of file
 insert_warning() {
     local relative_path="$1"
-    echo -e "echo \"\033[33mWARNING: you're not kine, you should customise $relative_path\033[0m\""
+    echo -e "\"\033[33mWARNING: you're not kine, you should customise $relative_path\033[0m\""
 }
 
 # Function to check if creator is present in customizable files (case insensitive)
@@ -67,12 +67,13 @@ check_if_creator_present() {
 # Function to reduce credentials file
 reduce_credentials() {
     me="${@:-$(whoami)}"
+    echo ""
     echo "  $me"
     echo "  $me@$(hostname)"
     if ! is_dry; then
         echo "$me" > "$DOTS_REPO/git/.my-credentials"
         echo "$me@$(hostname)" >> "$DOTS_REPO/git/.my-credentials"
-        if ! command -vq load-credentials; then
+        if ! command -v load-credentials 2&>/dev/null; then
             echo "git global credentials left untouched"
         fi
     fi
@@ -80,9 +81,7 @@ reduce_credentials() {
 
 # Function to reduce defaults in files
 reduce_defaults() {
-    if ! is_dry; then
-        return 0
-    fi
+    echo ""
     for file_rel in "${customizable_files[@]}"; do
         if [[ "$file_rel" == "git/.my-credentials" ]]; then
             continue
@@ -95,14 +94,16 @@ reduce_defaults() {
 
             if [[ "$first_line" != *"033[33m"* ]]; then
                 if is_dry; then
-                    insert_warning "$full_path"
+                    printf "echo "
+                    insert_warning "$file_rel"
                 else
                     # Insert warning and file content
-                    mv "$full_path" "$full_path".old
-                    {
-                        insert_warning "$file_rel"
-                        cat "$full_path".old
-                    } > "$full_path"
+                    echo "$full_path" -> "${full_path}.old"
+                    ( printf "echo ";
+                        insert_warning "$file_rel";
+                        echo "";
+                        cat "${full_path}.old";
+                    ) > "$full_path"
                     bold "$full_path updated"
                 fi
             fi
@@ -187,25 +188,19 @@ if check_if_creator_present; then
     echo ""
     echo "Enter your preferred username:"
     echo "(Press Enter to use default: $(whoami))"
+    user_name=$(customise)
     if is_dry; then
-        reduce_credentials
+        reduce_credentials "$user_name"
         reduce_defaults
     else
-        # Checkout new branch based on username
-        user_name=$(customise)
-        if ! git checkout -b "$user_name" 2>/dev/null; then
-            echo "Error: Failed to create or checkout branch: $user_name"
-            exit 1
-        fi
-        reduce_credentials
-        reduce_defaults
-    fi
-    if ! is_dry; then
         # Checkout new branch based on username
         if ! git checkout -b "$user_name" 2>/dev/null; then
             echo "Error: your username isn't a valid branch name: $user_name"
             git checkout -b "user" 2>/dev/null
+            user_name="user"
         fi
+        reduce_credentials "$user_name"
+        reduce_defaults
     fi
 fi
 
