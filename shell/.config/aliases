@@ -10,7 +10,6 @@ alias al='ls -ral --color=auto'
 alias l='ls'
 alias s='ls -r'
 
-
 # Git
 alias status='git status'
 alias commit='git commit'
@@ -42,7 +41,8 @@ alias open=xdg-open
 alias aliases="$VISUAL $HOME/.config/aliases && source $HOME/.config/aliases"
 alias exports="$VISUAL $HOME/.config/exports && source $HOME/.config/exports"
 alias dots="cd $HOME/dots && tree -aL 2 -I '.git' $HOME/dots 2&>/dev/null || ls -AL ./**"
-alias go-dots="cd $HOME/dots && $VIEW $HOME/dots && ls $HOME/dots"
+
+alias opencodec="$VISUAL --new-window $HOME/dots $HOME/.config/opencode/opencode.json"
 alias autostart="$VISUAL --new-window $HOME/dots $HOME/.config/herbstluftwm/autostart"
 alias development="cd $HOME/development && ls -al personal/ system/ && git status"
 
