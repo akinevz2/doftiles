@@ -18,7 +18,10 @@ for arg in "$@"; do
     fi
 done
 
-if [ "$DRY_RUN" == "true" ]; then
+is_dry() {
+    [ "$DRY_RUN" == "true" ]
+}
+if is_dry; then
     echo "$(basename $(realpath $0)) is running in dry-run mode"
     echo "disable with warning with --no-dry-run or --yes"
 fi
@@ -63,14 +66,12 @@ check_if_creator_present() {
 
 # Function to reduce credentials file
 reduce_credentials() {
-    if [[ "$DRY_RUN" == true ]]; then
-        echo "DRY RUN: Would set git/.my-credentials to:"
-        echo "  $(whoami)"
-        echo "  $(whoami)@$(hostname)"
-    else
-        echo "$(whoami)" > "$DOTS_REPO/git/.my-credentials"
-        echo "$(whoami)@$(hostname)" >> "$DOTS_REPO/git/.my-credentials"
-        bold "Credentials file updated, loading..."
+    me="${@:-$(whoami)}"
+    echo "  $me"
+    echo "  $me@$(hostname)"
+    if ! is_dry; then
+        echo "$me" > "$DOTS_REPO/git/.my-credentials"
+        echo "$me@$(hostname)" >> "$DOTS_REPO/git/.my-credentials"
         if ! command -vq load-credentials; then
             echo "git global credentials left untouched"
         fi
@@ -79,6 +80,9 @@ reduce_credentials() {
 
 # Function to reduce defaults in files
 reduce_defaults() {
+    if ! is_dry; then
+        return 0
+    fi
     for file_rel in "${customizable_files[@]}"; do
         if [[ "$file_rel" == "git/.my-credentials" ]]; then
             continue
@@ -90,8 +94,8 @@ reduce_defaults() {
             first_line=$(head -n 1 "$full_path" 2>/dev/null)
 
             if [[ "$first_line" != *"033[33m"* ]]; then
-                if [[ "$DRY_RUN" == true ]]; then
-                    echo "insert_warning $full_path"
+                if is_dry; then
+                    insert_warning "$full_path"
                 else
                     # Insert warning and file content
                     mv "$full_path" "$full_path".old
@@ -99,7 +103,7 @@ reduce_defaults() {
                         insert_warning "$file_rel"
                         cat "$full_path".old
                     } > "$full_path"
-                    bold "Defaults file updated"
+                    bold "$full_path updated"
                 fi
             fi
         fi
@@ -108,9 +112,6 @@ reduce_defaults() {
 
 # Function to customise dotfiles based on user input
 customise() {
-    echo ""
-    echo "Enter your preferred username (branch name):"
-    echo "(Press Enter to use default: $(whoami))"
     read -p "> " user_name
 
     if [[ -z "$user_name" ]]; then
@@ -119,26 +120,9 @@ customise() {
 
     # Validate branch name
     if ! git check-ref-format "refs/heads/$user_name" 2>/dev/null; then
-        echo "Error: Invalid git branch name: $user_name"
-        echo "Branch names must:"
-        echo "  - Not start with hyphen ('-')"
-        echo "  - Not contain consecutive slashes ('//')"
-        echo "  - Not contain any dot (.), colon (:), or tilde (~)"
-        echo "  - Not be dot (.), double-dot (..), or caret (^)"
         return 1
     fi
-
-    # Navigate to dots repo
-    cd "$DOTS_REPO"
-
-    # Checkout new branch based on username
-    if ! git checkout -b "$user_name" 2>/dev/null; then
-        echo "Error: Failed to create or checkout branch: $user_name"
-        return 1
-    fi
-
-    echo ""
-    echo "✓ Successfully switched to and created branch: $user_name"
+    echo $user_name
     return 0
 }
 
@@ -188,40 +172,6 @@ if ! echo "$git_remote" | grep -Eq "https://github\.com/akinevz2/doftiles|git@gi
     exit 1
 fi
 
-# Get preferred username/branch name
-echo ""
-echo "Enter your preferred username:"
-echo "(Press Enter to use default: $(whoami))"
-read -p "> " user_name
-
-if [[ -z "$user_name" ]]; then
-    user_name=$(whoami)
-fi
-
-# Validate branch name
-if ! git check-ref-format "refs/heads/$user_name" 2>/dev/null; then
-    echo "Error: Invalid git branch name: $user_name"
-    echo "Branch names must:"
-    echo "  - Not start with hyphen ('-')"
-    echo "  - Not contain consecutive slashes ('//')"
-    echo "  - Not contain any dot (.), colon (:), or tilde (~)"
-    echo "  - Not be dot (.), double-dot (..), or caret (^)"
-    exit 1
-fi
-
-# Navigate to dots repo
-cd "$DOTS_REPO"
-
-# Checkout new branch based on username
-if ! git checkout -b "$user_name" 2>/dev/null; then
-    echo "Error: Failed to create or checkout branch: $user_name"
-    exit 1
-fi
-
-echo ""
-echo "✓ Successfully switched to and created branch: $user_name"
-echo ""
-
 # Files that may need configuration holes
 customizable_files=(
     "git/.my-credentials"
@@ -229,23 +179,33 @@ customizable_files=(
     "shell/.config/exports"
 )
 
+# Navigate to dots repo
+cd "$DOTS_REPO"
+
 # Check if we need to reduce creator references
 if check_if_creator_present; then
-    echo "Creator references detected in customizable files"
     echo ""
-
-    if [[ "$DRY_RUN" == true ]]; then
-        echo "DRY RUN MODE: No modifications will be made"
-        echo ""
+    echo "Enter your preferred username:"
+    echo "(Press Enter to use default: $(whoami))"
+    if is_dry; then
         reduce_credentials
-        echo ""
         reduce_defaults
     else
-        echo "Processing customisation files..."
-        echo ""
+        # Checkout new branch based on username
+        user_name=$(customise)
+        if ! git checkout -b "$user_name" 2>/dev/null; then
+            echo "Error: Failed to create or checkout branch: $user_name"
+            exit 1
+        fi
         reduce_credentials
-        echo ""
         reduce_defaults
+    fi
+    if ! is_dry; then
+        # Checkout new branch based on username
+        if ! git checkout -b "$user_name" 2>/dev/null; then
+            echo "Error: your username isn't a valid branch name: $user_name"
+            git checkout -b "user" 2>/dev/null
+        fi
     fi
 fi
 
