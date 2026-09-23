@@ -10,19 +10,13 @@ alias al='ls -ral --color=auto'
 alias l='ls'
 alias s='ls -r'
 
-# WM Stuff
-# alias sxhkdrc="$VISUAL $HOME/.config/sxhkd"
-# alias bspwmrc="$VISUAL $HOME/.config/bspwm"
-alias autostart="$VISUAL --new-window $HOME/dots $HOME/.config/herbstluftwm/autostart"
-alias development="cd $HOME/development && ls -al personal/ system/ && git status"
-alias sx="sxhkd"
-alias bs="bspwm"
 
 # Git
 alias status='git status'
 alias commit='git commit'
 alias add='git add'
-alias diff~='less -R - <<< "$(git -c color.ui=always status --short)" && git diff -- '
+alias gdiff='less -R - <<< "$(git -c color.ui=always status --short)"; git diff -- '
+alias glog='less -R - <<< "$(git -c color.ui=always log -a --oneline)"'
 
 # Misc
 alias core=code
@@ -40,21 +34,21 @@ alias yeet="yay -Rns"
 alias hc=herbstclient
 
 # Files
-alias cd..="cd .."
 alias cp="cp -vi"
 alias df=duf||df
 alias open=xdg-open
 
-# Quicklinks
+# WM Stuff
 alias aliases="$VISUAL $HOME/.config/aliases && source $HOME/.config/aliases"
 alias exports="$VISUAL $HOME/.config/exports && source $HOME/.config/exports"
 alias dots="cd $HOME/dots && tree -aL 2 -I '.git' $HOME/dots 2&>/dev/null || ls -AL ./**"
 alias go-dots="cd $HOME/dots && $VIEW $HOME/dots && ls $HOME/dots"
+alias autostart="$VISUAL --new-window $HOME/dots $HOME/.config/herbstluftwm/autostart"
+alias development="cd $HOME/development && ls -al personal/ system/ && git status"
 
 # Quick changedir 
 alias ..="cd .."
 alias ~~="cd -"
-alias cd~="cd -"
 alias back="cd -"
 alias up="cd .."
 alias home="cd ~"
