@@ -6,7 +6,7 @@ green = "#20bf6b"
 magenta = "#a55eea"
 red = "#eb4d4b"
 white = "#f0f0f0"
-yellow = "#f9ca24"
+yellow = "#faea29"
 
 [colors.normal]
 black = "#300A24"
@@ -16,7 +16,7 @@ green = "#48b686"
 magenta = "#ff9f43"
 red = "#ef6155"
 white = "#f0f0f0"
-yellow = "#fcb93e"
+yellow = "#feef69"
 
 [colors.primary]
 background = "#300A24"
