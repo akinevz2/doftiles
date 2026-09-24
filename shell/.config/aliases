@@ -48,8 +48,8 @@ alias opencodec="$VISUAL --new-window $HOME/dots $HOME/.config/opencode/opencode
 alias development="cd $HOME/development && ls -l */ && git status"
 alias system="cd $HOME/development/system && ls -l */ && git status"
 
-alias personal="cd $HOME/personal && ls -l */ && git status"
-alias website="cd $HOME/personal/website && ls -l */ && git status"
+alias personal="cd $HOME/development/personal && ls -l */ && git status"
+alias website="cd $HOME/development/personal/website && ls -l */ && git status"
 
 # Quick changedir 
 alias ..="cd .."
