@@ -38,13 +38,18 @@ alias df=duf||df
 alias open=xdg-open
 
 # WM Stuff
+alias autostart="$VISUAL --new-window $HOME/dots $HOME/.config/herbstluftwm/autostart"
 alias aliases="$VISUAL $HOME/.config/aliases && source $HOME/.config/aliases"
 alias exports="$VISUAL $HOME/.config/exports && source $HOME/.config/exports"
 alias dots="cd $HOME/dots && tree -aL 2 -I '.git' $HOME/dots 2&>/dev/null || ls -AL ./**"
 
 alias opencodec="$VISUAL --new-window $HOME/dots $HOME/.config/opencode/opencode.json"
-alias autostart="$VISUAL --new-window $HOME/dots $HOME/.config/herbstluftwm/autostart"
-alias development="cd $HOME/development && ls -al personal/ system/ && git status"
+
+alias development="cd $HOME/development && ls -l */ && git status"
+alias system="cd $HOME/development/system && ls -l */ && git status"
+
+alias personal="cd $HOME/personal && ls -l */ && git status"
+alias website="cd $HOME/personal/website && ls -l */ && git status"
 
 # Quick changedir 
 alias ..="cd .."
