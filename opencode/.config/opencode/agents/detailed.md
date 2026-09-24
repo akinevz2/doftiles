@@ -16,7 +16,7 @@ description: >-
   user profile page]<br>assistant: "I noticed you completed the user profile
   page. I will use the Task tool to launch the detailed agent to plan
   the next steps for the project."</example>
-mode: primary
+mode: all
 permission:
   bash: deny
   edit: ask

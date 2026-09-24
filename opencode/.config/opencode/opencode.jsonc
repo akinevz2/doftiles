@@ -2,7 +2,8 @@
   "$schema": "https://opencode.ai/config.json",
   "enabled_providers": [
     "rarebox",
-    "localhost",
+    "rarehost",
+    "visionhost",
     "ws-vision"
   ],
   "default_agent": "detailed",
@@ -145,7 +146,7 @@
         }
       }
     },
-    "localhost": {
+    "rarehost": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "localhost",
       "options": {
@@ -174,8 +175,47 @@
         "deepseek-r1-performance": {
           "name": "DeepSeek R1 Performance (46K ctx)"
         },
-        "laguna-xs-performance": {
-          "name": "Laguna XS Performance (65K ctx)"
+        "laguna-xs-2.1:latest": {
+          "name": "Laguna XS 2.1"
+        }
+      }
+    },
+    "visionhost": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "localhost",
+      "options": {
+        "baseURL": "http://localhost:11434/v1",
+        "apiKey": "ollama",
+        "timeout": false,
+        "headerTimeout": false,
+      },
+      "models": {
+        "glm-4.7-performance": {
+          "name": "GLM 4.7 Performance (51K ctx)"
+        },
+        "glm-4.7-quant": {
+          "name": "GLM 4.7 Quant (65K ctx)"
+        },
+        "glm-4.7-flash": {
+          "name": "GLM 4.7 Flash (202K ctx)",
+          "tool_call": true,
+          "reasoning": true
+        },
+        "hf.co/unsloth/GLM-4.7-Flash-GGUF:UD-Q4_K_XL": {
+          "name": "GLM 4.7 Flash GGUF (131K ctx)",
+          "tool_call": true,
+          "reasoning": true
+        },
+        "deepseek-r1-performance": {
+          "name": "DeepSeek R1 Performance (46K ctx)"
+        },
+        "laguna-xs-2.1:latest": {
+          "name": "Laguna XS 2.1"
+        },
+        "hf.co/ryzdfm/qwen2.5-coder-3b-claude_opus_4.6-distilled:Q4_K_M": {
+          "name": "Qwen2.5 Coder Opus 4.6 Distill (Q4_K_M) (32K ctx)",
+          "tool_call": true,
+          "reasoning": false
         }
       }
     },
