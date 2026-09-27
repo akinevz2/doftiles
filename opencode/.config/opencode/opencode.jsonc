@@ -76,7 +76,7 @@
         "apiKey": "ollama"
       },
       "models": {
-        "hf.co/unsloth/GLM-4.7-Flash-GGUF:MXFP4-MOE": {
+        "hf.co/unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE": {
           "name": "GLM 4.7 MOE",
         },
         "laguna-xs-2.1": {
