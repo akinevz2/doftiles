@@ -21,7 +21,7 @@ PHONY_LIST := $(sort $(ALL_TARGETS))
 
 .PHONY: $(PHONY_LIST) system depends install status
 
-install: status system 
+install: bash 
 
 status: sync services-status
 
