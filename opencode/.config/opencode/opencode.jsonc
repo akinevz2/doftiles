@@ -72,163 +72,24 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "ws-rarebox",
       "options": {
-        "baseURL": "http://ws-rarebox:11434/v1",
+        "baseURL": "http://localhost:11434/v1",
         "apiKey": "ollama"
       },
       "models": {
-        "glm-4.7-flash": {
-          "name": "GLM 4.7 Flash (202K ctx)",
-          "tool_call": true,
-          "reasoning": true,
-          "limit": {
-            "context": 202752,
-            "output": 202752
-          }
-        },
-        "hf.co/unsloth/GLM-4.7-Flash-GGUF:UD-Q4_K_XL": {
-          "name": "GLM 4.7 Flash GGUF (131K ctx)",
-          "tool_call": true,
-          "reasoning": true
-        },
-        "glm-4.7-quant": {
-          "name": "GLM 4.7 Quant (65K ctx)"
-        },
-        "glm-4.7-performance": {
-          "name": "GLM 4.7 Performance (51K ctx)"
-        },
-        "deepseek-r1-performance": {
-          "name": "DeepSeek R1 Performance (46K ctx)"
+        "hf.co/unsloth/GLM-4.7-Flash-GGUF:MXFP4-MOE": {
+          "name": "GLM 4.7 MOE",
         },
         "laguna-xs-2.1": {
-          "name": "Laguna XS 2.1 (262K ctx)",
-          "tool_call": true,
-          "reasoning": true,
-          "limit": {
-            "context": 262144,
-            "output": 262144
-          }
+          "name": "Laguna XS 2.1",
         },
         "nemotron-3.5-lightning": {
-          "name": "Nemotron 3.5 Lightning (1M ctx)",
-          "tool_call": true,
-          "reasoning": true,
-          "limit": {
-            "context": 1048576,
-            "output": 1048576
-          }
+          "name": "Nemotron 3.5 Lightning",
+        },
+        "glm-4.7-flash": {
+          "name": "GLM 4.7 Flash (202K ctx)",
         },
         "qwen3-coder": {
-          "name": "Qwen3 Coder (262K ctx)",
-          "tool_call": true,
-          "reasoning": false,
-          "limit": {
-            "context": 262144,
-            "output": 262144
-          }
-        },
-        "hf.co/TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF:IQ4_XS": {
-          "name": "GLM 4.7 Opus 4.5 Distill (IQ4_XS) (202K ctx)",
-          "tool_call": false,
-          "reasoning": false,
-          "limit": {
-            "context": 202752,
-            "output": 202752
-          }
-        },
-        "hf.co/ryzdfm/qwen2.5-coder-3b-claude_opus_4.6-distilled:Q4_K_M": {
-          "name": "Qwen2.5 Coder Opus 4.6 Distill (Q4_K_M) (32K ctx)",
-          "tool_call": true,
-          "reasoning": false,
-          "limit": {
-            "context": 32768,
-            "output": 32768
-          }
-        }
-      }
-    },
-    "rarehost": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "localhost",
-      "options": {
-        "baseURL": "http://localhost:11434/v1",
-        "apiKey": "ollama",
-        "timeout": false,
-        "headerTimeout": false,
-      },
-      "models": {
-        "glm-4.7-performance": {
-          "name": "GLM 4.7 Performance (51K ctx)"
-        },
-        "glm-4.7-quant": {
-          "name": "GLM 4.7 Quant (65K ctx)"
-        },
-        "glm-4.7-flash": {
-          "name": "GLM 4.7 Flash (202K ctx)",
-          "tool_call": true,
-          "reasoning": true
-        },
-        "hf.co/unsloth/GLM-4.7-Flash-GGUF:UD-Q4_K_XL": {
-          "name": "GLM 4.7 Flash GGUF (131K ctx)",
-          "tool_call": true,
-          "reasoning": true
-        },
-        "deepseek-r1-performance": {
-          "name": "DeepSeek R1 Performance (46K ctx)"
-        },
-        "laguna-xs-2.1:latest": {
-          "name": "Laguna XS 2.1"
-        }
-      }
-    },
-    "visionhost": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "localhost",
-      "options": {
-        "baseURL": "http://localhost:11434/v1",
-        "apiKey": "ollama",
-        "timeout": false,
-        "headerTimeout": false,
-      },
-      "models": {
-        "glm-4.7-performance": {
-          "name": "GLM 4.7 Performance (51K ctx)"
-        },
-        "glm-4.7-quant": {
-          "name": "GLM 4.7 Quant (65K ctx)"
-        },
-        "glm-4.7-flash": {
-          "name": "GLM 4.7 Flash (202K ctx)",
-          "tool_call": true,
-          "reasoning": true
-        },
-        "hf.co/unsloth/GLM-4.7-Flash-GGUF:UD-Q4_K_XL": {
-          "name": "GLM 4.7 Flash GGUF (131K ctx)",
-          "tool_call": true,
-          "reasoning": true
-        },
-        "deepseek-r1-performance": {
-          "name": "DeepSeek R1 Performance (46K ctx)"
-        },
-        "laguna-xs-2.1:latest": {
-          "name": "Laguna XS 2.1"
-        },
-        "hf.co/ryzdfm/qwen2.5-coder-3b-claude_opus_4.6-distilled:Q4_K_M": {
-          "name": "Qwen2.5 Coder Opus 4.6 Distill (Q4_K_M) (32K ctx)",
-          "tool_call": true,
-          "reasoning": false
-        }
-      }
-    },
-    "ws-vision": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "ws-vision",
-      "options": {
-        "baseURL": "http://ws-vision:11434/v1",
-        "apiKey": "ollama"
-      },
-      "models": {
-        "glm-4.7-performance:latest": {
-          "name": "GLM 4.7 Performance Latest (51K ctx)"
+          "name": "Qwen3 Coder",
         }
       }
     }
