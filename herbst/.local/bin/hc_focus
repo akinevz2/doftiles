@@ -66,7 +66,7 @@ addlog test-canfocusfloating?
 # maximizing: a float on screen should be focused before anything else)
 # There is no float-count attribute — we probe by trying to enter the
 # floating layer and checking the exit status.
-if [ "$floating_focused" = "false" ] && hc attr tags.focus.floating_focused toggle 2>/dev/null; then
+if [ "$floating_focused" = "false" ] && hc attr tags.focus.floating_focused on 2>/dev/null; then
     addlog jumping to next floating
     addlog exiting
     hc unlock

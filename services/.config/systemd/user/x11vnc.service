@@ -1,9 +1,7 @@
-# ~/.config/systemd/user/dunst.service
 [Unit]
-Description=Dunst notification daemon (inside VcXsrv)
-After=herbst.service
-Requires=basic.target
-BindsTo=herbst.service
+Description=x11vnc on :1
+After=xvfb.service
+Requires=xvfb.service
 
 [Service]
 Type=simple
@@ -12,9 +10,8 @@ Environment=DISPLAY=localhost:1.0
 # rofi 2.0 autodetect; force the whole WM session onto X11/VcXsrv.
 Environment=XDG_SESSION_TYPE=x11
 UnsetEnvironment=WAYLAND_DISPLAY
-ExecStart=/usr/bin/dunst
+ExecStart=/usr/bin/x11vnc -display localhost:1.0 -nopw -forever -shared -listen localhost -rfbport 5900 -noshm
 Restart=on-failure
-RestartSec=3
 
 [Install]
 WantedBy=default.target

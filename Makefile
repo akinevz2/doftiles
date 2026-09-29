@@ -15,24 +15,25 @@ SERVICE_ORDER := $(shell grep -vi '^#' $(SERVICES_FILE))
 WM_PACKAGES := $(shell grep -vi '^#' $(WM_PACKAGES))
 WM_BINARIES := $(shell head -1 $(WM_BINARIES) | grep -vi '^#')
 
-MAKEFILES := $(wildcard Makefile*)
-ALL_TARGETS := $(foreach mf,$(MAKEFILES),$(shell grep -hE '^[a-zA-Z_-]+:' $(mf) | sed 's/://'))
-PHONY_LIST := $(sort $(ALL_TARGETS))
+# MAKEFILES := $(wildcard Makefile*)
+# ALL_TARGETS := $(foreach mf,$(MAKEFILES),$(shell grep -hE '^[a-zA-Z_-]+:' $(mf) | sed 's/://'))
+# PHONY_LIST := $(sort $(ALL_TARGETS))
 
-.PHONY: $(PHONY_LIST) system depends install status
+# .PHONY: $(PHONY_LIST) system depends install sync update push
 
-install: bash 
+install: bash system 
 
-status: sync services-status
-
-depends: bash wm
-	@$(STOW) -R -t $$HOME depends
+depends: wm
 	@if ! ls -al *.packages *.requires *.order; then \
 		exit 1; \
 	fi
+	@$(MAKE) sync
 
 # bash metapackage
 bash: shell git opencode task
+
+# wm:
+status: services-available services-installed
 
 shell:
 	@$(STOW) -R -t $$HOME shell
@@ -65,8 +66,8 @@ compton:
 dunst:
 	@$(STOW) -R -t $$HOME dunst
 
-# sync — perform update followed by upload only if update succeeded.
-sync: update upload
+# sync — perform update followed by push only if update succeeded.
+sync: push
 
 # update — safely pull the latest changes from origin. Prefers a fast-forward
 # merge; falls back to a normal merge. If real conflicts occur, launch $EDITOR
@@ -91,33 +92,30 @@ update:
 		exec $$EDITOR "$$PWD" $$modified; \
 	fi
 
-# upload — push commits if the worktree is clean; otherwise stage everything
+# push — push commits if the worktree is clean; otherwise stage everything
 # and launch $EDITOR with the current directory plus each modified file.
 # If there are staged changes but nothing unstaged/untracked, commit them
 # directly without opening an editor.
-upload:
+push: update
 	@untracked=$$(git ls-files --others --exclude-standard); \
+	git add -A; \
 	if git diff --quiet && git diff --staged --quiet && [ -z "$$untracked" ]; then \
 		if git rev-list --count '@{u}..HEAD' >/dev/null 2>&1 && \
 			[ "$$(git rev-list --count '@{u}..HEAD')" -gt 0 ]; then \
-			echo "upload: pushing $(shell git branch --show-current)"; \
+			echo "push: pushing $(shell git branch --show-current)"; \
 			git push; \
 		else \
-			echo "upload: nothing to push"; \
+			echo "push: nothing to push"; \
 		fi; \
 		exit 0; \
 	fi; \
 	if git diff --quiet && [ -z "$$untracked" ] && ! git diff --staged --quiet; then \
-		echo "upload: committing staged changes"; \
-		git commit --no-edit && git push; \
+		echo "push: commit staged changes"; \
+		git commit && git push origin; \
 		exit 0; \
 	fi; \
-	git add -A; \
 	modified=$$(git diff --staged --name-only); \
 	exec $$EDITOR "$$PWD" $$modified
-
-# wm:
-services-status: services-available services-installed
  
 # packages:
 SYSTEM_PACKAGES := $(shell ls -d system-* 2>/dev/null)
@@ -223,5 +221,5 @@ deploy-services: check-services
 		$(STOW) -R -t $$HOME "$$pkg"; \
 	done
 
-system: system-packages deploy-services depends 
+system: wm-services system-packages
 	@echo -e "system: \033[1;33mfresh\033[0m"
