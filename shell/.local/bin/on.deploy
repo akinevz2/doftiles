@@ -83,7 +83,7 @@ echo "Requirements from wm.requires:"
 for binary in "${REQUIRES_BIN[@]}"; do
     echo -n "$binary required: "
     if command -v $binary 2&>/dev/null; then
-        yellow $success
+        yellow $success || true
         continue
     fi
     DEPLOY_CMD=$("$DEPLOY_SCRIPT_PATH" "$binary")
