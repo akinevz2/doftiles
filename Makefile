@@ -15,11 +15,11 @@ SERVICE_ORDER := $(shell grep -vi '^#' $(SERVICES_FILE))
 WM_PACKAGES := $(shell grep -vi '^#' $(WM_PACKAGES))
 WM_BINARIES := $(shell head -1 $(WM_BINARIES) | grep -vi '^#')
 
-# MAKEFILES := $(wildcard Makefile*)
-# ALL_TARGETS := $(foreach mf,$(MAKEFILES),$(shell grep -hE '^[a-zA-Z_-]+:' $(mf) | sed 's/://'))
-# PHONY_LIST := $(sort $(ALL_TARGETS))
+MAKEFILES := $(wildcard Makefile*)
+ALL_TARGETS := $(foreach mf,$(MAKEFILES),$(shell grep -hE '^[a-zA-Z_-]+:' $(mf) | sed 's/://'))
+PHONY_LIST := $(sort $(ALL_TARGETS))
 
-# .PHONY: $(PHONY_LIST) system depends install sync update push
+.PHONY: $(PHONY_LIST) system depends install sync update push
 
 install: stow system 
 
@@ -35,38 +35,41 @@ bash: shell git opencode task
 # wm:
 status: services-available services-installed
 
+services:
+	$(STOW) -R -t $$HOME services
+
 shell:
-	@$(STOW) -R -t $$HOME shell
+	$(STOW) -R -t $$HOME shell
 	@chmod +x shell/.local/bin/install/bashrc
 	~/.local/bin/install/bashrc
 
 git:
-	@$(STOW) -R -t $$HOME git
+	$(STOW) -R -t $$HOME git
 	@chmod +x git/.local/bin/load-credentials
 	~/.local/bin/load-credentials
 
 opencode:
-	@$(STOW) -R -t $$HOME opencode
+	$(STOW) -R -t $$HOME opencode
 
 task:
-	@$(STOW) -R -t $$HOME task
+	$(STOW) -R -t $$HOME task
 
 wm: herbstluftwm alacritty dunst compton
 
 herbstluftwm:
-	@$(STOW) -R -t $$HOME herbst
+	$(STOW) -R -t $$HOME herbst
 	@herbstclient reload
 
 alacritty:
-	@$(STOW) -R -t $$HOME alacritty
+	$(STOW) -R -t $$HOME alacritty
 
 compton:
-	@$(STOW) -R -t $$HOME compton
+	$(STOW) -R -t $$HOME compton
 
 dunst:
-	@$(STOW) -R -t $$HOME dunst
+	$(STOW) -R -t $$HOME dunst
 
-stow-packages: check-services  
+stow-wm: status  
 	@for pkg in $(WM_PACKAGES); do \
 		echo "stowing $$pkg"; \
 		$(STOW) -R -t $$HOME "$$pkg"; \
@@ -140,7 +143,7 @@ add-packages: shell
 		exit 1; \
 	fi
 
-add-packages-system: restart-services
+add-packages-system: start-services
 	@if [ -z "$(SYSTEM_PACKAGES)" ]; then \
 		echo "packages: no system-* packages found; skipping"; \
 		exit 0; \
@@ -184,9 +187,8 @@ services-installed:
 		echo -e "Missing services:\033[33m$$missing\033[0m"; \
 	fi
 
-reload-systemd: status
+reload-systemd: services
 	@echo ""
-	@$(STOW) -R -t $$HOME services
 	@systemctl --user daemon-reload 2>/dev/null || \
 		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
 	@if [ ! -f "$(SERVICES_FILE)" ]; then \
@@ -197,6 +199,54 @@ reload-systemd: status
 	@for service in $(SERVICE_ORDER); do \
 		systemctl --user enable --now "$$service" || echo "check-services: failed to enable and start $$service"; \
 	done && echo "Enabled services: $(SERVICE_ORDER)"
+
+start-services: reload-systemd
+	@echo ""
+	@for service in $(SERVICE_ORDER); do \
+		echo "preparing start for $$service"; \
+	done
+	@systemctl --user daemon-reload 2>/dev/null || \
+		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
+	@if [ -z "$(SERVICE_ORDER)" ]; then \
+		echo ""; \
+		echo -e "\033[31mERROR: Service order defined by $(SERVICES_FILE) file is empty.\033[0m"; \
+		exit 1; \
+	fi
+	@echo -n "Continue with starting wm? [y/N] "
+	@read -r line; \
+	if [ "$$line" != "y" ] && [ "$$line" != "Y" ]; then \
+		echo "services: cancelled"; \
+		echo ""; \
+		exit 0; \
+	fi; \
+	for service in $(SERVICE_ORDER); do \
+		systemctl --user start "$$service" || systemctl --user status "$$service"; \
+	done; \
+	echo "services: started"
+
+stop-services: reload-systemd
+	@echo ""
+	@for service in $(SERVICE_ORDER); do \
+		echo "preparing stop for $$service"; \
+	done
+	@systemctl --user daemon-reload 2>/dev/null || \
+		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
+	@if [ -z "$(SERVICE_ORDER)" ]; then \
+		echo ""; \
+		echo -e "\033[31mERROR: Service order defined by $(SERVICES_FILE) file is empty.\033[0m"; \
+		exit 1; \
+	fi
+	@echo -n "Continue with stopping wm? [y/N] "
+	@read -r line; \
+	if [ "$$line" != "y" ] && [ "$$line" != "Y" ]; then \
+		echo "services: cancelled"; \
+		echo ""; \
+		exit 0; \
+	fi; \
+	for service in $(SERVICE_ORDER); do \
+		systemctl --user stop "$$service" || systemctl --user status "$$service"; \
+	done; \
+	echo "services: stopped"
 
 restart-services: reload-systemd
 	@echo ""
