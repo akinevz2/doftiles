@@ -121,7 +121,7 @@ push: update
 SYSTEM_PACKAGES := $(shell ls -d system-* 2>/dev/null)
 
 wm-packages: shell
-	@~/.local/bin/on.deploy wm
+	@~/.local/bin/on.deploy 
 	@missing=""; \
 	for bin in $(WM_BINARIES); do \
 		command -v "$$bin" >/dev/null 2>&1 || missing="$$missing $$bin"; \
