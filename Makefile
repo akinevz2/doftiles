@@ -21,7 +21,7 @@ WM_BINARIES := $(shell head -1 $(WM_BINARIES) | grep -vi '^#')
 
 # .PHONY: $(PHONY_LIST) system depends install sync update push
 
-install: bash system 
+install: stow system 
 
 depends: wm
 	@if ! ls -al *.packages *.requires *.order; then \
@@ -65,6 +65,14 @@ compton:
 
 dunst:
 	@$(STOW) -R -t $$HOME dunst
+
+stow-packages: check-services  
+	@for pkg in $(WM_PACKAGES); do \
+		echo "stowing $$pkg"; \
+		$(STOW) -R -t $$HOME "$$pkg"; \
+	done
+
+stow: bash wm
 
 # sync — perform update followed by push only if update succeeded.
 sync: push
@@ -120,7 +128,7 @@ push: update
 # packages:
 SYSTEM_PACKAGES := $(shell ls -d system-* 2>/dev/null)
 
-wm-packages: shell
+add-packages: shell
 	@~/.local/bin/on.deploy 
 	@missing=""; \
 	for bin in $(WM_BINARIES); do \
@@ -132,7 +140,7 @@ wm-packages: shell
 		exit 1; \
 	fi
 
-system-packages: wm-packages restart-services
+add-packages-system: restart-services
 	@if [ -z "$(SYSTEM_PACKAGES)" ]; then \
 		echo "packages: no system-* packages found; skipping"; \
 		exit 0; \
@@ -176,7 +184,7 @@ services-installed:
 		echo -e "Missing services:\033[33m$$missing\033[0m"; \
 	fi
 
-check-services: services-available
+reload-systemd: status
 	@echo ""
 	@$(STOW) -R -t $$HOME services
 	@systemctl --user daemon-reload 2>/dev/null || \
@@ -190,7 +198,7 @@ check-services: services-available
 		systemctl --user enable --now "$$service" || echo "check-services: failed to enable and start $$service"; \
 	done && echo "Enabled services: $(SERVICE_ORDER)"
 
-restart-services: services-status
+restart-services: reload-systemd
 	@echo ""
 	@for service in $(SERVICE_ORDER); do \
 		echo "preparing restart for $$service"; \
@@ -215,11 +223,5 @@ restart-services: services-status
 	echo "services: restarted"
 
 
-deploy-services: check-services  
-	@for pkg in $(WM_PACKAGES); do \
-		echo "stowing $$pkg"; \
-		$(STOW) -R -t $$HOME "$$pkg"; \
-	done
-
-system: wm-services system-packages
+system: status add-packages-system add-packages
 	@echo -e "system: \033[1;33mfresh\033[0m"
