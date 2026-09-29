@@ -4,9 +4,17 @@
 YELLOW='\033[33m'
 NC='\033[0m'
 
-if [[ $# -eq 0 ]]; then
-    echo "Usage: $0 <text>"
+if [ -t 0 ]; then
+    # No pipe – require arguments
+    if [[ $# -eq 0 ]]; then
+        echo "Usage: $0 <text>"
+        exit 1
+    fi
+    echo -e "${YELLOW}$@${NC}"
     exit 1
 fi
 
-echo -e "${YELLOW}$@${NC}"
+# Piped input – colour each line
+while IFS= read -r line || [[ -n "$line" ]]; do
+    echo -e "${YELLOW}${line}${NC}"
+done
