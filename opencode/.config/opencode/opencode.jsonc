@@ -62,32 +62,45 @@
       "git add *": "ask",
       "git *": "ask",
       "mv *": "ask",
-      "npm *": "ask",
+      "npm *": "ask"
     }
   },
   "provider": {
-    "rarebox": {
+    "vision": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "ws-rarebox",
+      "name": "ws-vision",
       "options": {
         "baseURL": "http://localhost:11434/v1",
         "apiKey": "ollama"
       },
       "models": {
+        "glm-4.7-performance:latest": {
+          "name": "GLM 4.7 Performance"
+        }
+      }
+    },
+    "rarebox": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "ws-rarebox",
+      "options": {
+        "baseURL": "http://ws-rarebox:11434/v1",
+        "apiKey": "ollama"
+      },
+      "models": {
         "hf.co/unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE": {
-          "name": "GLM 4.7 MOE",
+          "name": "GLM 4.7 Flash MOE"
         },
         "laguna-xs-2.1": {
-          "name": "Laguna XS 2.1",
+          "name": "Laguna XS 2.1"
         },
         "nemotron-3.5-lightning": {
-          "name": "Nemotron 3.5 Lightning",
+          "name": "Nemotron 3.5 Lightning"
         },
         "glm-4.7-flash": {
-          "name": "GLM 4.7 Flash (202K ctx)",
+          "name": "GLM 4.7 Flash (202K ctx)"
         },
         "qwen3-coder": {
-          "name": "Qwen3 Coder",
+          "name": "Qwen3 Coder"
         }
       }
     }
