@@ -38,7 +38,7 @@ alias df=duf||df
 alias open=xdg-open
 
 # WM Stuff
-alias autostart="$VISUAL --new-window $HOME/dots $HOME/.config/herbstluftwm/autostart"
+alias autostart="$EDITOR --new-window $HOME/dots $HOME/.config/herbstluftwm/autostart"
 alias aliases="$VISUAL $HOME/.config/aliases && source $HOME/.config/aliases"
 alias exports="$VISUAL $HOME/.config/exports && source $HOME/.config/exports"
 alias dots="cd $HOME/dots && tree -aL 2 -I '.git' $HOME/dots 2&>/dev/null || ls -AL ./**"
