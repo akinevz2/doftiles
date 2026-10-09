@@ -29,7 +29,7 @@
       "*.env": "deny",
       "*.env.*": "deny",
       ".git/**": "deny",
-      "/tmp/**": "deny",
+      "/tmp/**": "allow",
       ".opencode/system/**": "allow"
     },
     "read": {
@@ -44,8 +44,14 @@
       "*>*": "ask",
       "*>>*": "ask",
       "*.git/*": "deny",
-      "rm *": "ask",
-      "echo *": "ask",
+      "cp *": "ask",       
+      "tee *": "ask",      
+      "sed -i*": "ask",    
+      "npx *": "ask",      
+      "patch *": "ask",    
+      "rm -rf *": "deny",  
+      "rm *": "ask",       
+      "echo *": "allow",
       "rmdir *": "ask",
       "rg *": "allow",
       "cat *": "allow",
@@ -88,19 +94,92 @@
       },
       "models": {
         "hf.co/unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE": {
-          "name": "GLM 4.7 Flash MOE"
+          "name": "GLM 4.7 Flash MOE (32k)",
+          "limit": {
+            "context": 32768,
+            "output": 4096
+          },
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "attachment": true,
+          "reasoning": true,
+          "temperature": true,
+          "tool_call": true,
+          "interleaved": {
+            "field": "reasoning_text"
+          }
         },
         "laguna-xs-2.1": {
-          "name": "Laguna XS 2.1"
+          "name": "Laguna XS 2.1",
+          "limit": {
+            "context": 32768,
+            "output": 4096
+          },
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          }
         },
         "nemotron-3.5-lightning": {
-          "name": "Nemotron 3.5 Lightning"
+          "name": "Nemotron 3.5 Lightning",
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          },
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "reasoning": true,
+          "tool_call": true
         },
         "glm-4.7-flash": {
-          "name": "GLM 4.7 Flash (202K ctx)"
+          "name": "GLM 4.7 Flash (32k)",
+         "limit": {
+            "context": 32768,
+            "output": 4096
+          },
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "attachment": true,
+          "reasoning": true,
+          "temperature": true,
+          "tool_call": true
         },
         "qwen3-coder": {
-          "name": "Qwen3 Coder"
+          "name": "Qwen3 Coder",
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          },
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          }
         }
       }
     }
