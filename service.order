@@ -1,1 +1,2 @@
-xvfb x11vnc herbst novnc dunst compton herbst compton dunst
+#xvfb x11vnc herbst novnc dunst compton herbst compton dunst
+herbst dunst compton dunst
