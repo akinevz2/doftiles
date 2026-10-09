@@ -104,6 +104,9 @@ if [ -z "$best" ]; then
     # (empty) — so the new empty leaf is the pre-split focused index
     # with a "1" appended.
     pre=$(herb attr tags.focus.tiling.focused_frame.index)
+    herb attr clients.$WID.minimized off || true
+    herb bring $WID || true
+    herb attr clients.focus.floating on || true
     herb split auto
     best="${pre}1"
 fi
@@ -120,5 +123,6 @@ for d in $(printf '%s' "$dotted" | tr '.' ' '); do
     path="$path.$d"
 done
 
+herb attr clients.focus.floating off
 herb unlock
 trap - EXIT
