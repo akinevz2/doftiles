@@ -2,6 +2,7 @@
 
 unset WAYLAND_DISPLAY
 source ${HOME}/.exports
+export BACKGROUND_HEX='#2C001E'
 
 herb() {
     herbstclient "$@"
@@ -23,12 +24,10 @@ ModCtrl=Mod1-Control
 herb emit_hook reload
 herb set_layout max
 herb keyunbind --all
-herb spawn hsetroot -solid '#2C001E'
+herb spawn hsetroot -solid "$BACKGROUND_HEX"
 # kill stale panel processes from a previous session; the polywins
 # hook listener exits with polybar (it is a child process)
-pgrep polybar && pkill polybar
-pkill -f "polywins.sh" 2>/dev/null
-herb spawn polybar single
+herb spawn ${HOME}/.local/bin/polyctl reload
 
 # LAUNCHERS
 # TERMINAL="gnome-terminal --zoom 1.5"
@@ -46,9 +45,9 @@ keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 ,
 keyreg $ModCtrl-a           or . and , compare tags.focus.curframe_wcount gt 1 , split explode . spawn $APPLAUNCHER           # was Mod-Tab
 keyreg $ModShift-q          or \
                             . and \
-                                    , compare tags.focus.curframe_wcount lt 2 \
-                                    , close_or_remove                         \
-                            . remove
+                                    , compare tags.focus.curframe_wcount gt 1 \
+                                    , remove                         \
+                            . close_and_remove
 # screenshot; revision HHKB custom caps
 
 # CLOSE OR QUIT WM
@@ -57,19 +56,22 @@ keyreg $ModCtrl-q           spawn xkill
 keyreg $ModShift-w          reload
 
 # WINDOWING
-keyreg $Mod-a               or , focus left --level=frame , split left 0.5
+keyreg $Mod-a               or , focus left --level=frame , split left 0.33333
 keyreg $ModShift-a          or , shift left , focus left --level=frame , chain . split left . shift left
-keyreg $ModCtrl-r           chain . split auto . cycle_frame 
+keyreg $ModShift-e          chain . split explode . cycle_frame
 keyreg $ModCtrl-e           chain . split auto . cycle_frame
-keyreg $ModShift-r          split explode
-keyreg $ModShift-e          chain . split horizontal . cycle_frame
+keyreg $ModShift-r               chain ! lock ! rotate ! unlock
+keyreg $ModCtrl-r      or , and . compare tags.focus.frame_count lt 2 \
+                            . cycle -1 \
+                      , cycle_frame
+keyreg $Mod-e               or . and , compare tags.focus.frame_count gt 1 , cycle_frame . chain ! split explode ! cycle_frame
 
 # cycle; was $Mod-s / $ModShift-s
 # zoom/peek grid
 keyreg $Mod-s               chain : lock \
                                   :  or , jumpto urgent \
                                         , and ! compare tags.focus.curframe_wcount gt 1 \
-                                              ! cycle \
+                                              ! cycle -1 \
                                         , and . set_attr clients.focus.floating off \
                                                 . pseudotile toggle \
                                   : unlock                
@@ -88,13 +90,10 @@ keyreg $Mod-c       or \
                         , jumpto urgent
 keyreg $Mod-w       chain : lock : or , and \
                             ! compare tags.focus.curframe_wcount gt 1 \
-                            ! cycle -1 \
+                            ! cycle +1 \
                        , focus --level=frame up \
                        , cycle_frame : unlock
 
-keyreg $Mod-e      or , and . compare tags.focus.frame_count lt 2 \
-                            . cycle -1 \
-                      , cycle_frame
 keyreg $ModShift-x          use_previous
 
 keyreg $ModShift-d  or \
@@ -113,7 +112,6 @@ keyreg $Mod-d   or \
 
 # rotate layout
 # flip layout
-keyreg $Mod-r               or , and . compare tags.focus.curframe_wcount gt 1 . chain ! lock ! rotate ! rotate ! unlock , cycle_frame
 
 keyreg $ModShift-z          attr clients.focus.minimized toggle
 # peek floats; when the floating layer is empty (or every float is
@@ -133,7 +131,6 @@ keyreg $Mod-f               spawn ~/.local/bin/hc_focus
 # fullscreen
 # full focus: fullscreen priority — un-float floats, un-fullscreen+float
 # fullscreened windows, fullscreen everything else (hc_full_focus)
-keyreg $ModCtrl-f           spawn ~/.local/bin/hc_full_focus
 keyreg $ModShift-f          spawn ~/.local/bin/hc_zoom
 
 # fullscreen / float — logic lives in hc_floatx: hlwm's or/and can't
@@ -244,31 +241,57 @@ herb attr theme.tiling.reset 1
 herb attr theme.floating.reset 1
 
 #= COLOURS =#
-herb set frame_border_active_color '#888'
-herb set frame_border_normal_color '#333'
-# Focused frame gets a brighter gray than unfocused ones (rgba: low alpha
-# so the transparent frame background stays subtle).
-herb set frame_bg_normal_color '#eeeeee'
+herb set frame_border_active_color '#eeeeee'
+herb set frame_border_normal_color '#333333'
 herb set frame_bg_active_color '#feef69'
+herb set frame_bg_normal_color '#333333'
 herb attr theme.active.color '#feef69'
-herb attr theme.normal.color '#666'
-herb attr theme.urgent.color orange
+herb attr theme.normal.color '#333333'
+herb attr theme.urgent.color '#ffffff'
 herb attr theme.minimal.color '#333'
-herb attr theme.active.inner_color '#ffeeee'
+herb attr theme.active.inner_color '#feef69'
 herb attr theme.active.outer_color '#feef69'
-herb attr theme.background_color '#333333'
+herb attr theme.active.title_height 16
+herb attr theme.active.title_depth 5
+herb attr theme.active.title_color '#333333'
+herb attr theme.background_color '#feef69'
 
 herb set hide_covered_windows on
 herb set always_show_frame on
 herb set frame_bg_transparent on
 herb set frame_transparent_width 2
-herb set frame_border_width 1
+herb set frame_border_width 2
 
-herb attr theme.floating.outer_color '#888888'
+herb attr theme.minimal.border_width 0
+herb attr theme.inner_width 5
+herb attr theme.inner_color '#333333'
+herb attr theme.outer_color '#eeeeee'
+herb attr theme.border_width 2
+
+herb attr theme.padding_left 2
+herb attr theme.padding_right 2
+herb attr theme.padding_top 2
+herb attr theme.padding_bottom 2
+herb attr theme.floating.outer_color '#333333'
+herb attr theme.floating.active.outer_color '#333333'
+herb attr theme.floating.active.inner_color '#feef69'
 herb attr theme.floating.outer_width 2
 
-herb set frame_gap 12
-herb set window_gap 0
+herb attr theme.floating.tight_decorations true
+herb attr theme.floating.padding_left 2
+herb attr theme.floating.padding_right 2
+herb attr theme.floating.padding_top 2
+herb attr theme.floating.padding_bottom 2
+herb attr theme.normal.title_color '#eeeeee'
+herb attr theme.normal.title_height 16
+herb attr theme.normal.title_depth 5
+herb attr theme.floating.title_height 24
+herb attr theme.floating.title_depth 5
+herb attr theme.floating.title_when always
+herb attr theme.floating.border_width 4
+
+herb set frame_gap 2
+herb set window_gap 5
 herb set frame_padding 0
 
 herb set snap_distance 10
@@ -277,18 +300,12 @@ herb set snap_gap 5
 herb set smart_window_surroundings off
 herb set smart_frame_surroundings on
 
-herb attr theme.minimal.border_width 2
-herb attr theme.inner_width 0
-herb attr theme.inner_color black
-herb attr theme.border_width 5
-herb attr theme.floating.border_width 5
-
 herb set mouse_recenter_gap 5
 herb set focus_follows_mouse off
 herb set focus_stealing_prevention off
 herb set focus_crosses_monitor_boundaries off
 herb set gapless_grid on
-herb set hide_covered_windows off
+herb set hide_covered_windows on
 herb set pseudotile_center_threshold 25
 herb set update_dragged_clients off
 
