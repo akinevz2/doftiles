@@ -1,17 +1,6 @@
 #!/usr/bin/env bash
-# hc_floatx — Mod-x "float/fix" behaviour.
-#
-# Precedence:
-# 1. un-float the focused float
-# 2. focus a floating window, clean it, center it in its frame
-# 3. multiframe + non-max algorithm: float the whole frame group
-#    preserving geometry
-# 4. center + float the focused tiling window (in its frame)
-# 5. nothing applicable → use_previous
-#
-# Runs unlocked: none of these steps needs a lock, and a failed
-# command inside "chain ! lock ... ! unlock" skips the unlock and
-# freezes the WM (lesson from 2026-09-12).
+# hc_floatx — Mod-x float, focus, and distraction-management actions.
+# Runs unlocked: these operations do not need a lock.
 
 set -uo pipefail
 
@@ -20,84 +9,103 @@ export DISPLAY
 
 hc() { herbstclient "$@"; }
 
-# Read the focused window's float state unconditionally — a floating
-# window is focused even when the focused frame has zero tiling
-# clients, so guarding this on frame_clients would skip the un-float
-# branch entirely.
-focus_float=$(hc attr clients.focus.floating_effectively 2>/dev/null || echo "")
+orig=$("$HOME/.local/bin/hc_current" 2>/dev/null || true)
+focus_float=$(hc attr clients.focus.floating_effectively 2>/dev/null || echo false)
 frame_clients=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
+frame_count=$(hc attr tags.focus.frame_count 2>/dev/null || echo 1)
 algo=$(hc attr tags.focus.tiling.focused_frame.algorithm 2>/dev/null || echo "")
-# floating_effectively prints true/false (not 1/0) via attr
-# Grab handle to current winid
-orig=$("$HOME/.local/bin/hc_current")
+tag=$(hc attr tags.focus.name 2>/dev/null || echo "")
 
-if [ "$focus_float" = "true" ]; then
-    if [ "$algo" == "max" ] && hc compare tags.focus.frame_count = 1; then
-        hc attr clients.focus.minimized true
-        exit 0
-    fi
+if [ -n "$orig" ]; then
+    hc attr "clients.$orig.fullscreen" off 2>/dev/null || true
+    hc attr "clients.$orig.pseudotile" off 2>/dev/null || true
+fi
 
-    # If focused window IS floating, un-float it
-    # Check if currently focused (destination) frame is not maximized
-    if [ "$algo" == "max" ] && [ ! "$frame_clients" -eq 0 ]; then
-        # Frame was already maximized below us
-        # if its algorithm is max
-        # or it has only one client
-        # we focus the maximized client
-        "$HOME/.local/bin/hc_center" frame 2>/dev/null
-        hc attr tags.focus.floating_focused off
-        exit 0
-    fi
-    
-    # We have an empty frame
-    # We unfloat all floating windows on this tag
-    tag=$(hc attr clients.focus.tag 2>/dev/null)
-    for winid in $(hc attr clients | grep -oE '0x[0-9a-f]+' | sort -u); do
-        if [ "$(hc attr "clients.$winid.tag" 2>/dev/null)" = "$tag" ] \
-           && [ "$(hc attr "clients.$winid.floating" 2>/dev/null)" = "true" ]; then
-            hc attr "clients.$winid.fullscreen" off 2>/dev/null
-            hc attr "clients.$winid.pseudotile" off 2>/dev/null
-            hc attr "clients.$winid.floating" off 2>/dev/null
+unfloat_tag() {
+    local winid
+    [ -n "$tag" ] || return 0
+    for winid in $(hc list_clients --tag="$tag" 2>/dev/null); do
+        if [ "$(hc attr "clients.$winid.floating" 2>/dev/null || echo false)" = "true" ]; then
+            hc attr "clients.$winid.fullscreen" off 2>/dev/null || true
+            hc attr "clients.$winid.pseudotile" off 2>/dev/null || true
+            hc attr "clients.$winid.floating" off 2>/dev/null || true
         fi
     done
+}
+
+has_minimized_clients() {
+    local winid
+    [ -n "$tag" ] || return 1
+    for winid in $(hc list_clients --tag="$tag" 2>/dev/null); do
+        [ "$(hc attr "clients.$winid.minimized" 2>/dev/null || echo false)" = "true" ] && return 0
+    done
+    return 1
+}
+
+busy=false
+if [ "$frame_count" -gt 1 ] && [ "$frame_clients" -gt 1 ]; then
+    busy=true
+fi
+
+if [ "$focus_float" = "true" ]; then
+    if [ "$frame_clients" -gt 0 ] && [ "$algo" = "max" ]; then
+        if [ "$frame_count" -eq 1 ]; then
+            [ -n "$orig" ] && hc attr "clients.$orig.minimized" on
+        else
+            hc attr tags.focus.floating_focused off 2>/dev/null || true
+        fi
+        exit 0
+    fi
+
+    if [ "$frame_clients" -eq 0 ] || [ "$busy" = "true" ]; then
+        unfloat_tag
+        [ -n "$orig" ] && hc bring "$orig"
+        exit 0
+    fi
+
+    [ -n "$orig" ] && hc attr "clients.$orig.floating" off 2>/dev/null || true
     exit 0
 fi
 
 if [ "$frame_clients" -eq 0 ]; then
-    # client_count == 0 AND cannot focus floating → remove focused frame
-    if hc attr tags.focus.curframe_wcount && hc compare tags.focus.frame_count gt 1; then
-        hc remove 
+    if [ "$algo" != "max" ] && has_minimized_clients; then
+        hc spawn "$HOME/.local/bin/rofi_hidden"
         exit 0
     fi
-    hc use_previous
-    hc spawn ~/.local/bin/hc_hidden_list
-fi
 
-
-hc attr clients.focus.fullscreen off 2>/dev/null || true
-hc attr clients.focus.pseudotile off 2>/dev/null || true
-
-
-
-# Check if we can change focus to floating window
-focus_winid=$("$HOME/.local/bin/hc_current")
-if hc attr tags.focus.floating_focused on 2>/dev/null; then
-    # Check if we're focusing a bag of windows
-    if [ "$algo" == "max" ] && [ "$frame_clients" -gt 1 ]; then
-        # allocate frame nearest to it
-        floating=$("$HOME/.local/bin/hc_current")
-        if [ "$frame_clients" -gt 1 ] && [ "$algo" != "max" ]; then
-            # Then we allocate a new frame
-            "$HOME/.local/bin/hc_tile" "$focus_winid" 2>/dev/null
-        fi
-        hc attr clients.$floating.floating off
-        # If we can focus next floating window then we finish
-        if hc attr tags.focus.floating_focused on 2>/dev/null; then
-            hc jumpto "$focus_winid"
-            "$HOME/.local/bin/hc_center" root 2>/dev/null
-            exit 0
-        fi
+    if [ "$frame_count" -gt 1 ] && hc attr tags.focus.floating_focused on 2>/dev/null; then
+        "$HOME/.local/bin/hc_center" frame 2>/dev/null || true
+        exit 0
     fi
+
+    if [ "$frame_count" -gt 1 ]; then
+        hc remove
+    else
+        hc use_previous
+    fi
+    exit 0
 fi
 
-hc attr clients.focus.floating on
+if [ "$frame_count" -gt 1 ] && hc attr tags.focus.floating_focused on 2>/dev/null; then
+    exit 0
+fi
+
+if [ "$frame_count" -eq 1 ]; then
+    if [ "$frame_clients" -gt 1 ]; then
+        [ -n "$orig" ] && hc attr "clients.$orig.minimized" on
+    elif [ "$frame_clients" -eq 1 ] && [ -n "$orig" ]; then
+        hc use_previous
+        hc bring "$orig"
+    else
+        hc use_previous
+    fi
+    exit 0
+fi
+
+if [ "$algo" = "max" ]; then
+    hc attr clients.focus.floating on
+    "$HOME/.local/bin/hc_center" frame 2>/dev/null || true
+    exit 0
+fi
+
+hc remove
