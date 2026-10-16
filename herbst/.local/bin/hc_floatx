@@ -11,7 +11,7 @@ hc() { herbstclient "$@"; }
 
 orig=$("$HOME/.local/bin/hc_current" 2>/dev/null || true)
 focus_float=$(hc attr clients.focus.floating_effectively 2>/dev/null || echo false)
-frame_clients=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
+frame_clients=$(hc attr tags.focus.curframe_wcount 2>/dev/null || echo 0)
 frame_count=$(hc attr tags.focus.frame_count 2>/dev/null || echo 1)
 algo=$(hc attr tags.focus.tiling.focused_frame.algorithm 2>/dev/null || echo "")
 tag=$(hc attr tags.focus.name 2>/dev/null || echo "")
@@ -48,64 +48,60 @@ if [ "$frame_count" -gt 1 ] && [ "$frame_clients" -gt 1 ]; then
 fi
 
 if [ "$focus_float" = "true" ]; then
-    if [ "$frame_clients" -gt 0 ] && [ "$algo" = "max" ]; then
-        if [ "$frame_count" -eq 1 ]; then
-            [ -n "$orig" ] && hc attr "clients.$orig.minimized" on
-        else
-            hc attr tags.focus.floating_focused off 2>/dev/null || true
-        fi
-        exit 0
-    fi
-
-    if [ "$frame_clients" -eq 0 ] || [ "$busy" = "true" ]; then
+    if [ "$frame_clients" = 0 ] && [ "$algo" = "max" ]; then
         unfloat_tag
         [ -n "$orig" ] && hc bring "$orig"
         exit 0
     fi
 
-    [ -n "$orig" ] && hc attr "clients.$orig.floating" off 2>/dev/null || true
+
+    if [ "$busy" == "true" ]; then
+        [ -n "$orig" ] && hc attr clients.focus.floating off 2>/dev/null || true
+        exit 0
+    fi
+
+    "$HOME/.local/bin/hc_center" root 2>/dev/null || true
+    hc attr tags.focus.floating_focused off 2>/dev/null || true
     exit 0
 fi
 
-if [ "$frame_clients" -eq 0 ]; then
-    if [ "$algo" != "max" ] && has_minimized_clients; then
-        hc spawn "$HOME/.local/bin/rofi_hidden"
+if hc attr tags.focus.floating_focused on 2>/dev/null; then
+    if [ "$frame_clients" = 1 ]; then
+        hc attr "clients.focus.minimized on" 2>/dev/null || true
         exit 0
     fi
+    exit 0
+fi
 
-    if [ "$frame_count" -gt 1 ] && hc attr tags.focus.floating_focused on 2>/dev/null; then
-        "$HOME/.local/bin/hc_center" frame 2>/dev/null || true
-        exit 0
-    fi
-
-    if [ "$frame_count" -gt 1 ]; then
+if [ "$frame_count" -gt 1 ]; then
+    if [ "$frame_clients" -eq 0 ]; then
         hc remove
-    else
-        hc use_previous
+        exit 0
     fi
-    exit 0
-fi
 
-if [ "$frame_count" -gt 1 ] && hc attr tags.focus.floating_focused on 2>/dev/null; then
-    exit 0
-fi
 
-if [ "$frame_count" -eq 1 ]; then
-    if [ "$frame_clients" -gt 1 ]; then
-        [ -n "$orig" ] && hc attr "clients.$orig.minimized" on
-    elif [ "$frame_clients" -eq 1 ] && [ -n "$orig" ]; then
-        hc use_previous
-        hc bring "$orig"
-    else
-        hc use_previous
+    # Check if there are any minimized windows and no tiling clients on the previous tag
+    if has_minimized_clients && [ "$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)" -eq 0 ]; then
+        for winid in $(hc list_clients --tag="$tag" 2>/dev/null); do
+            if [ "$(hc attr "clients.$winid.minimized" 2>/dev/null || echo false)" = "true" ]; then
+                hc attr "clients.$winid.minimized" off 2>/dev/null || true
+            fi
+        done
     fi
-    exit 0
-fi
 
-if [ "$algo" = "max" ]; then
+    "$HOME/.local/bin/hc_center" root 2>/dev/null || true
     hc attr clients.focus.floating on
-    "$HOME/.local/bin/hc_center" frame 2>/dev/null || true
+fi
+
+if [ "$frame_clients" = 0 ] then
+    hc remove
     exit 0
 fi
 
-hc remove
+if [ "$algo" == "max" ] && has_minimized_clients && [ "$frame_clients" -lt 1 ]; then
+    hc spawn "$HOME/.local/bin/rofi_hidden"
+    exit 0
+fi
+
+hc use_previous
+hc bring "$orig"

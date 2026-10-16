@@ -126,18 +126,18 @@ keyreg $Mod-t               spawn ~/.local/bin/rofi_tags
 
 # contextual focus: peek-float frame groups, fullscreen lone windows,
 # toggle workspace floats; un-floats an accessible float first (hc_focus)
-keyreg $Mod-f               spawn ~/.local/bin/hc_focus
+keyreg $Mod-f               spawn ~/.local/bin/hc_floatx
 
 # fullscreen
 # full focus: fullscreen priority — un-float floats, un-fullscreen+float
 # fullscreened windows, fullscreen everything else (hc_full_focus)
-keyreg $ModShift-f          spawn ~/.local/bin/hc_zoom
+keyreg $ModCtrl-f          spawn ~/.local/bin/hc_zoom
 
 # fullscreen / float — logic lives in hc_floatx: hlwm's or/and can't
 # express this (or doesn't accept "." separators, and it short-circuits
 # on a successful compare BEFORE reaching a later spawn in the same
 # branch — verified empirically). The script also needs no lock.
-keyreg $Mod-x               spawn ~/.local/bin/hc_floatx
+keyreg $Mod-x               spawn ~/.local/bin/hc_focus
 
 # split into direction
 keyreg $Mod-v               chain , split right  0.5 , cycle_frame
@@ -148,10 +148,10 @@ keyreg $ModShift-b          chain split top 0.5 , focus -i down
 
 
 # FOCUS — arrows only; old Alt-hjkl aliases dropped (would shadow new Mod=Alt)
-keyreg $Mod-h           or . focus --level=visible left . focus --level=all left
-keyreg $Mod-j           or . focus --level=frame down . focus --level=visible down
-keyreg $Mod-k           or . focus --level=frame up . focus --level=visible up
-keyreg $Mod-l           or . focus --level=visible right . focus --level=all right
+keyreg $Mod-h                   focus --level=all left
+keyreg $Mod-j                   focus --level=all down
+keyreg $Mod-k                   focus --level=all up
+keyreg $Mod-l                   focus --level=all right
 keyreg $Mod-Left                focus --level=visible left
 keyreg $Mod-Down                focus --level=visible down
 keyreg $Mod-Up                  focus --level=visible up
@@ -159,14 +159,14 @@ keyreg $Mod-Right               focus --level=visible right
 
 # SHIFT windows — Alt+Ctrl+arrows and Alt+Ctrl+hjkl
 # (hjkl slot freed up by dropping the old focus aliases)
-keyreg $ModCtrl-h           or . shift --level=visible left . shift --level=all left
-keyreg $ModCtrl-j           or . shift --level=frame down . shift --level=visible down
-keyreg $ModCtrl-k           or . shift --level=frame up . shift --level=visible up
-keyreg $ModCtrl-l           or . shift --level=visible right . shift --level=all right
-keyreg $ModCtrl-Left            shift left
-keyreg $ModCtrl-Down            shift down
-keyreg $ModCtrl-Up              shift up
-keyreg $ModCtrl-Right           shift right
+keyreg $ModCtrl-h               shift --level=all left
+keyreg $ModCtrl-j               shift --level=all down
+keyreg $ModCtrl-k               shift --level=all up
+keyreg $ModCtrl-l               shift --level=all right
+keyreg $ModCtrl-Left            or . shift --level=frame left . shift --level=all left
+keyreg $ModCtrl-Down            or . shift --level=frame down . shift --level=all down
+keyreg $ModCtrl-Up              or . shift --level=frame up . shift --level=all up
+keyreg $ModCtrl-Right           or . shift --level=frame right . shift --level=all right
 
 ### TAGS ###
 herb set swap_monitors_to_get_tag 0
