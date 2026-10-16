@@ -23,11 +23,10 @@ background = "#300A24"
 foreground = "#f0f0f0"
 
 [cursor.style]
-blinking = "Off"
 shape = "Block"
 
 [font]
-size = 11.0
+size = 16.0
 
 [font.normal]
 family = "Ubuntu Mono"
@@ -113,4 +112,4 @@ chars = "\u001bd"
 semantic_escape_chars = """,│`|:"' ()[]{}<>"""
 
 [window]
-opacity = 0.85
+opacity = 0.95
