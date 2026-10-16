@@ -38,6 +38,7 @@ alias df=duf||df
 alias open=xdg-open
 
 # WM Stuff
+alias config="cd $HOME/.config && ls -l"
 alias autostart="$EDITOR --new-window $HOME/dots $HOME/.config/herbstluftwm/autostart"
 alias aliases="$VISUAL $HOME/.config/aliases && source $HOME/.config/aliases"
 alias exports="$VISUAL $HOME/.config/exports && source $HOME/.config/exports"
@@ -54,6 +55,7 @@ alias website="cd $HOME/development/personal/website && ls -l */ && git status"
 # Quick changedir 
 alias ..="cd .."
 alias ~~="cd -"
+alias cd--="cd -"
 alias back="cd -"
 alias up="cd .."
 alias home="cd ~"

@@ -1,0 +1,7 @@
+pool:
+    api_url: https://inference.poolside.ai
+    default_agent_server: ws-rarebox:8080
+agent_servers:
+    ws-rarebox:8080:
+        type: custom
+        url: http://ws-rarebox:8080
