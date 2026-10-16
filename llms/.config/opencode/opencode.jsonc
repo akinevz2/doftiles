@@ -94,10 +94,10 @@
       },
       "models": {
         "hf.co/unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE": {
-          "name": "GLM 4.7 Flash MOE (32k)",
+          "name": "GLM 4.7 Flash MOE",
           "limit": {
-            "context": 32768,
-            "output": 4096
+            "context": 96000,
+            "output": 8192
           },
           "modalities": {
             "input": [
@@ -117,10 +117,6 @@
         },
         "laguna-xs-2.1": {
           "name": "Laguna XS 2.1",
-          "limit": {
-            "context": 32768,
-            "output": 4096
-          },
           "modalities": {
             "input": [
               "text"
@@ -132,10 +128,6 @@
         },
         "nemotron-3.5-lightning": {
           "name": "Nemotron 3.5 Lightning",
-          "limit": {
-            "context": 32768,
-            "output": 8192
-          },
           "modalities": {
             "input": [
               "text"
@@ -170,7 +162,7 @@
           "name": "Qwen3 Coder",
           "limit": {
             "context": 32768,
-            "output": 8192
+            "output": 4096
           },
           "modalities": {
             "input": [
@@ -181,6 +173,21 @@
             ]
           }
         }
+      }
+    }
+  },
+  "mcp": {
+    "github": {
+      "type": "local",
+      "command": [
+        "docker", "run", "-i", "--rm",
+        "-p", "127.0.0.1:8085:8085",
+        "-e", "GITHUB_OAUTH_CALLBACK_PORT",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "enabled": true,
+      "environment": {
+        "GITHUB_OAUTH_CALLBACK_PORT": "8085"
       }
     }
   }

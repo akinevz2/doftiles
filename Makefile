@@ -30,7 +30,7 @@ depends: wm
 	@$(MAKE) sync
 
 # bash metapackage
-bash: shell git opencode task
+bash: shell git llms task
 
 # wm:
 status: services-available services-installed
@@ -48,8 +48,8 @@ git:
 	@chmod +x git/.local/bin/load-credentials
 	~/.local/bin/load-credentials
 
-opencode:
-	$(STOW) -R -t $$HOME opencode
+llms:
+	$(STOW) -R -t $$HOME llms
 
 task:
 	$(STOW) -R -t $$HOME task
