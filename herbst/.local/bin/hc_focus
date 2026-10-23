@@ -11,15 +11,12 @@
 #     exactly 1 below      -> un-float, plain re-tile
 #
 # From the tiling layer (decision order):
-#     empty focused frame AND a float exists on the tag
-#         -> pull that float back into the frame in one step (it
-#            re-tiles there and gains focus)
-#     >1 clients AND a float exists
-#         -> focus the float AND un-float it in one step (it rejoins
-#            this frame's tiling)
+#     empty focused frame OR >1 clients, AND a visible float exists
+#         -> un-float that float straight into the focused frame in
+#            one step (it re-tiles there and gains focus)
 #     exactly 1 client AND a float exists
-#         -> just focus the floating layer — NEVER float a second
-#            window while one is already out
+#         -> just focus the floating layer — NEVER un-float into a
+#            frame that already holds a client
 #     no float on the tag
 #         -> float the focused window, centered INSIDE its focused
 #            frame (hc_center frame — the centering is the visual
@@ -80,30 +77,38 @@ if [ -n "$wid" ]; then
     fi
 fi
 
-# Is there a float on the tag? Entering the floating layer fails when
-# there is none; probe by exit status.
-if hc attr tags.focus.floating_focused on 2>/dev/null; then
-    if [ "$ccount" -eq 0 ]; then
-        # Empty focused frame: pull the float back into it (one step).
-        float_wid=$(hc attr clients.focus.winid 2>/dev/null || echo "")
-        if [ -n "$float_wid" ]; then
-            hc attr "clients.$float_wid.fullscreen" off 2>/dev/null || true
-            hc attr "clients.$float_wid.floating" off 2>/dev/null || true
+# Is there a (visible) float on the tag? Find it BEFORE entering the
+# floating layer: under the held lock, switching layers via
+# floating_focused does not update clients.focus (the focus object
+# only settles on unlock), so a post-probe clients.focus.winid read
+# comes up empty and the un-float silently did nothing — Mod-f needed
+# a second press to pull the float back down.
+tag=$(hc attr tags.focus.name 2>/dev/null || echo "")
+float_wid=""
+if [ -n "$tag" ]; then
+    for c in $(hc list_clients --tag="$tag" 2>/dev/null); do
+        if [ "$(hc attr "clients.$c.floating" 2>/dev/null || echo false)" = "true" ] \
+           && [ "$(hc attr "clients.$c.minimized" 2>/dev/null || echo false)" = "false" ]; then
+            float_wid=$c
+            break
         fi
-        exit 0
+    done
+fi
+
+if [ -n "$float_wid" ]; then
+    if [ "$ccount" -eq 1 ]; then
+        # Exactly one client below: this press just focuses the
+        # existing float — never un-float into a frame that already
+        # holds a client (the next press un-floats instead).
+        hc attr tags.focus.floating_focused on 2>/dev/null || true
+    else
+        # Focused frame is empty or holds several clients: un-float
+        # the float straight into it in one step (it re-tiles there
+        # and gains focus).
+        hc attr "clients.$float_wid.fullscreen" off 2>/dev/null || true
+        hc attr "clients.$float_wid.floating" off 2>/dev/null || true
+        hc jumpto "$float_wid" 2>/dev/null || true
     fi
-    if [ "$ccount" -gt 1 ]; then
-        # Frame below holds >1 clients: focus the float and un-float
-        # it in one step — it rejoins the tiling of this frame.
-        float_wid=$(hc attr clients.focus.winid 2>/dev/null || echo "")
-        if [ -n "$float_wid" ]; then
-            hc attr "clients.$float_wid.fullscreen" off 2>/dev/null || true
-            hc attr "clients.$float_wid.floating" off 2>/dev/null || true
-        fi
-        exit 0
-    fi
-    # Exactly one client below: this press just focused the existing
-    # float — never float a second window while one is already out.
     exit 0
 fi
 

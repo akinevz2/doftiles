@@ -127,9 +127,9 @@ keyreg $Mod-t               spawn ~/.local/bin/rofi_tags
 # centered inside their focused frame (visual float indicator);
 # pressing again re-unfloats — no focus chasing (hc_focus)
 keyreg $Mod-f               spawn ~/.local/bin/hc_focus
-# zoom: 3-state toggle for the focused window — float if tiled via
-# hc_focus (a), maximize onto a <tag>-max tag if floating (b), restore
-# via hc_unmaximize if maximized (c) (hc_zoom)
+# zoom: 3-state toggle for the focused window — float the focused
+# window if tiled (a), maximize onto a <tag>-max tag if floating (b),
+# restore via hc_unmaximize if maximized (c) (hc_zoom)
 keyreg $ModCtrl-f          spawn ~/.local/bin/hc_zoom
 
 # catch-all "get out" of float mode: collapse the tag's whole floating

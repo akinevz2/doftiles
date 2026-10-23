@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # hc_zoom — three-state toggler for the focused window, then center it:
-#   tiled      -> float it                                    (press 1)
+#   tiled      -> float it, stretched to fill the frame       (press 1)
 #   floating   -> maximize onto a dedicated <tag>-max tag     (press 2)
 #   maximized  -> restore to the original tag/frame (hc_unmaximize) (press 3)
 # Every branch is followed by hc_center frame, so the window always
@@ -31,6 +31,16 @@ wid=$(herb attr clients.focus.winid 2>/dev/null) || wid=""
     exit 1
 }
 
+# Hold the WM lock across the whole toggle: branch (a) runs hc_center
+# followed by hc_resize, and without an outer lock the window would be
+# drawn at the centered geometry for a frame before jumping to the
+# frame-filling one (visible flash). hlwm's lock is reference-counted,
+# so the nested locks inside hc_center/hc_resize/hc_maximize/
+# hc_unmaximize stay balanced; the trap releases the outer lock on
+# every exit path.
+herb lock
+trap 'herb unlock' EXIT
+
 tag=$(herb attr "clients.${wid}.tag" 2>/dev/null) || tag=""
 floating=$(herb attr "clients.${wid}.floating" 2>/dev/null || echo false)
 
@@ -44,10 +54,17 @@ case "$tag" in
             # (b) floating, not maximized -> dedicated max tag
             "$HOME/.local/bin/hc_maximize" "$wid"
         else
-            # (a) tiled -> float it via the same quick toggle Mod-f
-            # uses: hc_focus floats the focused client centered inside
-            # its focused frame (visual float indicator).
-            "$HOME/.local/bin/hc_focus" || true
+            # (a) tiled -> float the focused window directly: clear
+            # stray fullscreen/pseudotile flags, then hc_center frame
+            # floats it, centers it inside its focused frame and
+            # focuses it. No delegation to hc_focus — from the tiling
+            # layer hc_focus's default is to focus an existing float
+            # rather than float the focused window.
+            herb attr "clients.$wid.fullscreen" off 2>/dev/null || true
+            herb attr "clients.$wid.pseudotile" off 2>/dev/null || true
+            "$HOME/.local/bin/hc_center" frame || true
+            # stretch the fresh float to fill the frame exactly
+            "$HOME/.local/bin/hc_resize" "$wid" frame || true
         fi
         ;;
 esac
