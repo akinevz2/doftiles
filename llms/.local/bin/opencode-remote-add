@@ -1,13 +1,219 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bun
 
-# opencode-remote-add: Add a new remote opencode configuration
-#
-# This command runs a general-purpose opencode agent to fetch and add a new remote configuration.
-#
-# Usage:
-#   opencode-remote-add
-#
-# Implementation:
-#   Executes: opencode run --agent general 'please print two lines with words "cluck?" and "cluck cluck!"'
-#
-# Note: This is a placeholder command that performs a specific opencode agent task.
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import readline from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
+
+const configPath = path.join(os.homedir(), ".config", "opencode", "opencode.jsonc");
+const rl = readline.createInterface({ input, output });
+
+async function ask(prompt: string, defaultValue = ""): Promise<string> {
+  const suffix = defaultValue ? ` [${defaultValue}]` : "";
+  const answer = await rl.question(`${prompt}${suffix}: `);
+  return answer.trim() || defaultValue;
+}
+
+function parseTarget(inputValue: string): { host: string; port: number; baseURL: string } {
+  const trimmed = inputValue.trim();
+  if (!trimmed) {
+    throw new Error("Hostname is required.");
+  }
+
+  let url: URL;
+  if (/^https?:\/\//i.test(trimmed)) {
+    url = new URL(trimmed);
+  } else {
+    const likelyHost = trimmed.includes(":") ? trimmed : `${trimmed}:11434`;
+    url = new URL(`http://${likelyHost}`);
+  }
+
+  const host = url.hostname || trimmed.split(":")[0];
+  const port = Number(url.port || 11434);
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+    throw new Error(`Invalid port: ${port}`);
+  }
+
+  return {
+    host,
+    port,
+    baseURL: `${url.protocol}//${host}:${port}`,
+  };
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  const bodyText = await response.text();
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status}) for ${url}: ${bodyText.slice(0, 250)}`);
+  }
+
+  try {
+    return JSON.parse(bodyText) as T;
+  } catch (error) {
+    throw new Error(`Invalid JSON from ${url}: ${bodyText.slice(0, 250)}`);
+  }
+}
+
+async function fetchOllamaModels(baseURL: string): Promise<string[]> {
+  const tags = await fetchJson<{ models?: Array<{ name?: string }> }>(`${baseURL}/api/tags`);
+  const ollamaModels = (tags.models ?? [])
+    .map((model) => model.name)
+    .filter((name): name is string => typeof name === "string" && Boolean(name));
+
+  if (ollamaModels.length > 0) {
+    return ollamaModels;
+  }
+
+  const openAIModels = await fetchJson<{ data?: Array<{ id?: string }> }>(`${baseURL}/v1/models`);
+  const openAIIds = (openAIModels.data ?? [])
+    .map((model) => model.id)
+    .filter((id): id is string => typeof id === "string" && Boolean(id));
+
+  if (openAIIds.length > 0) {
+    return openAIIds;
+  }
+
+  throw new Error(`No models were returned by the Ollama endpoint at ${baseURL}.`);
+}
+
+function normalizeSelection(raw: string, models: string[]): string[] {
+  const value = raw.trim();
+  if (!value) {
+    return [];
+  }
+
+  if (/^all$/i.test(value)) {
+    return [...models];
+  }
+
+  const selected = new Set<string>();
+  for (const entry of value.split(",")) {
+    const token = entry.trim();
+    if (!token) {
+      continue;
+    }
+
+    if (/^\d+$/.test(token)) {
+      const index = Number(token);
+      if (index >= 0 && index < models.length) {
+        selected.add(models[index]);
+      }
+      continue;
+    }
+
+    const rangeMatch = token.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      for (let index = start; index <= end; index++) {
+        if (index >= 0 && index < models.length) {
+          selected.add(models[index]);
+        }
+      }
+    }
+  }
+
+  if (selected.size === 0) {
+    throw new Error("No valid model indexes were selected.");
+  }
+
+  return [...selected];
+}
+
+async function main(): Promise<void> {
+  try {
+    const target = await ask("Hostname (optional :port)", "localhost:11434");
+    const resolver = parseTarget(target);
+
+    console.log(`Testing connection to ${resolver.baseURL}...`);
+    const pingResponse = await fetch(`${resolver.baseURL}/api/tags`, {
+      headers: { Accept: "application/json" },
+    });
+
+    if (!pingResponse.ok) {
+      throw new Error(`Connection failed: HTTP ${pingResponse.status} while contacting ${resolver.baseURL}.`);
+    }
+
+    console.log(`Connected to Ollama at ${resolver.baseURL}.`);
+
+    const models = await fetchOllamaModels(resolver.baseURL);
+    console.log("Available models:");
+    models.forEach((model, index) => {
+      console.log(`  ${index}. ${model}`);
+    });
+
+    const selectedInput = await ask("Select models to add (all or comma-separated indexes)", "all");
+    const selectedModels = normalizeSelection(selectedInput, models);
+
+    let config: Record<string, any> = {};
+    if (fs.existsSync(configPath)) {
+      try {
+        config = JSON.parse(fs.readFileSync(configPath, "utf8")) as Record<string, any>;
+      } catch (error) {
+        throw new Error(`Failed to parse ${configPath}: ${(error as Error).message}`);
+      }
+    }
+
+    if (!config.provider || typeof config.provider !== "object" || Array.isArray(config.provider)) {
+      config.provider = {};
+    }
+
+    let providerId = await ask("Provider ID", "remote-ollama");
+    while (!/^[A-Za-z0-9_-]+$/.test(providerId)) {
+      console.log("Provider IDs may only contain letters, numbers, underscores, and dashes.");
+      providerId = await ask("Provider ID", "remote-ollama");
+    }
+
+    if (Object.prototype.hasOwnProperty.call(config.provider, providerId)) {
+      const overwriteChoice = await ask(`Provider "${providerId}" already exists. Overwrite it? [y/N/q]`, "n");
+      const normalizedChoice = overwriteChoice.trim().toLowerCase();
+      if (normalizedChoice === "q" || normalizedChoice === "quit" || normalizedChoice === "exit") {
+        console.log("Cancelled.");
+        rl.close();
+        return;
+      }
+      if (!(normalizedChoice === "y" || normalizedChoice === "yes")) {
+        console.log("Cancelled.");
+        rl.close();
+        return;
+      }
+    }
+
+    const providerName = await ask("Provider name", providerId);
+
+    const fixedProviderEntry = {
+      npm: "@ai-sdk/openai-compatible",
+      name: providerName,
+      options: {
+        baseURL: `${resolver.baseURL}/v1`,
+        apiKey: "ollama",
+      },
+      models: Object.fromEntries(
+        selectedModels.map((modelName) => [modelName, { name: modelName }]),
+      ),
+    };
+
+    config.provider[providerId] = fixedProviderEntry;
+
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+
+    console.log(`Saved provider "${providerId}" to ${configPath}.`);
+    console.log(`Using baseURL: ${resolver.baseURL}/v1`);
+    console.log(`Selected models: ${selectedModels.join(", ")}`);
+  } catch (error) {
+    console.error(`Error: ${(error as Error).message}`);
+    process.exitCode = 1;
+  } finally {
+    rl.close();
+  }
+}
+
+await main();
