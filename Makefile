@@ -54,7 +54,9 @@ llms:
 task:
 	$(STOW) -R -t $$HOME task
 
-wm: herbstluftwm alacritty dunst compton
+wm: herbst
+
+herbst: herbstluftwm alacritty dunst compton
 
 herbstluftwm:
 	$(STOW) -R -t $$HOME herbst
