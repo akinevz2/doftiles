@@ -1,10 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "enabled_providers": [
-    "vision",
-    "rarebox"
+  "plugins": [
+    "./opencode-screencast"
   ],
-  "default_agent": "detailed",
   "formatter": true,
   "lsp": true,
   "watcher": {
@@ -180,15 +178,9 @@
     "github": {
       "type": "local",
       "command": [
-        "docker", "run", "-i", "--rm",
-        "-p", "127.0.0.1:8085:8085",
-        "-e", "GITHUB_OAUTH_CALLBACK_PORT",
-        "ghcr.io/github/github-mcp-server"
+        "/home/kine/.local/bin/github-mcp-wrapper"
       ],
-      "enabled": true,
-      "environment": {
-        "GITHUB_OAUTH_CALLBACK_PORT": "8085"
-      }
+      "enabled": true
     }
   }
 }
