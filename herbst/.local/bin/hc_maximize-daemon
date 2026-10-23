@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+# hc_maximize-daemon — per-tag janitor for "<base>-max" tags.
+#
+# Usage: hc_maximize-daemon <max-tag>
+#
+# Spawned (detached) by hc_maximize after a client is moved onto its
+# dedicated "<base>-max" tag. At most one instance per tag runs —
+# an atomic mkdir lock makes later invocations for the same tag exit
+# immediately, and a stale (owner-dead) lock is reclaimed.
+#
+# It tails `herbstclient -i` and:
+#   - when the assigned tag becomes EMPTY (e.g. the maximized window
+#     was closed or moved off instead of un-maximized — paths
+#     hc_unmaximize never sees), performs the same cleanup as
+#     hc_unmaximize's empty-tag branch: restore the base tag's index
+#     slot, merge the empty max tag away, and unset the closed
+#     client's saved PF_MAX_* state;
+#   - when the user NAVIGATES AWAY from the viewed max tag, DISMISSES
+#     the maximized workspace transparently: all parked windows ride
+#     home to the base tag, PF_MAX_* state is unset, the tag is
+#     cleaned up — and the view (and focus) stays wherever the user
+#     navigated to. Merely MOVING windows to a different tag does NOT
+#     dismiss the workspace (only the tag going empty does). An
+#     in-flight hc_unmaximize marks itself with an inhibit marker
+#     file and owns the dismissal itself.
+# It also exits when the tag is merged elsewhere (e.g. by
+# hc_unmaximize) so the two paths never fight over the tag.
+#
+# Event-stream notes for the hlwm build in use here:
+#  - lines have NO leading literal "hook" field ("name<TAB>arg...").
+#    A leading "hook" is tolerated so the script survives both styles.
+#  - closing a client emits no dedicated event; membership loss only
+#    surfaces as tag_flags / focus_changed / tag_changed. So emptiness
+#    is detected by diffing the tag's client set on those events.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+TAG=${1:?usage: hc_maximize-daemon <max-tag>}
+case "$TAG" in
+    *-max) ;;                                  # proceed
+    *) echo "not a max tag: $TAG" >&2; exit 1 ;;
+esac
+
+herb() {
+    herbstclient "$@"
+}
+
+# --- single instance per tag -------------------------------------------
+# Atomic mkdir lock instead of a plain pidfile: duplicate daemons for
+# one tag can never pile up, even when two hc_maximize calls race or
+# something wipes stale pidfiles under a live daemon. On exit the lock
+# is only removed when it is still ours.
+lockdir="${TMPDIR:-/tmp}/hc_maximize-daemon.lock.${TAG}"
+acquire_lock() {
+    local tries pidfile_pid
+    if mkdir "$lockdir" 2>/dev/null; then
+        printf '%s\n' "$$" > "$lockdir/pid"
+        return 0
+    fi
+    # Taken — owned by a live daemon?
+    pidfile_pid=$(cat "$lockdir/pid" 2>/dev/null || true)
+    if [ -n "$pidfile_pid" ] && kill -0 "$pidfile_pid" 2>/dev/null; then
+        return 1                              # a daemon already owns this tag
+    fi
+    # Stale (owner died without cleanup, e.g. SIGKILL): reclaim it.
+    rm -rf "$lockdir" 2>/dev/null || true
+    for tries in 1 2 3; do
+        if mkdir "$lockdir" 2>/dev/null; then
+            printf '%s\n' "$$" > "$lockdir/pid"
+            return 0
+        fi
+        sleep 0.1
+    done
+    return 1
+}
+
+if ! acquire_lock; then
+    exit 0
+fi
+trap '[ "$(cat "$lockdir/pid" 2>/dev/null)" = "$$" ] && rm -rf "$lockdir"' EXIT
+trap 'exit 0' INT TERM
+
+# The tag must exist — otherwise there is nothing to watch.
+herb attr "tags.by-name.${TAG}.client_count" >/dev/null 2>&1 || exit 0
+# Spawned right after hc_maximize moved a client in; if it is somehow
+# already empty, leave the tag alone for whoever owns that sequence.
+[ "$(herb attr "tags.by-name.${TAG}.client_count")" != "0" ] || exit 0
+
+# --- cleanup ------------------------------------------------------------
+# Single source of truth: the sweeper handles the currently-viewed-tag
+# restriction this build's merge_tag has, plus index restoration.
+cleanup() {
+    "$HOME/.local/bin/hc_clean_max-tag" "$TAG"
+}
+
+# --- transparent dismissal on navigation away ---------------------------
+# viewing=true while the max tag is on screen. Navigating AWAY from a
+# VIEWED max tag dismisses the workspace: parked windows ride home,
+# PF_MAX_* state is unset, the tag is merged — and the view stays
+# wherever the user navigated (no focus jump to the un-maximizing
+# tag). An hc_unmaximize run in progress (inhibit marker) owns the
+# dismissal itself and this daemon keeps watching.
+viewing=false
+is_viewed() {
+    [ "$(herb attr tags.focus.name 2>/dev/null || echo '')" = "$TAG" ]
+}
+if is_viewed; then viewing=true; fi
+
+inhibit="${TMPDIR:-/tmp}/hc_maximize-daemon.inhibit.${TAG}"
+
+dismiss() {
+    local wid base view
+    # Ownership re-check (mirrors sync_tag_state).
+    [ "$(cat "$lockdir/pid" 2>/dev/null)" = "$$" ] || exit 0
+    if [ -e "$inhibit" ]; then
+        return 0                          # hc_unmaximize owns this run
+    fi
+    base=${TAG%-max}
+    view=$(herb attr tags.focus.name 2>/dev/null || echo "")
+    for wid in $(herb list_clients --tag="$TAG" 2>/dev/null); do
+        herb chain . jumpto "$wid" . move "$base" 2>/dev/null || true
+        herb unsetenv "PF_MAX_FRAME_${wid}" 2>/dev/null || true
+        herb unsetenv "PF_MAX_WIN_${wid}" 2>/dev/null || true
+    done
+    # The jumptos above ended with the view on TAG — restore the view
+    # the user navigated to (transparent dismissal).
+    if [ -n "$view" ] && [ "$view" != "$TAG" ]; then
+        herb use "$view" 2>/dev/null || true
+    fi
+    cleanup
+    exit 0
+}
+
+# --- client-set tracking ------------------------------------------------
+# remembered = the wids currently on the tag at the last observation.
+# On each membership-relevant event, any wid that disappeared has died
+# or moved away: its saved maximize state is stale and is unset —
+# unsetting is a no-op for clients that never had it.
+remembered="$(herb list_clients --tag="$TAG" 2>/dev/null | tr '\n' ' ')"
+
+sync_tag_state() {
+    local cur wid cnt
+    # Ownership re-check: if something replaced our lock (dir wiped and
+    # re-acquired by another daemon), the newest owner wins — stand down.
+    [ "$(cat "$lockdir/pid" 2>/dev/null)" = "$$" ] || exit 0
+    cur="$(herb list_clients --tag="$TAG" 2>/dev/null | tr '\n' ' ')"
+    if [ -z "$(printf '%s' "$cur" | tr -d ' ')" ]; then
+        # An empty observation must be confirmed by the authoritative
+        # counter — a transient IPC error must not discharge the janitor
+        # while clients still live on the tag.
+        cnt=$(herb attr "tags.by-name.${TAG}.client_count" 2>/dev/null || echo "?")
+        [ "$cnt" = "0" ] || return 0
+        cleanup
+        exit 0
+    fi
+    for wid in $remembered; do
+        case " $cur " in
+            *" $wid "*) ;;
+            *)
+                herb unsetenv "PF_MAX_FRAME_${wid}" 2>/dev/null || true
+                herb unsetenv "PF_MAX_WIN_${wid}" 2>/dev/null || true
+                ;;
+        esac
+    done
+    remembered="$cur"
+}
+
+# --- event loop ---------------------------------------------------------
+# `herbstclient -i` emits one event per line, tab-separated:
+#     <name><TAB>[<arg>...]           (this hlwm build)
+#     hook<TAB><name><TAB>[<arg>...]  (older builds)
+# "tag_flags" (and focus/tag changes) fire on client membership changes,
+# which is where a max tag can go empty without any un-maximize call.
+coproc HC { herbstclient -i 2>/dev/null; }
+trap 'exec {HC[0]}<&-; [ "$(cat "$lockdir/pid" 2>/dev/null)" = "$$" ] && rm -rf "$lockdir"' EXIT
+
+while IFS=$'\t' read -r -a ev <&"${HC[0]}"; do
+    name=${ev[0]:-}
+    arg=${ev[1]:-}
+    if [ "$name" = "hook" ]; then          # older-build line style: shift
+        name=${ev[1]:-}
+        arg=${ev[2]:-}
+    fi
+    case "$name" in
+        tag_changed)
+            # Navigation tracking: was viewing the max tag and chose
+            # another tag (including a third tag) -> dismiss it
+            # transparently. Moving windows never changes the view.
+            if [ "$viewing" = "true" ] && ! is_viewed; then
+                dismiss
+            fi
+            if is_viewed; then viewing=true; else viewing=false; fi
+            sync_tag_state
+            ;;
+        tag_flags|focus_changed|client_killed)
+            sync_tag_state
+            ;;
+        tag_removed)
+            # Our tag was merged elsewhere (e.g. hc_unmaximize) — done.
+            [ "$arg" = "$TAG" ] && exit 0
+            ;;
+        reload|quit_panel)
+            exit 0                             # hc_maximize respawns us when needed
+            ;;
+    esac
+done
+
+exit 0

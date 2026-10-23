@@ -3,11 +3,34 @@
 #
 # Usage: hc_tile [wid]
 #
-#   a) If an empty leaf frame exists, focus the one whose flat index
-#      shares the longest common prefix with the window's
+#   a) SWITCH to the window's own tag (callers hand over wids from any
+#      tag — polybar's window list, the rofi menu — while the ranking,
+#      the "stay put" guard and any split decision would otherwise be
+#      made against the FOCUSED tag's layout, i.e. the wrong tree).
+#      If an empty leaf frame exists there, focus the one whose flat
+#      index shares the longest common prefix with the window's
 #      parent_frame.index (closest by parent). No empty frame:
-#   b) `split auto` the focused frame and focus the new empty child.
-# Navigates/focuses frames ONLY — never touches client state.
+#   b) `split auto` the window's frame and focus the new empty child —
+#      determined by MEASURING the children's client_count after the
+#      split, not by assuming hlwm's 0/1 content/empty convention.
+#
+# Split suppression:
+#   - explicit-wid calls whose window is TILED and is the ONLY client
+#     of its frame stay put (no move, no split) — the
+#     unmaximize-into-emptied-frame return path;
+#   - a floating window always USES an empty frame found by the
+#     search (bring + unfloat into it); splitting is only ever
+#     reached when the search found no empty frame.
+#
+# Verified hlwm 0.9.5 semantics this script relies on:
+#   - a MINIMIZED client has NO parent_frame (ranking ref degrades to
+#     prefix 0 — still functional, tree-order);
+#   - an UNMINIMIZED client re-attaches into the CURRENTLY-FOCUSED
+#     frame of its tag (that is why the split branch unminimizes FIRST,
+#     and focus/bring immediately after);
+#   - curframe_wcount is 0 whenever a floating window is focused or the
+#     focused frame's clients are minimized, so the "stay put" guard
+#     only applies when NO wid was given (self-resolved focus).
 
 set -euo pipefail
 
@@ -19,9 +42,10 @@ herb() {
     herbstclient "$@"
 }
 
-# Optional: window whose parent frame the empty frame should be
-# closest to. Without it the ranking falls back to prefix length 0.
-WID=${1:-$(hc_current)}
+# Optional: window whose own tag is operated on and whose parent frame
+# ranks the empty frames. Without it the script stays on tags.focus and
+# the ranking falls back to prefix length 0.
+WID=${1:-$(hc_current 2>/dev/null || true)}
 
 # Dotted object path segment for a flat frame index ("00" -> "0.0").
 flat_to_dotted() {
@@ -29,13 +53,15 @@ flat_to_dotted() {
 }
 
 # Depth-first collection of all leaf frames as flat indexes.
-# A leaf is a frame node with 0 children (client_count may be 0..n).
+# A leaf is a frame node with no child frames; hlwm prints split nodes
+# as "N children:" and leaf frames as "0 children." (a period), so any
+# node whose dump header lacks the colon is a leaf.
 LEAVES=()
 collect_leaves() {
     local dotted=$1 flat=$2
     local out count
     out=$(herb attr "tags.focus.tiling.root${dotted:+.$dotted}" 2>/dev/null) || return 0
-    # Header line is "N children:" (no trailing period)
+    # Header line is "N children:" (no trailing period) for split nodes
     count=$(printf '%s\n' "$out" | sed -n 's/^\([0-9]*\) children:$/\1/p')
     if [ -n "$count" ] && [ "$count" -gt 0 ]; then
         collect_leaves "${dotted:+$dotted.}0" "${flat}0"
@@ -63,12 +89,52 @@ common_prefix_len() {
 herb lock
 trap 'herb unlock' EXIT
 
-# If the FOCUSED frame is already empty, there is nothing to navigate
-# to — stay put (navigating away would strand the caller's focus).
-if herb compare "tags.focus.curframe_wcount" "=" "0"; then
+# Follow the WINDOW, not the focused tag: no-arg calls (wid resolved
+# from focus) are on tags.focus already. Explicit-wid callers hand
+# over windows from any tag — orient everything on the window's own
+# tag before any layout decision below.
+if [ -n "$WID" ]; then
+    wtag=$(herb attr "clients.${WID}.tag" 2>/dev/null || true)
+    wtag=${wtag//\"/}
+    if [ -n "$wtag" ] && [ "$wtag" != "$(herb attr tags.focus.name 2>/dev/null || true)" ]; then
+        herb use "$wtag" 2>/dev/null || true
+    fi
+    # Un-hide now: a minimized client has no parent frame UNTIL it is
+    # shown again, and hlwm re-attaches it into the currently focused
+    # frame once unminimized (would otherwise corrupt the ranking and
+    # the split-branch destination). Idempotent if already visible.
+    herb attr "clients.${WID}.minimized" false 2>/dev/null || true
+fi
+
+# "Stay put" only applies to self-resolved, already-visible calls:
+# navigating away would strand the caller's focus when the focused
+# frame's client count is genuinely zero (e.g. no window at all).
+# curframe_wcount is ALSO 0 when a FLOAT is focused or the frame's
+# windows are minimized — both must NOT short-circuit an explicit-wid
+# call, so the guard runs only without an argument.
+if [ -z "${1:-}" ] && herb compare "tags.focus.curframe_wcount" "=" "0" ; then
     herb unlock
     trap - EXIT
     exit 0
+fi
+
+# Guard (a): explicit-wid call whose window is already TILED and is
+# the ONLY client of its frame — it is perfectly placed (this is the
+# hc_unmaximize "returning home into the emptied frame" case). Do not
+# move it and NEVER split its frame to make room. Bare self-resolved
+# calls keep their navigate-or-split behavior.
+if [ -n "${1:-}" ]; then
+    wfloat=$(herb attr "clients.${WID}.floating" 2>/dev/null || echo false)
+    if [ "$wfloat" != "true" ]; then
+        mycc=$(herb attr "clients.${WID}.parent_frame.client_count" 2>/dev/null || echo -1)
+        if [ "$mycc" = "1" ]; then
+            herb jumpto "$WID" 2>/dev/null || true
+            herb attr "clients.${WID}.floating" off 2>/dev/null || true
+            herb unlock
+            trap - EXIT
+            exit 0
+        fi
+    fi
 fi
 
 # Reference frame for the closeness ranking (a minimized window has no
@@ -98,17 +164,19 @@ for leaf in "${LEAVES[@]}"; do
 done
 
 if [ -z "$best" ]; then
-    # No empty frame: split the focused frame and focus its new empty
-    # child. split auto REPLACES the focused frame with a split whose
-    # children are <old-index>0 (the old content) and <old-index>1
-    # (empty) — so the new empty leaf is the pre-split focused index
-    # with a "1" appended.
-    pre=$(herb attr tags.focus.tiling.focused_frame.index)
-    herb attr clients.$WID.minimized off || true
-    herb bring $WID || true
-    herb attr clients.focus.floating on || true
+    # No empty frame: split the window's OWN frame. Bring focuses it
+    # (floating or not) so split auto divides exactly the frame the
+    # window surfaced into, THEN capture the index, THEN measure both
+    # children's client_count to find the freshly emptied slot.
+    herb bring "$WID" 2>/dev/null || true
+    pre=$(herb attr tags.focus.tiling.focused_frame.index 2>/dev/null) || pre=""
     herb split auto
-    best="${pre}1"
+    for child in "${pre}0" "${pre}1"; do
+        dotted=$(flat_to_dotted "$child")
+        cc=$(herb attr "tags.focus.tiling.root${dotted:+.$dotted}.client_count" 2>/dev/null || echo -1)
+        if [ "$cc" = "0" ]; then best=$child; break; fi
+    done
+    [ -n "$best" ] || best="${pre}1"   # both populated: hlwm's convention
 fi
 
 # Point the focused frame at the destination: set the selection attr on
@@ -123,6 +191,14 @@ for d in $(printf '%s' "$dotted" | tr '.' ' '); do
     path="$path.$d"
 done
 
-herb attr clients.focus.floating off
+# Insert the window into the freshly-focused empty frame: bring moves
+# tiled windows into the focused frame and refocuses floats; the
+# unfloat below then re-tiles a float into that frame. Works for
+# floats and tiled windows alike — guard (b): an empty frame found by
+# the search is USED, the split branch is only reached when the
+# search found none.
+herb bring "$WID" 2>/dev/null || true
+herb jumpto "$WID" 2>/dev/null || true
+herb attr "clients.${WID}.floating" off 2>/dev/null || true
 herb unlock
 trap - EXIT

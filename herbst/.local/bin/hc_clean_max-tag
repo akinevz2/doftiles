@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# hc_clean_max-tag — merge away every unpopulated "<...>-max" tag.
+#
+# Usage: hc_clean_max-tag [<max-tag> ...]
+#
+# With no arguments it sweeps all tags ending in "-max"; with arguments
+# it only touches the named tags. A tag is removed only when it holds
+# no clients (the daemon hc_maximize-daemon covers the event-driven
+# case; this script is the trigger-driven sweeper for anything left
+# over — e.g. after a WM restart or when a window dies between events).
+#
+# Merging restores tag ordering the same way hc_unmaximize does: the
+# base tag is moved back into the max tag's index slot first
+# (no-op on builds without move_tag, which already place new tags
+# adjacent to the viewed tag).
+#
+# This hlwm build refuses merge_tag on the currently VIEWED tag
+# ("Cannot merge the currently viewed tag"), so an empty max tag that
+# is on screen is handled by switching to its base tag first.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+herb() {
+    herbstclient "$@"
+}
+
+# --- candidate tags -----------------------------------------------------
+if [ $# -gt 0 ]; then
+    candidates="$*"
+else
+    # object_tree prints one node per line, space-indented; tag names
+    # never contain spaces, and no attribute child of a tag ends in
+    # "-max", so this selects exactly the max-suffixed tags.
+    candidates=$(herb object_tree tags.by-name 2>/dev/null | tr ' ' '\n' | sed '/^$/d' | grep -- '-max$' || true)
+fi
+
+[ -n "$candidates" ] || exit 0
+
+herb lock
+trap 'herb unlock' EXIT
+
+merged=0
+for tag in $candidates; do
+    count=$(herb attr "tags.by-name.${tag}.client_count" 2>/dev/null || echo -1)
+    [ "$count" = "0" ] || continue
+
+    max_idx=$(herb attr "tags.by-name.${tag}.index" 2>/dev/null || echo "")
+
+    # If the empty max tag is on screen, step aside before merging.
+    if [ "$(herb attr tags.focus.name 2>/dev/null || echo '')" = "$tag" ]; then
+        base=${tag%-max}
+        if herb attr "tags.by-name.${base}.index" >/dev/null 2>&1; then
+            herb use "$base" 2>/dev/null || true
+        else
+            herb use_index 0 2>/dev/null || true
+        fi
+    fi
+
+    # Restore ordering: base tag back into the max tag's slot.
+    if [ -n "$max_idx" ]; then
+        herb move_tag "${tag%-max}" "$max_idx" 2>/dev/null || true
+    fi
+
+    if herb merge_tag "$tag" 2>/dev/null; then
+        merged=$(( merged + 1 ))
+    fi
+done
+
+herb unlock
+trap - EXIT
+
+exit 0

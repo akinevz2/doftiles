@@ -11,6 +11,9 @@
 # by the window id, then move it to tag "<orig>-max" (created if
 # missing), which holds exactly this window in a single frame with the
 # max algorithm.
+# A detached hc_maximize-daemon is spawned for the max tag; it merges
+# the tag away once it becomes empty (e.g. the window is closed while
+# maximized — a path hc_unmaximize never sees).
 
 set -euo pipefail
 
@@ -77,3 +80,8 @@ herb attr "clients.$WID.floating" false
 
 herb unlock
 trap - EXIT
+
+# Start (or reuse) the per-tag janitor, fully detached: all stdio
+# redirected so the caller (hc_menu, keybindings) never waits on it.
+"$HOME/.local/bin/hc_maximize-daemon" "$max_tag" </dev/null >/dev/null 2>&1 &
+disown
