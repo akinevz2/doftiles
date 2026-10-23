@@ -43,6 +43,7 @@ alias autostart="$EDITOR --new-window $HOME/dots $HOME/.config/herbstluftwm/auto
 alias aliases="$VISUAL $HOME/.config/aliases && source $HOME/.config/aliases"
 alias exports="$VISUAL $HOME/.config/exports && source $HOME/.config/exports"
 alias dots="cd $HOME/dots && tree -aL 2 -I '.git' $HOME/dots 2&>/dev/null || ls -AL ./**"
+alias bin="cd $HOME/.local/bin && ls -ralA --color=always |less -R"
 
 alias opencodec="$VISUAL --new-window $HOME/dots $HOME/.config/opencode/opencode.json"
 
