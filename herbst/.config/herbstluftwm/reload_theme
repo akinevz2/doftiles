@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# reload_theme — herbstluftwm colors, decorations, and wallpaper.
+# Sibling of the autostart script (which calls it on every (re)start)
+# and symlinked into .local/bin, so it can also be run directly.
+#
+# Fresh-start guard: the hlwm environment flag below is set the first
+# time the theme is applied. hlwm survives `herbstclient reload` (only
+# the autostart re-runs, the WM process — and its environment — stays
+# alive), so reloads skip this entire block and decorations are never
+# re-set mid-session (no theme jitter). The flag vanishes whenever
+# hlwm itself restarts, which re-applies the theme.
+#
+# Usage: reload_theme [-f]
+#   -f  force: skip the fresh-start guard and re-apply the theme even
+#       when already applied this session — e.g. after editing this
+#       file (no unsetenv dance needed).
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+herb() {
+    herbstclient "$@"
+}
+
+force=0
+if [ "${1:-}" = "-f" ] || [ "${1:-}" = "--force" ]; then
+    force=1
+elif [ -n "${1:-}" ]; then
+    echo "usage: reload_theme [-f]" >&2
+    exit 1
+fi
+
+# Already applied in this hlwm instance — nothing to do (unless -f).
+if [ "$force" -eq 0 ] && [ -n "$(herb getenv PF_THEME_APPLIED 2>/dev/null || true)" ]; then
+    echo "usage: reload_theme [-f]" >&2
+    echo "theme already applied; use -f to force re-apply" >&2
+    exit 0
+fi
+
+BACKGROUND_HEX='#2C001E'
+herb spawn hsetroot -solid "$BACKGROUND_HEX"
+
+herb lock
+trap 'herb unlock' EXIT
+
+herb attr theme.tiling.reset 1
+herb attr theme.floating.reset 1
+
+#= COLOURS =#
+herb set frame_border_active_color '#eeeeee'
+herb set frame_border_normal_color '#333333'
+herb set frame_bg_active_color '#feef69'
+herb set frame_bg_normal_color '#333333'
+herb attr theme.active.color '#feef69'
+herb attr theme.normal.color '#333333'
+herb attr theme.urgent.color '#ffffff'
+herb attr theme.minimal.color '#333'
+herb attr theme.active.inner_color '#feef69'
+herb attr theme.active.outer_color '#feef69'
+herb attr theme.active.title_height 16
+herb attr theme.active.title_depth 5
+herb attr theme.active.title_color '#333333'
+herb attr theme.background_color '#feef69'
+
+herb set hide_covered_windows on
+herb set always_show_frame on
+herb set frame_bg_transparent on
+herb set frame_transparent_width 2
+herb set frame_border_width 2
+
+herb attr theme.minimal.border_width 0
+herb attr theme.inner_width 5
+herb attr theme.inner_color '#333333'
+herb attr theme.outer_color '#eeeeee'
+herb attr theme.border_width 2
+
+herb attr theme.padding_left 2
+herb attr theme.padding_right 2
+herb attr theme.padding_top 2
+herb attr theme.padding_bottom 2
+herb attr theme.floating.outer_color '#333333'
+herb attr theme.floating.active.outer_color '#333333'
+herb attr theme.floating.active.inner_color '#feef69'
+herb attr theme.floating.outer_width 2
+
+herb attr theme.floating.tight_decoration true
+herb attr theme.floating.padding_left 2
+herb attr theme.floating.padding_right 2
+herb attr theme.floating.padding_top 2
+herb attr theme.floating.padding_bottom 2
+herb attr theme.normal.title_color '#eeeeee'
+herb attr theme.normal.title_height 16
+herb attr theme.normal.title_depth 5
+herb attr theme.floating.title_height 24
+herb attr theme.floating.title_depth 5
+herb attr theme.floating.title_when always
+herb attr theme.floating.border_width 4
+
+herb set frame_gap 2
+herb set window_gap 5
+herb set frame_padding 0
+
+herb set smart_window_surroundings off
+herb set smart_frame_surroundings on
+
+herb set tree_style '        '
+
+herb unlock
+trap - EXIT
+
+herb setenv PF_THEME_APPLIED 1
