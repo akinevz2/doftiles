@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# hc_bounce — keep a floating window fully on-screen.
+#
+# Usage: hc_bounce [<winid>]          (default: the focused window)
+#
+# For the given (floating) client, against monitors.focus.geometry:
+#   a) SHIFT: if any part of its decoration outline is off-screen,
+#      move it back the minimal distance (position only).
+#   b) RESIZE: if the window is larger than the screen (outline
+#      included), shrink it to fit — never grows a window.
+#
+# The outline (borders + title) is measured via hc_deco_margins, so
+# the window + decoration is what must stay inside the monitor. A
+# tiled window is never off-screen — the script no-ops for it.
+#
+# Runs unlocked (pure attribute writes via one chain).
+
+set -uo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+herb() { herbstclient "$@"; }
+
+# geom_whxyneg <geom> -> "W H X Y" (sign-normalized integers)
+geom_whxyneg() {
+    [[ $1 =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]] || return 1
+    echo "$(( BASH_REMATCH[1] )) $(( BASH_REMATCH[2] )) $(( BASH_REMATCH[3] )) $(( BASH_REMATCH[4] ))"
+}
+
+WID=${1:-$(herb attr clients.focus.winid 2>/dev/null)}
+[ -n "$WID" ] || exit 0
+
+# Tiled windows are kept inside their frames by the WM — bounce only
+# floats.
+flt=$(herb attr "clients.${WID}.floating" 2>/dev/null || echo false)
+case "$flt" in on|true) ;; *) exit 0 ;; esac
+
+read -r WW WH WX WY <<< "$(geom_whxyneg \
+    "$(herb attr "clients.${WID}.floating_geometry" 2>/dev/null || true)" || true)"
+[ -n "${WW:-}" ] || {
+    echo "hc_bounce: cannot read floating_geometry for client '${WID}'" >&2
+    exit 1
+}
+
+read -r MW MH MX MY <<< "$(geom_whxyneg \
+    "$(herb attr monitors.focus.geometry 2>/dev/null || true)" || true)"
+[ -n "${MW:-}" ] || {
+    echo "hc_bounce: cannot read monitors.focus.geometry" >&2
+    exit 1
+}
+
+read -r L T R B <<< "$("$HOME/.local/bin/hc_deco_margins" "$WID")"
+
+# (b) shrink only when the full outline overflows the monitor
+if [ $(( WW + L + R )) -gt "$MW" ]; then
+    WW=$(( MW - L - R ))
+    [ "$WW" -ge 1 ] || WW=1
+fi
+if [ $(( WH + T + B )) -gt "$MH" ]; then
+    WH=$(( MH - T - B ))
+    [ "$WH" -ge 1 ] || WH=1
+fi
+
+# (a) minimal shift to bring the full outline back on-screen
+if [ "$WX" -lt $(( MX + L )) ]; then WX=$(( MX + L )); fi
+if [ "$WX" -gt $(( MX + MW - R - WW )) ]; then WX=$(( MX + MW - R - WW )); fi
+if [ "$WY" -lt $(( MY + T )) ]; then WY=$(( MY + T )); fi
+if [ "$WY" -gt $(( MY + MH - B - WH )) ]; then WY=$(( MY + MH - B - WH )); fi
+
+herb chain . lock \
+    . set_attr "clients.${WID}.floating_geometry" "${WW}x${WH}+${WX}+${WY}" \
+    . jumpto "${WID}" \
+    . unlock

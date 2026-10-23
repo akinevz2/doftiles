@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+# hc_resize — resize a client window relative to the monitor geometry.
+#
+# Usage: hc_resize <winid> [frame | <percent>]
+#
+# Modes:
+#   hc_resize <winid> frame
+#       Fit the window PLUS ITS DECORATION exactly into the focused
+#       frame (tags.focus.tiling.focused_frame.content_geometry):
+#       floating_geometry is the CONTENT rect only — hlwm draws the
+#       decoration (border + title) around it, so the content size is
+#       shrunk by the measured outline margins and the content is
+#       offset inward by the same margins. The margins are measured
+#       from the client's own decoration_geometry vs content_geometry
+#       — after floating it on, so the floating theme applies.
+#
+#   hc_resize <winid> <percent>
+#       Resize the window to <percent> of the monitor's dimensions:
+#       width = percent% of monitor width, height = percent% of
+#       monitor height (integer 1-100).
+#
+#   hc_resize <winid>
+#       Report mode — resize nothing. Print the window's estimated
+#       screen-occupied percentage as the AVERAGE of width% and
+#       height% (each computed window:monitor), since the window's
+#       aspect ratio generally differs from the monitor's. This is
+#       the reverse of the numeric form above: feeding the printed
+#       number back as <percent> reproduces the same relative size.
+#
+# Monitor fit (both mutating modes, always): the resulting geometry
+# must stay inside the monitor's geometry — if it would extend past an
+# edge, the position is nudged back on-screen; if it is larger than
+# the monitor, the size is clipped.
+#
+# The target window is floated (clients.<wid>.floating on) so the new
+# geometry takes effect; its position is otherwise preserved.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+herb() {
+    herbstclient "$@"
+}
+
+usage() {
+    echo "usage: hc_resize <winid> [frame | <percent>]" >&2
+    exit 1
+}
+
+# geom_whxy <geom> -> "W H X Y" (sign-normalized integers)
+geom_whxy() {
+    [[ $1 =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]] || return 1
+    echo "$(( BASH_REMATCH[1] )) $(( BASH_REMATCH[2] )) $(( BASH_REMATCH[3] )) $(( BASH_REMATCH[4] ))"
+}
+
+[ $# -ge 1 ] && [ $# -le 2 ] || usage
+WID=$1
+mode=${2:-}
+
+# --- monitor geometry: the fitting target rect -------------------------
+mon_geom=$(herb attr monitors.focus.geometry) || {
+    echo "hc_resize: cannot read monitors.focus.geometry" >&2
+    exit 1
+}
+read -r MW MH MX MY <<< "$(geom_whxy "$mon_geom" || true)"
+[ -n "${MW:-}" ] || {
+    echo "hc_resize: cannot parse monitor geometry '$mon_geom'" >&2
+    exit 1
+}
+
+# --- current window geometry (floating preferred, tiling fallback) -----
+win_geom=$(herb attr "clients.${WID}.floating_geometry" 2>/dev/null || true)
+[[ $win_geom =~ ^[0-9]+x[0-9]+ ]] || \
+    win_geom=$(herb attr "clients.${WID}.content_geometry" 2>/dev/null || true)
+read -r WW WH WX WY <<< "$(geom_whxy "$win_geom" || true)"
+[ -n "${WW:-}" ] || {
+    echo "hc_resize: cannot read geometry for client '${WID}'" >&2
+    exit 1
+}
+
+case "$mode" in
+    "")
+        # Estimate: average of width% and height% vs the monitor,
+        # rounded half-up — the reverse of the <percent> form.
+        pw=$(( WW * 100 / MW ))
+        ph=$(( WH * 100 / MH ))
+        echo $(( (pw + ph + 1) / 2 ))
+        exit 0
+        ;;
+    frame)
+        fgeom=$(herb attr tags.focus.tiling.focused_frame.content_geometry) || {
+            echo "hc_resize: cannot read focused frame geometry" >&2
+            exit 1
+        }
+        read -r FW FH FX FY <<< "$(geom_whxy "$fgeom" || true)"
+        [ -n "${FW:-}" ] || {
+            echo "hc_resize: cannot parse frame geometry '$fgeom'" >&2
+            exit 1
+        }
+
+        # Float the window FIRST so the floating theme's decoration is
+        # the one being measured. floating_geometry is the content
+        # rect only; the decoration is drawn around it. Measure the
+        # real outline margins from the client's own geometries —
+        # margins are content-size-independent, so stale values are
+        # harmless.
+        herb attr "clients.${WID}.floating" on
+        cont=$(herb attr "clients.${WID}.content_geometry")
+        deco=$(herb attr "clients.${WID}.decoration_geometry")
+        read -r CW CH CX CY <<< "$(geom_whxy "$cont" || true)"
+        read -r DW DH DX DY <<< "$(geom_whxy "$deco" || true)"
+        if [ -n "${CW:-}" ] && [ -n "${DW:-}" ]; then
+            L=$(( CX - DX )); T=$(( CY - DY ))
+            R=$(( DX + DW - CX - CW )); B=$(( DY + DH - CY - CH ))
+            if [ "$L" -lt 0 ]; then L=0; fi
+            if [ "$T" -lt 0 ]; then T=0; fi
+            if [ "$R" -lt 0 ]; then R=0; fi
+            if [ "$B" -lt 0 ]; then B=0; fi
+        else
+            # No measurable decoration: fall back to the theme's
+            # floating outline (border + title bar).
+            b=$(herb attr theme.floating.border_width 2>/dev/null || echo 2)
+            t=$(herb attr theme.floating.title_height 2>/dev/null || echo 0)
+            L=$b; R=$b; B=$b
+            T=$(( b + t ))
+        fi
+
+        # Content + outline must fit the frame exactly.
+        WW=$(( FW - L - R ))
+        WH=$(( FH - T - B ))
+        if [ "$WW" -lt 1 ]; then WW=$FW; L=0; fi
+        if [ "$WH" -lt 1 ]; then WH=$FH; T=0; fi
+        WX=$(( FX + L ))
+        WY=$(( FY + T ))
+        ;;
+    *[!0-9]*)
+        echo "hc_resize: invalid argument '${mode}' (use 'frame' or an integer percent 1-100)" >&2
+        exit 1
+        ;;
+    *)
+        [ "$mode" -ge 1 ] && [ "$mode" -le 100 ] || {
+            echo "hc_resize: percent must be an integer 1-100, got '${mode}'" >&2
+            exit 1
+        }
+        WW=$(( MW * mode / 100 ))
+        WH=$(( MH * mode / 100 ))
+        ;;
+esac
+
+# --- monitor fit: clip size, then nudge position back on-screen --------
+[ "$WW" -le "$MW" ] || WW=$MW
+[ "$WH" -le "$MH" ] || WH=$MH
+[ "$WX" -ge "$MX" ] || WX=$MX
+[ "$WY" -ge "$MY" ] || WY=$MY
+if [ $(( WX + WW )) -gt $(( MX + MW )) ]; then WX=$(( MX + MW - WW )); fi
+if [ $(( WY + WH )) -gt $(( MY + MH )) ]; then WY=$(( MY + MH - WH )); fi
+
+herb chain . lock \
+    . set_attr "clients.${WID}.floating_geometry" "${WW}x${WH}+${WX}+${WY}" \
+    . set_attr "clients.${WID}.floating" on \
+    . jumpto "${WID}" \
+    . unlock

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # hc_floatx — Mod-x float, focus, and distraction-management actions.
-# Runs unlocked: these operations do not need a lock.
+# Runs under the WM lock (see below).
 
 set -uo pipefail
 
@@ -8,6 +8,14 @@ DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 
 hc() { herbstclient "$@"; }
+
+# Hold the WM lock across the whole action: multi-write sequences
+# (unfloat_tag loops, the float+hc_center combo, the reveal loop) must
+# not interleave with Mod-f / ModCtrl-f writes or expose intermediate
+# states. hlwm's lock is reference-counted, so hc_center's internal
+# lock/unlock stays balanced; the trap releases it on every exit path.
+hc lock
+trap 'hc unlock' EXIT
 
 orig=$("$HOME/.local/bin/hc_current" 2>/dev/null || true)
 focus_float=$(hc attr clients.focus.floating_effectively 2>/dev/null || echo false)
@@ -42,6 +50,14 @@ has_minimized_clients() {
     return 1
 }
 
+# Total clients on the tag (minimized included). 0 = genuinely empty
+# workspace — there is nothing for a frame removal to make room for,
+# so Mod-x must fall through to use_previous instead.
+tag_total() {
+    [ -n "$tag" ] || { echo 0; return 0; }
+    herb attr "tags.by-name.${tag}.client_count" 2>/dev/null || echo 0
+}
+
 busy=false
 if [ "$frame_count" -gt 1 ] && [ "$frame_clients" -gt 1 ]; then
     busy=true
@@ -74,7 +90,7 @@ if hc attr tags.focus.floating_focused on 2>/dev/null; then
 fi
 
 if [ "$frame_count" -gt 1 ]; then
-    if [ "$frame_clients" -eq 0 ]; then
+    if [ "$frame_clients" -eq 0 ] && [ "$(tag_total)" != "0" ]; then
         hc remove
         exit 0
     fi
@@ -93,7 +109,7 @@ if [ "$frame_count" -gt 1 ]; then
     hc attr clients.focus.floating on
 fi
 
-if [ "$frame_clients" = 0 ] then
+if [ "$frame_clients" = 0 ] && [ "$(tag_total)" != "0" ]; then
     hc remove
     exit 0
 fi
@@ -104,4 +120,4 @@ if [ "$algo" == "max" ] && has_minimized_clients && [ "$frame_clients" -lt 1 ]; 
 fi
 
 hc use_previous
-hc bring "$orig"
+[ -n "$orig" ] && hc bring "$orig" || true

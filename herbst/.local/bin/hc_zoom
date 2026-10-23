@@ -1,103 +1,54 @@
 #!/usr/bin/env bash
+# hc_zoom — three-state toggler for the focused window, then center it:
+#   tiled      -> float it                                    (press 1)
+#   floating   -> maximize onto a dedicated <tag>-max tag     (press 2)
+#   maximized  -> restore to the original tag/frame (hc_unmaximize) (press 3)
+# Every branch is followed by hc_center frame, so the window always
+# ends up centered inside the focused frame of the tag it lands on.
+#
+# "Maximized" means the client lives on a "<tag>-max" tag (see
+# hc_maximize, which also clears floating on move) — so the maximized
+# check must be made BEFORE the floating check, or a maximized window
+# would be misread as tiled and re-floated instead of restored.
 
-set -o pipefail
+set -euo pipefail
 
-# Padding in pixels (applied during maximize, default: 20)
-PADDING=20
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
 
-# hc-zoom: Toggle maximize/restore for focused floating window
-# - First press: Maximize floating geometry while preserving aspect ratio
-# - Second press: Restore to cached tiling geometry, clear cache, unfloat
+herb() {
+    herbstclient "$@"
+}
 
-# Get current focused window and monitor geometry
-winid=$(herbstclient attr clients.focus.winid)
-screen_geom=$(herbstclient attr monitors.focus.content_geometry)
-# Check if the window is floating
-is_floating=$(herbstclient attr tags.focus.floating_focused)
+hc_float() {
+    herb attr clients."$1".floating on
+}
 
-echo "[DEBUG] winid: $winid"
-echo "[DEBUG] screen_geom: $screen_geom"
-echo "[DEBUG] is_floating: $is_floating"
+wid=$(herb attr clients.focus.winid 2>/dev/null) || wid=""
+[ -n "$wid" ] || {
+    echo "hc_zoom: no focused window" >&2
+    exit 1
+}
 
-# Parse screen geometry using hc-filter-geom
-read -r sw sh sx sy <<< "$(echo "$screen_geom" | hc-filter-geom)"
+tag=$(herb attr "clients.${wid}.tag" 2>/dev/null) || tag=""
+floating=$(herb attr "clients.${wid}.floating" 2>/dev/null || echo false)
 
-echo "[DEBUG] Screen: sx=$sx, sy=$sy, sw=$sw, sh=$sh"
+case "$tag" in
+    *-max)
+        # (c) maximized -> back to the original tag/frame
+        "$HOME/.local/bin/hc_unmaximize" "$wid"
+        ;;
+    *)
+        if [ "$floating" = "true" ]; then
+            # (b) floating, not maximized -> dedicated max tag
+            "$HOME/.local/bin/hc_maximize" "$wid"
+        else
+            # (a) tiled -> float it via the same quick toggle Mod-f
+            # uses: hc_focus floats the focused client centered inside
+            # its focused frame (visual float indicator).
+            "$HOME/.local/bin/hc_focus" || true
+        fi
+        ;;
+esac
 
-# Get current floating geometry and parse using hc-filter-geom
-current_geom=$(herbstclient attr clients.focus.floating_geometry)
-echo "[DEBUG] Current geometry: $current_geom"
-read -r cw ch cx cy <<< "$(echo "$current_geom" | hc-filter-geom)"
-
-echo "[DEBUG] Current geometry: cx=$cx, cy=$cy, cw=$cw, ch=$ch"
-
-# Check cache
-cache_exists=$(herbstclient get_attr "clients.${winid}.my_tiling_geom" 2>/dev/null || echo "")
-if [ -n "$cache_exists" ]; then
-    echo "[DEBUG] Cache exists, restoring if floating..."
-    if [ "$is_floating" == "true" ]; then
-        # Restore from cache
-        cached_geom=$(herbstclient get_attr "clients.${winid}.my_tiling_geom")
-        # Parse cached geometry using hc-filter-geom
-        read -r cached_w cached_h cached_x cached_y <<< "$(echo "$cached_geom" | hc-filter-geom)"
-
-        echo "[DEBUG] Cached geometry: ${cached_w}x${cached_h}+${cached_x}+${cached_y}"
-
-        # Restore to cached geometry (keeping original position from cache)
-        herbstclient set_attr "clients.${winid}.floating_geometry" "${cached_w}x${cached_h}+${cached_x}+${cached_y}"
-    else
-        herbstclient set_attr "clients.${winid}.floating" on
-    fi
-    # Clear the cache
-    herbstclient remove_attr "clients.${winid}.my_tiling_geom"
-    echo "[DEBUG] Cache cleared"
-    exit 0
-else
-    echo "[DEBUG] No cache found, proceeding with maximize"
-fi
-
-# If not floating, first maximize (skip cache for non-floating windows)
-if [ "$is_floating" != "true" ]; then
-    echo "[DEBUG] Setting floating on"
-    herbstclient set_attr "clients.${winid}.floating" on
-fi
-
-# Get the current tiling geometry using content_geometry
-tiling_geom=$(herbstclient attr clients.focus.content_geometry)
-herbstclient new_attr string "clients.${winid}.my_tiling_geom" "$tiling_geom"
-echo "[DEBUG] Saved tiling geometry: $tiling_geom"
-
-# Calculate max dimensions preserving aspect ratio
-# Strategy: find which screen dimension constraints the size more tightly
-echo "[DEBUG] Calculating max dimensions..."
-echo "[DEBUG] cw=$cw, ch=$ch, sw=$sw, sh=$sh"
-
-# To preserve aspect ratio, find the limiting dimension
-# Compare: scaled_width vs scaled_height
-if (( (sw - PADDING) * ch < cw * sh )); then
-    # Screen is narrower relative to window → width is the limiting factor
-    echo "[DEBUG] Screen width is more restrictive"
-    new_w=$(( sw - PADDING ))
-    new_h=$(( $new_w * $ch / $cw ))
-else
-    # Screen is taller relative to window → height is the limiting factor
-    echo "[DEBUG] Screen height is more restrictive"
-    new_h=$(( sh - PADDING ))
-    new_w=$(( $new_h * $cw / $ch ))
-fi
-
-# Center the maximized window
-center_x=$((sx + (sw - new_w) / 2))
-center_y=$((sy + (sh - new_h) / 2))
-
-echo "[DEBUG] Final dimensions: new_w=$new_w, new_h=$new_h"
-echo "[DEBUG] Center position: center_x=$center_x, center_y=$center_y"
-
-# Apply new floating geometry
-herbstclient attr "clients.${winid}.floating_geometry" "${new_w}x${new_h}+${center_x}+${center_y}"
-
-echo "[DEBUG] Applied floating_geometry: ${new_w}x${new_h}+${center_x}+${center_y}"
-
-# Convert to floating
-herbstclient attr "clients.${winid}.floating" on
-echo "[DEBUG] Set floating on"

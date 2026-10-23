@@ -1,11 +1,25 @@
 #!/usr/bin/env bash
 # hc_center — center the focused window, PRESERVING its current size,
-# with clamping so it never overflows the target rect.
+# fitting the window PLUS ITS DECORATION inside the target rect, with
+# clamping so the full outline never overflows it.
 # Usage: hc_center [frame|root]
-#   frame (default) — center within the focused frame
-#                    (tags.focus.tiling.focused_frame.content_geometry)
-#   root            — center within the workspace
-#                    (tags.focus.tiling.root.content_geometry)
+#   root (default)  — center within the workspace
+#                     (tags.focus.tiling.root.content_geometry)
+#   frame           — center within the focused frame
+#                     (tags.focus.tiling.focused_frame.content_geometry)
+#
+# floating_geometry addresses the CONTENT rect only; hlwm draws the
+# decoration (border + title) around it. The decoration outline is
+# measured live (hc_deco_margins) and treated as an inset of the
+# target rect, so the content is sized against target-minus-outline
+# and positioned inside that inset rect.
+#
+# "Current size" source depends on the window's state: floating
+# geometry only counts while the window is floating — for a tiled
+# window the current size is its content geometry, and
+# floating_geometry holds a stale pre-float value instead. The window
+# is floated on before measuring so the floating theme's outline is
+# the one being measured.
 
 set -euo pipefail
 
@@ -15,6 +29,15 @@ export DISPLAY
 herb() {
     herbstclient "$@"
 }
+
+# Hold the WM lock for the full float-and-center sequence: the window
+# must not be visible at its stale floating_geometry between the
+# early "floating on" (needed before measuring margins) and the
+# geometry write in the closing chain. hlwm's lock is reference-
+# counted, so callers may hold their own lock around this script; the
+# trap releases it on every exit path.
+herb lock
+trap 'herb unlock' EXIT
 
 target=${1:-root}
 case "$target" in
@@ -33,11 +56,28 @@ fh=${BASH_REMATCH[2]}
 fx=${BASH_REMATCH[3]}
 fy=${BASH_REMATCH[4]}
 
-# Prefer the client's floating geometry; fall back to content geometry
-# when the window is tiled (floating_geometry is stale until floated).
-win_geom=$(hc_current floating_geometry 2>/dev/null || true)
-if ! [[ $win_geom =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]]; then
-    win_geom=$(hc_current content_geometry 2>/dev/null || true)
+winid=$(hc_current winid 2>/dev/null) || {
+    echo "hc_center: no focused window" >&2
+    exit 1
+}
+
+# Float the window on first so the floating theme's decoration is the
+# one being measured (and so floating_geometry becomes authoritative).
+herb attr "clients.${winid}.floating" on 2>/dev/null || true
+
+read -r L T R B <<< "$("$HOME/.local/bin/hc_deco_margins" "$winid")"
+
+# Inner rect: the target minus the decoration outline.
+iw=$(( fw - L - R ))
+ih=$(( fh - T - B ))
+if [ "$iw" -lt 1 ]; then iw=1; fi
+if [ "$ih" -lt 1 ]; then ih=1; fi
+
+# Current size: floating now, so floating_geometry is the source —
+# unless it holds a stale/unusable pre-float value, then content.
+win_geom=$(herb attr "clients.${winid}.floating_geometry" 2>/dev/null || true)
+if ! [[ $win_geom =~ ^([0-9]+)x([0-9]+) ]]; then
+    win_geom=$(herb attr "clients.${winid}.content_geometry" 2>/dev/null || true)
 fi
 [[ $win_geom =~ ^([0-9]+)x([0-9]+) ]] || {
     echo "hc_center: cannot parse window geometry '$win_geom'" >&2
@@ -46,25 +86,23 @@ fi
 ww=${BASH_REMATCH[1]}
 wh=${BASH_REMATCH[2]}
 
-# Bounds check: a window that doesn't FIT the target rect must be
-# shrunk to the rect's size — clamping position alone would still let
-# it extend far off-screen. Sizes that fit are preserved as-is.
-if [ "$ww" -gt "$fw" ]; then ww=$fw; fi
-if [ "$wh" -gt "$fh" ]; then wh=$fh; fi
+# Bounds check: a window that doesn't FIT the inner rect must be
+# shrunk to it — clamping position alone would still let the full
+# outline overflow the target. Sizes that fit are preserved as-is.
+if [ "$ww" -gt "$iw" ]; then ww=$iw; fi
+if [ "$wh" -gt "$ih" ]; then wh=$ih; fi
 
-# Centered position within the target rect
-wx=$((fx + (fw - ww) / 2))
-wy=$((fy + (fh - wh) / 2))
+# Centered position within the inner rect
+wx=$(( fx + L + ( iw - ww ) / 2 ))
+wy=$(( fy + T + ( ih - wh ) / 2 ))
 
-# Clamp: window can't start before or end after the target rect.
-# (After the shrink above, wx/wy are already inside — this is a
-# safety net for rounding and unexpected inputs.)
-if [ "$wx" -lt "$fx" ]; then wx=$fx; fi
-if [ $((wx + ww)) -gt $((fx + fw)) ]; then wx=$((fx + fw - ww)); fi
-if [ "$wy" -lt "$fy" ]; then wy=$fy; fi
-if [ $((wy + wh)) -gt $((fy + fh)) ]; then wy=$((fy + fh - wh)); fi
-
-winid=$(hc_current winid)
+# Clamp: the outline can't start before or end after the target rect.
+# (After the shrink above, wx/wy are already inside — this is a safety
+# net for rounding and unexpected inputs.)
+if [ "$wx" -lt $(( fx + L )) ]; then wx=$(( fx + L )); fi
+if [ $(( wx + ww )) -gt $(( fx + fw - R )) ]; then wx=$(( fx + fw - R - ww )); fi
+if [ "$wy" -lt $(( fy + T )) ]; then wy=$(( fy + T )); fi
+if [ $(( wy + wh )) -gt $(( fy + fh - B )) ]; then wy=$(( fy + fh - B - wh )); fi
 
 herb chain . lock \
     . set_attr "clients.${winid}.floating_geometry" "${ww}x${wh}+${wx}+${wy}" \
@@ -73,4 +111,3 @@ herb chain . lock \
     . jumpto $winid \
     . bring $winid \
     . unlock
-

@@ -2,7 +2,6 @@
 
 unset WAYLAND_DISPLAY
 source ${HOME}/.exports
-export BACKGROUND_HEX='#2C001E'
 
 herb() {
     herbstclient "$@"
@@ -24,7 +23,6 @@ ModCtrl=Mod1-Control
 herb emit_hook reload
 herb set_layout max
 herb keyunbind --all
-herb spawn hsetroot -solid "$BACKGROUND_HEX"
 # kill stale panel processes from a previous session; the polywins
 # hook listener exits with polybar (it is a child process)
 herb spawn ${HOME}/.local/bin/polyctl reload
@@ -38,8 +36,9 @@ APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
 
 # terminal
 keyreg $Mod-Return          spawn $TERMINAL
-keyreg $ModShift-Return     chain . lock . split auto . cycle_frame . spawn $TERMINAL . unlock
-keyreg $ModCtrl-Return      spawn $APPLAUNCHER
+keyreg $ModShift-t     chain . lock . split auto . cycle_frame . spawn $TERMINAL . unlock
+
+keyreg $ModShift-Return      spawn $APPLAUNCHER
 # applauncher
 keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 , spawn $APPSWITCHER . close_or_remove         # was Mod-Tab
 keyreg $ModCtrl-a           or . and , compare tags.focus.curframe_wcount gt 1 , split explode . spawn $APPLAUNCHER           # was Mod-Tab
@@ -124,20 +123,19 @@ keyreg $Mod-g               spawn sh -c '~/.local/bin/rofi_hidden || herbstclien
 # tag switcher
 keyreg $Mod-t               spawn ~/.local/bin/rofi_tags
 
-# contextual focus: peek-float frame groups, fullscreen lone windows,
-# toggle workspace floats; un-floats an accessible float first (hc_focus)
-keyreg $Mod-f               spawn ~/.local/bin/hc_floatx
-
-# fullscreen
-# full focus: fullscreen priority — un-float floats, un-fullscreen+float
-# fullscreened windows, fullscreen everything else (hc_full_focus)
+# quick float toggle for the focused window: floated windows are
+# centered inside their focused frame (visual float indicator);
+# pressing again re-unfloats — no focus chasing (hc_focus)
+keyreg $Mod-f               spawn ~/.local/bin/hc_focus
+# zoom: 3-state toggle for the focused window — float if tiled via
+# hc_focus (a), maximize onto a <tag>-max tag if floating (b), restore
+# via hc_unmaximize if maximized (c) (hc_zoom)
 keyreg $ModCtrl-f          spawn ~/.local/bin/hc_zoom
 
-# fullscreen / float — logic lives in hc_floatx: hlwm's or/and can't
-# express this (or doesn't accept "." separators, and it short-circuits
-# on a successful compare BEFORE reaching a later spawn in the same
-# branch — verified empirically). The script also needs no lock.
-keyreg $Mod-x               spawn ~/.local/bin/hc_focus
+# catch-all "get out" of float mode: collapse the tag's whole floating
+# layer back into the tiling, clearing floating/fullscreen/pseudotile
+# tag-wide (hc_floatx)
+keyreg $Mod-x               spawn ~/.local/bin/hc_floatx
 
 # split into direction
 keyreg $Mod-v               chain , split right  0.5 , cycle_frame
@@ -236,76 +234,20 @@ keyreg $ModShift-period     shift right
 
 
 
-# THEME
-herb attr theme.tiling.reset 1
-herb attr theme.floating.reset 1
-
-#= COLOURS =#
-herb set frame_border_active_color '#eeeeee'
-herb set frame_border_normal_color '#333333'
-herb set frame_bg_active_color '#feef69'
-herb set frame_bg_normal_color '#333333'
-herb attr theme.active.color '#feef69'
-herb attr theme.normal.color '#333333'
-herb attr theme.urgent.color '#ffffff'
-herb attr theme.minimal.color '#333'
-herb attr theme.active.inner_color '#feef69'
-herb attr theme.active.outer_color '#feef69'
-herb attr theme.active.title_height 16
-herb attr theme.active.title_depth 5
-herb attr theme.active.title_color '#333333'
-herb attr theme.background_color '#feef69'
-
-herb set hide_covered_windows on
-herb set always_show_frame on
-herb set frame_bg_transparent on
-herb set frame_transparent_width 2
-herb set frame_border_width 2
-
-herb attr theme.minimal.border_width 0
-herb attr theme.inner_width 5
-herb attr theme.inner_color '#333333'
-herb attr theme.outer_color '#eeeeee'
-herb attr theme.border_width 2
-
-herb attr theme.padding_left 2
-herb attr theme.padding_right 2
-herb attr theme.padding_top 2
-herb attr theme.padding_bottom 2
-herb attr theme.floating.outer_color '#333333'
-herb attr theme.floating.active.outer_color '#333333'
-herb attr theme.floating.active.inner_color '#feef69'
-herb attr theme.floating.outer_width 2
-
-herb attr theme.floating.tight_decorations true
-herb attr theme.floating.padding_left 2
-herb attr theme.floating.padding_right 2
-herb attr theme.floating.padding_top 2
-herb attr theme.floating.padding_bottom 2
-herb attr theme.normal.title_color '#eeeeee'
-herb attr theme.normal.title_height 16
-herb attr theme.normal.title_depth 5
-herb attr theme.floating.title_height 24
-herb attr theme.floating.title_depth 5
-herb attr theme.floating.title_when always
-herb attr theme.floating.border_width 4
-
-herb set frame_gap 2
-herb set window_gap 5
-herb set frame_padding 0
+# THEME — colors/decorations/wallpaper moved to the sibling "theme"
+# script: it applies only on a fresh WM start (guarded by a persistent
+# hlwm env flag) and exits immediately on reloads, so reloading this
+# autostart never re-sets decorations (no theme jitter).
+"$HOME/.config/herbstluftwm/reload_theme"
 
 herb set snap_distance 10
 herb set snap_gap 5
-
-herb set smart_window_surroundings off
-herb set smart_frame_surroundings on
 
 herb set mouse_recenter_gap 5
 herb set focus_follows_mouse off
 herb set focus_stealing_prevention off
 herb set focus_crosses_monitor_boundaries off
 herb set gapless_grid on
-herb set hide_covered_windows on
 herb set pseudotile_center_threshold 25
 herb set update_dragged_clients off
 
@@ -323,7 +265,6 @@ herb rule class='firefox' windowtype='_NET_WM_WINDOW_TYPE_NORMAL' tag=browser
 herb rule title='Task Manager' tag=task
 herb rule title='Config Manager' tag=config
 
-herb set tree_style '        '
 herb set default_frame_layout grid
 
 # unlock, just to be sure

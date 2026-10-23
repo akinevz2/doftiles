@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# hc_deco_margins <wid> — print the client's decoration outline margins
+# as four space-separated numbers "L T R B": the distances between the
+# content rect (what floating_geometry addresses) and the full
+# decoration outline hlwm draws around it (borders + title bar).
+#
+# Call this while the client is FLOATING — float it on first when
+# unsure (e.g. `herbstclient attr clients.<wid>.floating on`), so the
+# margins reflect the floating theme rather than the tiling one.
+#
+# Margins are measured live from the client's own decoration_geometry
+# vs content_geometry. Fallback when they cannot be read: the theme's
+# floating outline (theme.floating.border_width / title_height).
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+herb() { herbstclient "$@"; }
+
+# geom_whxyneg <geom> -> "W H X Y" (sign-normalized integers)
+geom_whxyneg() {
+    [[ $1 =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]] || return 1
+    echo "$(( BASH_REMATCH[1] )) $(( BASH_REMATCH[2] )) $(( BASH_REMATCH[3] )) $(( BASH_REMATCH[4] ))"
+}
+
+wid=${1:?usage: hc_deco_margins <wid>}
+
+cont=$(herb attr "clients.${wid}.content_geometry" 2>/dev/null || true)
+deco=$(herb attr "clients.${wid}.decoration_geometry" 2>/dev/null || true)
+read -r CW CH CX CY <<< "$(geom_whxyneg "$cont" || true)"
+read -r DW DH DX DY <<< "$(geom_whxyneg "$deco" || true)"
+
+if [ -n "${CW:-}" ] && [ -n "${DW:-}" ]; then
+    L=$(( CX - DX )); T=$(( CY - DY ))
+    R=$(( DX + DW - CX - CW )); B=$(( DY + DH - CY - CH ))
+else
+    b=$(herb attr theme.floating.border_width 2>/dev/null || echo 2)
+    t=$(herb attr theme.floating.title_height 2>/dev/null || echo 0)
+    L=$b; R=$b; B=$b
+    T=$(( b + t ))
+fi
+
+# Margins never pull the outline inside the content.
+if [ "$L" -lt 0 ]; then L=0; fi
+if [ "$T" -lt 0 ]; then T=0; fi
+if [ "$R" -lt 0 ]; then R=0; fi
+if [ "$B" -lt 0 ]; then B=0; fi
+
+echo "$L $T $R $B"

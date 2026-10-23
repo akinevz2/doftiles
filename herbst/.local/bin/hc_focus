@@ -1,123 +1,117 @@
 #!/usr/bin/env bash
-# hc_focus — Mod-f "focus" behaviour
+# hc_focus — Mod-f: quick float toggle / floating-layer focus, keeping
+# exactly ONE window at a time in floating (focus) mode.
 #
-# "Focus" is relative to the window's context:
-#   - a window grouped with others in a frame: float the whole frame group
-#     (peek); pressing again returns them all to tiling.
-#   - a lone window in a frame: fullscreen gives more real estate than
-#     floating, so toggle fullscreen instead.
-#   - a single frame on the tag holding multiple clients: toggle the tag's
-#     workspace-wide floating layer.
-#   - in all cases: if a floating window is already on screen (reachable via
-#     tags.focus.floating_focused), first focus it, then un-float it.
+# Floating window focused:
+#     fullscreen           -> un-fullscreen AND un-float in one step
+#     empty frame below    -> un-float (back into that empty frame)
+#     >1 clients below     -> hop focus to the tiling layer; the
+#                             window stays floating (peek — the next
+#                             press un-floats it instead)
+#     exactly 1 below      -> un-float, plain re-tile
+#
+# From the tiling layer (decision order):
+#     empty focused frame AND a float exists on the tag
+#         -> pull that float back into the frame in one step (it
+#            re-tiles there and gains focus)
+#     >1 clients AND a float exists
+#         -> focus the float AND un-float it in one step (it rejoins
+#            this frame's tiling)
+#     exactly 1 client AND a float exists
+#         -> just focus the floating layer — NEVER float a second
+#            window while one is already out
+#     no float on the tag
+#         -> float the focused window, centered INSIDE its focused
+#            frame (hc_center frame — the centering is the visual
+#            float indicator)
+#
+# Stray fullscreen/pseudotile flags are folded away on every
+# transition, so Mod-x (hc_floatx, the catch-all "get out") and this
+# script always start from a clean slate.
 
-set -euo pipefail
+set -uo pipefail
 
 DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 
 hc() { herbstclient "$@"; }
-addlog() { echo "hc_focus: " "$@"; }
-dotpath() {
-    local idx=$1 out="" i
-    for (( i=0; i<${#idx}; i++ )); do
-        out+=".${idx:$i:1}"
-    done
-    echo "tags.focus.tiling.root$out"
-}
-# Are we currently sitting on a floating window?
-floating_focused=$(hc attr tags.focus.floating_focused 2>/dev/null || echo false)
-# With no tiling windows on the tag there is no focused client at
-# all — clients.focus.* reads fail and set -e would kill the script
-# before the float branches run. Tolerate that.
-focus=$(hc attr clients.focus.winid 2>/dev/null || echo "")
-frame_count=$(hc attr tags.focus.frame_count)
-count=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
-algo=$(hc attr tags.focus.tiling.focused_frame.algorithm 2>/dev/null || echo "")
 
-addlog enter
-addlog "algo $algo"
-
-# Guarantee the WM is never left locked: with set -e, ANY failing
-# command between lock and unlock would abort the script and leak the
-# lock (WM appears frozen). The trap releases it on every exit path.
+# Hold the WM lock across the whole toggle: the float path must not
+# give the window a moment at its stale geometry between "floating on"
+# and "centered". hlwm's lock is reference-counted, so nested locks
+# (hc_center's own chain) stay balanced; the trap releases it on every
+# exit path.
 hc lock
-hc_unlocked=0
-unlock() {
-    addlog unlocking
-    [ "$hc_unlocked" -eq 0 ] && herbstclient unlock && hc_unlocked=1 || true
-}
-trap unlock EXIT
-[ -n "$focus" ] && hc attr clients.focus.pseudotile off || true
+trap 'hc unlock' EXIT
 
-addlog test-isfloating
-if [ "$floating_focused" = "true" ]; then
-    addlog focus is floating
-    # Un-float the focused float, then re-enter the floating layer if
-    # another float remains — repeated Mod-f unfloats them one by one.
-    hc attr clients.focus.floating off || true
-    hc unlock
-    hc_unlocked=1
-    exit 0
-fi
+wid=$(hc attr clients.focus.winid 2>/dev/null || echo "")
 
-addlog test-canfocusfloating?
-# Does the tag have ANY floating windows at all? (takes priority over
-# maximizing: a float on screen should be focused before anything else)
-# There is no float-count attribute — we probe by trying to enter the
-# floating layer and checking the exit status.
-if [ "$floating_focused" = "false" ] && hc attr tags.focus.floating_focused on 2>/dev/null; then
-    addlog jumping to next floating
-    addlog exiting
-    hc unlock
-    hc_unlocked=1
-    exit 0 
-fi
+# Client count of the focused frame ("the frame below" — still valid
+# while a floating window has focus).
+ccount=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
 
-addlog "frame_count $frame_count count $count"
-
-addlog test-fullscreen?
-# Lone, non-floating window in a max-layout frame with multiple frames
-# on screen: fullscreen gives more real estate than floating.
-if [ "$frame_count" -gt 1 ] && [ "$count" -eq 1 ] && [ "$algo" = "max" ]; then
-    addlog fullscreen lone window
-    hc attr clients.focus.fullscreen toggle || true
-    hc unlock
-    hc_unlocked=1
-    exit 0
-fi
-
-if [ "$count" -gt 1 ] && [ "$algo" != "max" ]; then
-    hc attr tags.focus.tiling.focused_frame.algorithm max || true
-    hc unlock
-    hc_unlocked=1
-    exit 0
-fi
-
-addlog basecase-float the focused window
-# Nothing reachable to focus and no group/fullscreen case: float the
-# focused window (centered), then we can Mod-f again to un-float it.
-# (focus is empty when there is no client at all — nothing to float.)
-if [ -n "$focus" ]; then
-    hc attr clients.focus.fullscreen off || true
-    # Resizable window (no fixed size hints): give it half the
-    # workspace's width and height before floating it.
-    # content_geometry is a single WxH+X+Y string (width first)
-    if [ "$(hc attr "clients.$focus.sizehints_floating" 2>/dev/null || echo false)" = "true" ]; then
-        geom=$(hc attr tags.focus.tiling.root.content_geometry)
-        addlog geom $geom
-        if [[ "$geom" =~ ^([0-9]+)x([0-9]+)\+([0-9]+)\+([0-9]+)$ ]]; then
-            ww=${BASH_REMATCH[1]}; wh=${BASH_REMATCH[2]}
-            wx=${BASH_REMATCH[3]}; wy=${BASH_REMATCH[4]}
-            w2=$((ww / 2)); h2=$((wh / 2))
-            x2=$((wx + (ww - w2) / 2)); y2=$((wy + (wh - h2) / 2))
-            hc attr "clients.$focus.floating_geometry" "${w2}x${h2}+${x2}+${y2}"
+if [ -n "$wid" ]; then
+    floating=$(hc attr "clients.$wid.floating" 2>/dev/null || echo false)
+    if [ "$floating" = "true" ]; then
+        fullscreen=$(hc attr "clients.$wid.fullscreen" 2>/dev/null || echo false)
+        if [ "$fullscreen" = "true" ]; then
+            # Fullscreen float: un-fullscreen AND un-float in one step.
+            hc attr "clients.$wid.fullscreen" off 2>/dev/null || true
+            hc attr "clients.$wid.floating" off 2>/dev/null || true
+            exit 0
         fi
+        if [ "$ccount" -eq 0 ]; then
+            # Empty focused frame (the float's origin): un-float the
+            # window straight back into it.
+            hc attr "clients.$wid.floating" off 2>/dev/null || true
+            exit 0
+        fi
+        if [ "$ccount" -gt 1 ]; then
+            # Frame below holds several tiled clients: hop focus to
+            # the tiling layer WITHOUT un-floating (peek; the next
+            # press un-floats the window instead).
+            hc attr tags.focus.floating_focused off 2>/dev/null || true
+            exit 0
+        fi
+        # Exactly one tiled client below: un-float, plain re-tile.
+        hc attr "clients.$wid.fullscreen" off 2>/dev/null || true
+        hc attr "clients.$wid.floating" off 2>/dev/null || true
+        exit 0
     fi
-    # center within the workspace (not the frame)
-    "$HOME/.local/bin/hc_center" root || true
-    hc attr clients.focus.floating on || true
 fi
-hc unlock
-hc_unlocked=1
-addlog finalexit
+
+# Is there a float on the tag? Entering the floating layer fails when
+# there is none; probe by exit status.
+if hc attr tags.focus.floating_focused on 2>/dev/null; then
+    if [ "$ccount" -eq 0 ]; then
+        # Empty focused frame: pull the float back into it (one step).
+        float_wid=$(hc attr clients.focus.winid 2>/dev/null || echo "")
+        if [ -n "$float_wid" ]; then
+            hc attr "clients.$float_wid.fullscreen" off 2>/dev/null || true
+            hc attr "clients.$float_wid.floating" off 2>/dev/null || true
+        fi
+        exit 0
+    fi
+    if [ "$ccount" -gt 1 ]; then
+        # Frame below holds >1 clients: focus the float and un-float
+        # it in one step — it rejoins the tiling of this frame.
+        float_wid=$(hc attr clients.focus.winid 2>/dev/null || echo "")
+        if [ -n "$float_wid" ]; then
+            hc attr "clients.$float_wid.fullscreen" off 2>/dev/null || true
+            hc attr "clients.$float_wid.floating" off 2>/dev/null || true
+        fi
+        exit 0
+    fi
+    # Exactly one client below: this press just focused the existing
+    # float — never float a second window while one is already out.
+    exit 0
+fi
+
+# No floats anywhere: float the focused tiled window, centered inside
+# its frame. hc_center preserves the current size, clamps it to the
+# frame rect, writes floating_geometry, sets floating on and refocuses.
+if [ -n "$wid" ]; then
+    hc attr "clients.$wid.fullscreen" off 2>/dev/null || true
+    hc attr "clients.$wid.pseudotile" off 2>/dev/null || true
+    "$HOME/.local/bin/hc_center" frame || true
+fi

@@ -68,7 +68,7 @@ if [ -z "$ROFI_RETV" ]; then
 			while read -r wid; do
 				[ "$(herb attr "clients.$wid.minimized" 2>/dev/null)" = "true" ] && echo "$wid"
 			done | head -1)
-		[ -n "$winid" ] && herb chain , bring "$winid" , raise "$winid"
+		[ -n "$winid" ] && herb chain , bring "$winid" , raise "$winid" , attr "clients.$winid.floating" off ,
 		exit 0
 	fi
 	# narrower than the shared window-switcher theme default
