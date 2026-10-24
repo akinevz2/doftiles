@@ -1,6 +1,6 @@
 ---
 name: open-file
-description: Instructs how to use $EDITOR for viewing files alongside chat. Uses $VIEW (code -r) for single files and $NEW_WINDOW ($VIEW --new-window or similar) for directories.
+description: Instructs how to use $EDITOR for viewing files alongside chat. Uses $VIEW (code -r) for single files and $EDITOR $NEW_WINDOW (code --new-window) for directories.
 ---
 
 # Open File
@@ -9,9 +9,9 @@ description: Instructs how to use $EDITOR for viewing files alongside chat. Uses
 
 This skill documents the correct way to open files for inspection while chatting with opencode. Your environment has these variables configured:
 
-- `$EDITOR=code --wait` - Pauses chat while file is open (default edit mode)
+- `$EDITOR=code` - Editor command; on its own it does NOT pause chat
 - `$VIEW=code -r` - Opens file in replace tab (non-blocking view mode)  
-- `$NEW_WINDOW=code --wait --new-window` - Opens directory or project in new window
+- `$NEW_WINDOW=--new-window` - A FLAG for `$EDITOR`, not a standalone command
 
 ## Usage for Single Files
 
@@ -25,9 +25,13 @@ This opens VS Code in "replace" mode on an existing tab or creates a new one if 
 
 ## Usage for Directories/Projects
 
-To inspect a directory (opens in new window):
+`$NEW_WINDOW` is only a flag — it must always be COMBINED with `$EDITOR`, never invoked on its own:
 
-    $NEW_WINDOW <directory-path>
-    # e.g. code --wait --new-window src/components/
+    $EDITOR $NEW_WINDOW <directory-path>
+    # e.g. code --new-window src/components/
 
-This opens the folder in a new VS Code instance and waits until closed before continuing.
+This opens the folder in a new VS Code window and returns immediately (no `--wait` is configured in this environment).
+
+## Gotcha
+
+Do NOT run `$NEW_WINDOW <dir>` as a standalone command: the value is only the `--new-window` flag, so the shell would try to execute `--new-window` as a command and fail. Always pair it with `$EDITOR` — this is exactly what the `odot` alias does.

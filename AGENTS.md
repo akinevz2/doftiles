@@ -1,6 +1,10 @@
 # AGENTS.md — dots repository guidance
 
+`Hi guys, how's it going? :)`
+
 Guidance for AI coding agents working in this dotfiles repository.
+
+`My only baseline request is that you do not commit without direct request to do so.`
 
 ## What this repo is
 
@@ -169,6 +173,18 @@ After changing anything in `services/`, restow and run
     as gray squares unless `element-icon { size: 0; }` is set; pango
     `-markup` is unreliable in dmenu mode (prefer plain-text prefixes
     like `->`).
+14. **Screencast task-tool completion signal** (opencode-screencast,
+    developed in `~/development/system`): `run_task` sessions have
+    been reported as `"state":"absent"` by `task_status` after
+    spawning — task registration and end-of-command completion are
+    not reliably signaled back to the agent, and a closed task window
+    is indistinguishable from a never-started session. A fix is being
+    developed (register sessions immediately, detect completion via
+    tmux pane state / a sentinel instead of the window title, and
+    report a distinct terminal state when the window is closed
+    mid-run). Until it lands: when `task_status` returns `absent`,
+    the task may still be running — re-check the floating terminal
+    windows directly before re-spawning.
 
 ## Quick verification workflow
 
