@@ -42,15 +42,11 @@ keyreg $ModShift-Return      spawn $APPLAUNCHER
 # applauncher
 keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 , spawn $APPSWITCHER . close_or_remove         # was Mod-Tab
 keyreg $ModCtrl-a           or . and , compare tags.focus.curframe_wcount gt 1 , split explode . spawn $APPLAUNCHER           # was Mod-Tab
-keyreg $ModShift-q          or \
-                            . and \
-                                    , compare tags.focus.curframe_wcount gt 1 \
-                                    , remove                         \
-                            . close_and_remove
+keyreg $Mod-q          or . and , compare tags.focus.floating_focused = true , attr tags.focus.floating_focused off . close_or_remove
 # screenshot; revision HHKB custom caps
 
 # CLOSE OR QUIT WM
-keyreg $Mod-q               close_or_remove
+keyreg $ModShift-q               or . and , compare clients.focus.floating = true , attr clients.focus.floating off . close_or_remove
 keyreg $ModCtrl-q           spawn xkill
 keyreg $ModShift-w          reload
 
@@ -132,9 +128,10 @@ keyreg $Mod-f               spawn ~/.local/bin/hc_focus
 # restore via hc_unmaximize if maximized (c) (hc_zoom)
 keyreg $ModCtrl-f          spawn ~/.local/bin/hc_zoom
 
-# catch-all "get out" of float mode: collapse the tag's whole floating
-# layer back into the tiling, clearing floating/fullscreen/pseudotile
-# tag-wide (hc_floatx)
+# tidying tool: pulls the focused client out of its frame (float +
+# center on screen, focus back to tiling); with a float on the tag,
+# an empty focused frame "drops" the float back in, a frame holding
+# clients just toggles focus to the floating layer (hc_floatx)
 keyreg $Mod-x               spawn ~/.local/bin/hc_floatx
 
 # split into direction

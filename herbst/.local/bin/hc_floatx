@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
-# hc_floatx — Mod-x float, focus, and distraction-management actions.
-# Runs under the WM lock (see below).
+# hc_floatx — Mod-x: the tidying tool.
+#
+# Behaviour, by focus state:
+#   Floating window focused
+#       -> focus returns to the tiling layer; the window stays
+#          floating, untouched (no un-float, no geometry change).
+#   Tiling layer focused, a visible float exists on the tag
+#       empty focused frame   -> the float is dropped into it:
+#                                un-floated and focused there.
+#       frame holds clients   -> focus toggles to the floating layer
+#                                (peek); the float is never un-floated
+#                                from here.
+#   Tiling layer focused, no floats on the tag
+#       frame holds clients   -> the focused client is pulled out of
+#                                its frame: floated in place, focus
+#                                returned to the tiling layer.
+#       empty frame           -> tidying: remove the empty frame,
+#                                reveal minimized windows, rofi_hidden
+#                                (max layout), or use_previous.
 #
 # Performance note: a herbstclient round-trip costs ~40 ms on this
 # setup, so multi-read/multi-write sequences are batched into single
@@ -14,20 +31,19 @@ export DISPLAY
 hc() { herbstclient "$@"; }
 
 # Hold the WM lock across the whole action: multi-write sequences
-# (unfloat_tag loops, the float+hc_center combo, the reveal loop) must
-# not interleave with Mod-f / ModCtrl-f writes or expose intermediate
-# states. hlwm's lock is reference-counted, so hc_center's internal
-# lock/unlock stays balanced; the trap releases it on every exit path.
+# (the pull-out, the reveal loop) must not interleave with Mod-f /
+# ModCtrl-f writes or expose intermediate states. hlwm's lock is
+# reference-counted, so nested locks stay balanced; the trap releases
+# it on every exit path.
 hc lock
 trap 'hc unlock' EXIT
 
 orig=$(hc attr clients.focus.winid 2>/dev/null || true)
 
-# Branch-dispatch state in ONE chain spawn. chain concatenates
-# subcommand output verbatim, so `echo "|"` separates the values
-# (no value ever contains a pipe) and a FAILED read (the final
-# clients.focus one — the only path that can fail: no focused
-# client) simply yields an empty field that parses as "false".
+# Branch-dispatch state in ONE chain spawn; `echo "|"` separates the
+# values (no value ever contains a pipe). A failed final read — the
+# only path that can fail, when no client is focused — yields an
+# empty field that parses as "false".
 state_out=$(hc chain \
     , attr tags.focus.curframe_wcount , echo "|" \
     , attr tags.focus.tiling.focused_frame.client_count , echo "|" \
@@ -41,8 +57,8 @@ state_out=$(hc chain \
 mapfile -d '|' -t st < <(printf '%s' "${state_out//$'\n'/}")
 frame_clients=${st[0]:-0}
 # focused_frame count — excludes minimized clients, so a visually
-# empty frame reads 0 (matches hc_focus and the un-minimize check
-# below; curframe_wcount can still count a hidden client).
+# empty frame reads 0 (matches hc_focus and the drop check below;
+# curframe_wcount can still count a hidden client).
 frame_cc=${st[1]:-0}
 frame_count=${st[2]:-1}
 algo=${st[3]:-}
@@ -50,23 +66,26 @@ tag=${st[4]:-}
 fgeo=${st[5]:-}
 focus_float=${st[6]:-false}
 
+# From the floating layer: focus back to tiling, float untouched.
+if [ "$focus_float" = "true" ]; then
+    hc attr tags.focus.floating_focused off 2>/dev/null || true
+    exit 0
+fi
+
+# Fold away stray fullscreen/pseudotile flags on the focused tiled
+# client. (Skipped on the float side above, so a peek press never
+# clears the float's flags.)
 if [ -n "$orig" ]; then
     hc chain , attr "clients.$orig.fullscreen" off \
        , attr "clients.$orig.pseudotile" off 2>/dev/null || true
 fi
 
-unfloat_tag() {
-    # Clear floating/fullscreen/pseudotile tag-wide with ONE chain
-    # spawn. Writing "off" to already-tiled clients is a no-op, so
-    # the end state matches the old check-then-write per-client loop.
-    [ -n "$tag" ] || return 0
-    local winid cmd=(chain)
-    for winid in $(hc list_clients --tag="$tag" 2>/dev/null); do
-        cmd+=(, attr "clients.$winid.fullscreen" off \
-             , attr "clients.$winid.pseudotile" off \
-             , attr "clients.$winid.floating" off)
-    done
-    [ ${#cmd[@]} -gt 1 ] && hc "${cmd[@]}" 2>/dev/null || true
+# Total clients on the tag (minimized included). 0 = genuinely empty
+# workspace — there is nothing for a frame removal to make room for,
+# so Mod-x must fall through to use_previous instead.
+tag_total() {
+    [ -n "$tag" ] || { echo 0; return 0; }
+    hc attr "tags.by-name.${tag}.client_count" 2>/dev/null || echo 0
 }
 
 has_minimized_clients() {
@@ -82,119 +101,68 @@ has_minimized_clients() {
     return 1
 }
 
-# geom_inside <frame_geo> <win_geo> — true when the window rect lies
-# inside the frame rect. Pure arithmetic, no herbstclient calls.
-# (Geometry strings: WxH+X+Y; bash arithmetic handles the signs.)
-geom_inside() {
-    [[ $1 =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]] || return 1
-    local fx=$((BASH_REMATCH[3])) fy=$((BASH_REMATCH[4]))
-    local fr=$((fx + BASH_REMATCH[1])) fb=$((fy + BASH_REMATCH[2]))
-    [[ $2 =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]] || return 1
-    local wx=$((BASH_REMATCH[3])) wy=$((BASH_REMATCH[4]))
-    local wr=$((wx + BASH_REMATCH[1])) wb=$((wy + BASH_REMATCH[2]))
-    [ "$wx" -ge "$fx" ] && [ "$wy" -ge "$fy" ] \
-        && [ "$wr" -le "$fr" ] && [ "$wb" -le "$fb" ]
-}
-
-# Total clients on the tag (minimized included). 0 = genuinely empty
-# workspace — there is nothing for a frame removal to make room for,
-# so Mod-x must fall through to use_previous instead.
-tag_total() {
-    [ -n "$tag" ] || { echo 0; return 0; }
-    hc attr "tags.by-name.${tag}.client_count" 2>/dev/null || echo 0
-}
-
-busy=false
-if [ "$frame_count" -gt 1 ] && [ "$frame_clients" -gt 1 ]; then
-    busy=true
-fi
-
-if [ "$focus_float" = "true" ]; then
-    if [ "$frame_clients" = 0 ] && [ "$algo" = "max" ]; then
-        unfloat_tag
-        [ -n "$orig" ] && hc bring "$orig"
-        exit 0
-    fi
-
-
-    if [ "$busy" == "true" ]; then
-        [ -n "$orig" ] && hc attr clients.focus.floating off 2>/dev/null || true
-        exit 0
-    fi
-
-    "$HOME/.local/bin/hc_center" root 2>/dev/null || true
-    hc attr tags.focus.floating_focused off 2>/dev/null || true
-    exit 0
-fi
-
-# Peek/hide the floating layer. Per-client state (floating, minimized,
-# floating_geometry) is read with ONE chain spawn, in list_clients
-# order. Floats are collected BEFORE the layer switch: under the held
-# lock, clients.focus does not follow floating_focused (it settles on
-# unlock), so a post-probe clients.focus write would hit the stale
-# (tiled) client instead of the float — the old code silently
-# minimized the wrong window.
+# Find the first VISIBLE float on the tag, before any layer switch:
+# under the held lock clients.focus does not follow floating_focused
+# (it settles on unlock), so reads must all happen up front.
 wids=($(hc list_clients --tag="$tag" 2>/dev/null))
 first_float=""
-min_candidate=""
 if [ ${#wids[@]} -gt 0 ]; then
     cmd=(chain)
     for c in "${wids[@]}"; do
         cmd+=(, attr "clients.$c.floating" , echo "|" \
-             , attr "clients.$c.minimized" , echo "|" \
-             , attr "clients.$c.floating_geometry" , echo "|")
+             , attr "clients.$c.minimized" , echo "|")
     done
     vals_out=$(hc "${cmd[@]}" 2>/dev/null)
     mapfile -d '|' -t vals < <(printf '%s' "${vals_out//$'\n'/}")
     for ((i = 0; i < ${#wids[@]}; i++)); do
-        [ "${vals[i * 3]:-false}" = "true" ] || continue    # floating
-        c=${wids[i]}
-        [ -n "$first_float" ] || first_float=$c
-        if [ "$frame_cc" = 0 ] && [ "${vals[i * 3 + 1]:-false}" = "false" ] \
-           && geom_inside "$fgeo" "${vals[i * 3 + 2]:-}"; then
-            # The float sits above THIS empty frame — its geometry
-            # lies inside the frame's rect, so this is the frame it
-            # was floated out of and it held only this one child
-            # (which is why it is empty now). Floats peeled from
-            # frames with other clients, dragged or rule-floated
-            # elsewhere are NOT hidden here: the press just focuses
-            # the floating layer, and the next press un-floats it
-            # into the frame (hc_focus).
-            [ -n "$min_candidate" ] || min_candidate=$c
-        fi
+        [ "${vals[i * 2]:-false}" = "true" ] || continue          # floating
+        [ "${vals[i * 2 + 1]:-false}" = "false" ] || continue     # visible
+        first_float=${wids[i]}
+        break
     done
 fi
 
-if [ -n "$min_candidate" ]; then
-    hc attr "clients.$min_candidate.minimized" on 2>/dev/null || true
-    exit 0
-fi
-
 if [ -n "$first_float" ]; then
-    # Frame holds clients, or the float does not belong above this
-    # frame: just focus the floating layer.
-    hc attr tags.focus.floating_focused on 2>/dev/null || true
+    if [ "$frame_cc" = 0 ]; then
+        # Drop: fold the float's stray flags and un-float it into the
+        # focused frame; jumpto makes sure it gains focus.
+        hc chain , attr "clients.$first_float.fullscreen" off \
+           , attr "clients.$first_float.pseudotile" off \
+           , attr "clients.$first_float.floating" off 2>/dev/null || true
+        hc jumpto "$first_float" 2>/dev/null || true
+    else
+        # Peek: toggle focus to the floating layer; the float is
+        # never un-floated from here.
+        hc attr tags.focus.floating_focused on 2>/dev/null || true
+    fi
     exit 0
 fi
 
+if [ "$frame_cc" -gt 0 ]; then
+    # Pull-out: float the focused client in place and return focus to
+    # the tiling layer; the emptied frame is free for searching or
+    # splitting.
+    hc attr clients.focus.floating on
+    hc attr tags.focus.floating_focused off 2>/dev/null || true
+    exit 0
+fi
+
+# Empty frame, no floats: tidying.
 if [ "$frame_count" -gt 1 ]; then
     if [ "$frame_clients" -eq 0 ] && [ "$(tag_total)" != "0" ]; then
         hc remove
         exit 0
     fi
-
-
-    # Check if there are any minimized windows and no tiling clients on the previous tag
+    # Hidden windows exist and nothing is tiled in the focused frame:
+    # reveal them.
     if has_minimized_clients && [ "$frame_cc" -eq 0 ]; then
         cmd=(chain)
         for winid in $(hc list_clients --tag="$tag" 2>/dev/null); do
             cmd+=(, attr "clients.$winid.minimized" off)
         done
         hc "${cmd[@]}" 2>/dev/null || true
+        exit 0
     fi
-
-    "$HOME/.local/bin/hc_center" root 2>/dev/null || true
-    hc attr clients.focus.floating on
 fi
 
 if [ "$frame_clients" = 0 ] && [ "$(tag_total)" != "0" ]; then

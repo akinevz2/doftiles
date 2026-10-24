@@ -50,7 +50,7 @@ herb attr theme.tiling.reset 1
 herb attr theme.floating.reset 1
 
 #= COLOURS =#
-herb set frame_border_active_color '#eeeeee'
+herb set frame_border_active_color $BACKGROUND_HEX
 herb set frame_border_normal_color '#333333'
 herb set frame_bg_active_color '#feef69'
 herb set frame_bg_normal_color '#333333'
@@ -59,11 +59,11 @@ herb attr theme.normal.color '#333333'
 herb attr theme.urgent.color '#ffffff'
 herb attr theme.minimal.color '#333'
 herb attr theme.active.inner_color '#feef69'
-herb attr theme.active.outer_color '#feef69'
+herb attr theme.active.outer_color '#eeeeee'
 herb attr theme.active.title_height 16
 herb attr theme.active.title_depth 5
 herb attr theme.active.title_color '#333333'
-herb attr theme.background_color '#feef69'
+herb attr theme.background_color $BACKGROUND_HEX
 
 herb set hide_covered_windows on
 herb set always_show_frame on
@@ -73,8 +73,8 @@ herb set frame_border_width 2
 
 herb attr theme.minimal.border_width 0
 herb attr theme.inner_width 5
-herb attr theme.inner_color '#333333'
 herb attr theme.outer_color '#eeeeee'
+herb attr theme.inner_color $BACKGROUND_HEX
 herb attr theme.border_width 2
 
 herb attr theme.padding_left 2

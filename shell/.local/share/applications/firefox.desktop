@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Firefox (Windows)
+GenericName=Web Browser
+Comment=Launch Windows Firefox via WSL wrapper
+Exec=firefox %u
+Terminal=false
+Icon=web-browser-symbolic
+MimeType=x-scheme-handler/http;x-scheme-handler/https;text/html;
+Categories=Network;WebBrowser;

@@ -128,6 +128,18 @@ After changing anything in `services/`, restow and run
    Windows Firefox via `/mnt/c/...`). Since `~/.local/bin` is first on
    `PATH`, the bare name resolves to the wrapper when present and to a real
    Linux Firefox otherwise. Do not "fix" it to an absolute path.
+   `$BROWSER` is **not enough** on its own: GUI apps open links via
+   `xdg-open`, which ignores `$BROWSER` and follows XDG `.desktop`
+   associations. The `shell` package also stows
+   `~/.local/share/applications/firefox.desktop` (Exec=firefox) and
+   `~/.config/mimeapps.list` must map `x-scheme-handler/http(s)` and
+   `text/html` to `firefox.desktop`. Without this, xdg-mime falls back to
+   scanning `/usr/share/applications` by `InitialPreference` and Chrome wins
+   (it is also `x-www-browser` in the alternatives system). If links open in
+   the wrong browser, run:
+   `xdg-mime default firefox.desktop x-scheme-handler/http x-scheme-handler/https text/html`.
+   Note `xdg-settings set default-web-browser` refuses to run while
+   `$BROWSER` is exported — use `xdg-mime` directly.
 8. **polybar warnings (known)**: `tray-position`/`tray-padding` in
    `polybar/.config/polybar/config.ini` are deprecated in favor of the
    dedicated tray module (polybar ≥ 3.6). Harmless for now.
