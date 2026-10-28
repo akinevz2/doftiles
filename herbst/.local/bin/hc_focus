@@ -45,7 +45,7 @@ wid=$(hc attr clients.focus.winid 2>/dev/null || echo "")
 
 # Client count of the focused frame ("the frame below" — still valid
 # while a floating window has focus).
-ccount=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
+ccount=$(hc attr tags.focus.curframe_wcount 2>/dev/null || echo 0)
 
 if [ -n "$wid" ]; then
     floating=$(hc attr "clients.$wid.floating" 2>/dev/null || echo false)

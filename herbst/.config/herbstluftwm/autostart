@@ -36,17 +36,18 @@ APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
 
 # terminal
 keyreg $Mod-Return          spawn $TERMINAL
-keyreg $ModShift-t     chain . lock . split auto . cycle_frame . spawn $TERMINAL . unlock
+keyreg $ModShift-Return     chain . lock . split auto . cycle_frame . spawn $TERMINAL . unlock
 
-keyreg $ModShift-Return      spawn $APPLAUNCHER
+keyreg $ModCtrl-Return      spawn $APPLAUNCHER
+keyreg $ModShift-t      spawn $APPLAUNCHER
 # applauncher
 keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 , spawn $APPSWITCHER . close_or_remove         # was Mod-Tab
 keyreg $ModCtrl-a           or . and , compare tags.focus.curframe_wcount gt 1 , split explode . spawn $APPLAUNCHER           # was Mod-Tab
-keyreg $Mod-q          or . and , compare tags.focus.floating_focused = true , attr tags.focus.floating_focused off . close_or_remove
+keyreg $Mod-q          or . and , compare tags.focus.floating_focused = true , attr clients.focus.floating off . close_or_remove
 # screenshot; revision HHKB custom caps
 
 # CLOSE OR QUIT WM
-keyreg $ModShift-q               or . and , compare clients.focus.floating = true , attr clients.focus.floating off . close_or_remove
+keyreg $ModShift-q               or . and , compare clients.focus.floating = true , attr tags.focus.floating_focused off . close_or_remove
 keyreg $ModCtrl-q           spawn xkill
 keyreg $ModShift-w          reload
 
@@ -142,15 +143,17 @@ keyreg $ModCtrl-b           chain , split bottom 0.5 , focus -i down
 keyreg $ModShift-b          chain split top 0.5 , focus -i down
 
 
-# FOCUS — arrows only; old Alt-hjkl aliases dropped (would shadow new Mod=Alt)
+# FOCUS — hjkl stays within visible clients; arrows traverse all
+# frames/layers (levels exchanged: hjkl was all, arrows was visible;
+# directions unchanged on both sets)
 keyreg $Mod-h                   focus --level=all left
 keyreg $Mod-j                   focus --level=all down
 keyreg $Mod-k                   focus --level=all up
 keyreg $Mod-l                   focus --level=all right
-keyreg $Mod-Left                focus --level=visible left
-keyreg $Mod-Down                focus --level=visible down
-keyreg $Mod-Up                  focus --level=visible up
-keyreg $Mod-Right               focus --level=visible right
+keyreg $Mod-Left                or . focus left . focus --level=all left
+keyreg $Mod-Down                or . focus down . focus --level=all down
+keyreg $Mod-Up                  or . focus up . focus --level=all up
+keyreg $Mod-Right               or . focus right . focus --level=all right
 
 # SHIFT windows — Alt+Ctrl+arrows and Alt+Ctrl+hjkl
 # (hjkl slot freed up by dropping the old focus aliases)
@@ -268,3 +271,18 @@ herb set default_frame_layout grid
 herb unlock
 # herb set_monitors 1
 
+xmodmap -e "keycode 20 = minus underscore backslash bar backslash bar"
+
+# RELOAD DETECTION HOOK
+# Check if this is a fresh start or a reload
+# If reload detected, notify user via dunst to show session reloaded
+STATUS=$(hc_reload_hook)
+if [ "$STATUS" = "reload" ]; then
+    # Reload detected — wm survived, autostart re-running
+    # Debug output to stdout
+    echo "herbstluftwm reloaded - autostart is running again"
+    echo "Attribute my_autostart_loaded exists: $(herbstclient get_attr my_autostart_loaded 2>/dev/null || echo 'not found')"
+    
+    # Send notification via notify-send
+    notify-send -a "herbstluftwm" -u normal -t 2000 "herbstluftwm reloaded" "autostart completed"
+fi

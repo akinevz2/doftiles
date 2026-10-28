@@ -126,6 +126,14 @@ esac
 [ -f "$HOME/.exports"  ] && source "$HOME/.exports"
 [ -f "$HOME/.aliases"  ] && source "$HOME/.aliases"
 
+# ─── machine-local secrets (transient, gitignored in shell/.cache/) ─────────
+# Any *.env here is sourced into new shells; per-machine credentials (tokens)
+# live outside version control forever.
+for _secrets_file in "$HOME"/dots/shell/.cache/*.env; do
+    [ -f "$_secrets_file" ] && . "$_secrets_file"
+done
+unset _secrets_file
+
 # ─── MOTD display ───────────────────────────────────────────────────────────
 # Show MOTD on first shell after boot, or when mail exists.
 # Uses a marker file in /tmp to track if we've already shown MOTD this session.

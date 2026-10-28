@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# hc_reload_hook — herbstluftwm reload detection for autostart completion.
+#
+# Usage:
+#   STATUS=$(hc_reload_hook)
+#   if [ "$STATUS" = "reload" ]; then
+#       # Handle reload
+#   fi
+#
+# Logic:
+#   - First run: attribute doesn't exist → create it, output "fresh"
+#   - Subsequent runs: attribute exists → output "reload"
+#
+# This allows distinguishing between a fresh WM start and a reload.
+
+herb() {
+    herbstclient "$@"
+}
+
+# Get the current value of the reload marker
+VALUE=$(herb get_attr my_autostart_loaded 2>/dev/null || echo "NOT_FOUND")
+
+if [ "$VALUE" = "NOT_FOUND" ] || [ -z "$VALUE" ]; then
+    # First run: attribute doesn't exist → fresh start
+    herb new_attr bool my_autostart_loaded "true" 2>/dev/null || true
+    echo "fresh"
+    exit 0
+fi
+
+# Attribute exists → this is a reload (WM survived)
+echo "reload"
+exit 0
