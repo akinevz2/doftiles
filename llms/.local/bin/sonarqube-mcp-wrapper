@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# SonarQube MCP stdio wrapper for OpenCode.
+# Token resolved at spawn time from the gitignored env file — never stored in
+# any configuration file. Speaks stdio to the client; talks HTTP to the
+# SonarQube Server inside the dots/llms compose stack.
+
+SONAR_ENV="${SONAR_ENV:-$HOME/dots/shell/.cache/sonarqube.env}"
+
+if ! command -v docker >/dev/null 2>&1; then
+    echo "docker is not available" >&2
+    exit 1
+fi
+
+if [ -f "$SONAR_ENV" ]; then
+    # shellcheck disable=SC1090
+    . "$SONAR_ENV"
+fi
+if [ -z "${SONARQUBE_TOKEN:-}" ]; then
+    echo "SONARQUBE_TOKEN is not set (expected in $SONAR_ENV — see dots/llms/README-sonarqube-mcp.md)" >&2
+    exit 1
+fi
+
+# Join the stack's network so SonarQube is reachable by container DNS; the
+# absence of SONARQUBE_TRANSPORT selects the image's native stdio transport.
+# The in-container URL is a stack-internal constant (the host-side
+# SONARQUBE_URL value must NOT leak into the container's netns).
+exec docker run -i --rm \
+    --memory 768m \
+    --network docker-llms_default \
+    -e "SONARQUBE_TOKEN=${SONARQUBE_TOKEN}" \
+    -e "SONARQUBE_URL=http://sonarqube:9000" \
+    -e "SONAR_JAVAOPTS=-Xmx512m" \
+    sonarsource/sonarqube-mcp:latest

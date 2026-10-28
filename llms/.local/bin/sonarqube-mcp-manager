@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# SonarQube Local Setup Management Script
+
+SONAR_COMPOSE_DIR="${SONAR_COMPOSE_DIR:-$(pwd)}"
+CONTAINER_IMAGE="sonarqube:latest"
+CONTAINER_IMAGE_MCP="sonarsource/sonarqube-mcp:latest"
+
+print_status() {
+    echo "=========================================="
+    echo "SonarQube Local Setup Management Script"
+    echo "=========================================="
+    echo ""
+}
+
+show_menu() {
+    echo "Available commands:"
+    echo "  start     - Start SonarQube and MCP server containers"
+    echo "  stop      - Stop all SonarQube containers"
+    echo "  restart   - Restart SonarQube container"
+    echo "  status    - Show container status"
+    echo "  logs      - View SonarQube logs"
+    echo "  access    - Open SonarQube in browser"
+    echo "  config    - Configure environment variables"
+    echo "  help      - Show this help message"
+    echo ""
+}
+
+start_sonarqube() {
+    print_status
+    echo "Starting SonarQube Server..."
+    cd "$SONAR_COMPOSE_DIR" || exit 1
+    docker-compose up -d
+    echo ""
+    echo "Waiting for SonarQube to be ready..."
+    sleep 5
+    echo ""
+    echo "SonarQube is available at: http://localhost:9000"
+    echo "Default credentials: admin / admin"
+}
+
+stop_sonarqube() {
+    print_status
+    echo "Stopping SonarQube Server..."
+    cd "$SONAR_COMPOSE_DIR" || exit 1
+    docker-compose down
+    echo "SonarQube containers stopped."
+}
+
+restart_sonarqube() {
+    print_status
+    echo "Restarting SonarQube Server..."
+    cd "$SONAR_COMPOSE_DIR" || exit 1
+    docker-compose restart
+    echo "SonarQube container restarted."
+}
+
+show_status() {
+    print_status
+    cd "$SONAR_COMPOSE_DIR" || exit 1
+    docker-compose ps
+    echo ""
+    echo "Environment variables:"
+    if [ -n "${SONARQUBE_TOKEN+x}" ]; then
+        echo "  SONARQUBE_TOKEN: Set (***)"
+    else
+        echo "  SONARQUBE_TOKEN: Not set"
+    fi
+    if [ -n "${SONARQUBE_URL+x}" ]; then
+        echo "  SONARQUBE_URL: $SONARQUBE_URL"
+    else
+        echo "  SONARQUBE_URL: Not set"
+    fi
+}
+
+view_logs() {
+    print_status
+    echo "Showing SonarQube logs (Ctrl+C to exit)..."
+    cd "$SONAR_COMPOSE_DIR" || exit 1
+    docker-compose logs -f --tail=100
+}
+
+open_browser() {
+    if command -v xdg-open >/dev/null 2>&1; then
+        xdg-open http://localhost:9000
+    elif command -v firefox >/dev/null 2>&1; then
+        firefox http://localhost:9000
+    else
+        echo "No browser found. Manually open: http://localhost:9000"
+    fi
+}
+
+show_config() {
+    print_status
+    echo "Configure environment variables:"
+    echo ""
+    echo "Add to your shell configuration (~/.bashrc, ~/.zshrc, or ~/.profile):"
+    echo ""
+    echo "# SonarQube MCP Server"
+    echo 'export SONARQUBE_TOKEN="<YourGeneratedToken>"'
+    echo 'export SONARQUBE_URL="http://localhost:9000"'
+    echo ""
+    echo "Or create a .env file in the docker directory:"
+    echo ""
+    echo "SONARQUBE_TOKEN=YourGeneratedToken"
+    echo "SONARQUBE_URL=http://localhost:9000"
+    echo ""
+    echo "For cloud version, add:"
+    echo 'export SONARQUBE_CLOUD_TOKEN="<your-token>"'
+    echo 'export SONARQUBE_CLOUD_ORG="<your-org>"'
+    echo 'export SONARQUBE_CLOUD_URL="<your-url>"'
+}
+
+case "${1:-}" in
+    start)
+        start_sonarqube
+        ;;
+    stop)
+        stop_sonarqube
+        ;;
+    restart)
+        restart_sonarqube
+        ;;
+    status)
+        show_status
+        ;;
+    logs)
+        view_logs
+        ;;
+    access)
+        open_browser
+        ;;
+    config)
+        show_config
+        ;;
+    help|--help|-h)
+        show_menu
+        ;;
+    *)
+        print_status
+        echo "Error: Unknown command '$1'"
+        echo ""
+        show_menu
+        exit 1
+        ;;
+esac

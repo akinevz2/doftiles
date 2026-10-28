@@ -42,13 +42,13 @@
       "*>*": "ask",
       "*>>*": "ask",
       "*.git/*": "deny",
-      "cp *": "ask",       
-      "tee *": "ask",      
-      "sed -i*": "ask",    
-      "npx *": "ask",      
-      "patch *": "ask",    
-      "rm -rf *": "deny",  
-      "rm *": "ask",       
+      "cp *": "ask",
+      "tee *": "ask",
+      "sed -i*": "ask",
+      "npx *": "ask",
+      "patch *": "ask",
+      "rm -rf *": "deny",
+      "rm *": "ask",
       "echo *": "allow",
       "rmdir *": "ask",
       "rg *": "allow",
@@ -70,22 +70,9 @@
     }
   },
   "provider": {
-    "vision": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "ws-vision",
-      "options": {
-        "baseURL": "http://localhost:11434/v1",
-        "apiKey": "ollama"
-      },
-      "models": {
-        "glm-4.7-performance:latest": {
-          "name": "GLM 4.7 Performance"
-        }
-      }
-    },
     "rarebox": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "ws-rarebox",
+      "name": "WS-RAREBOX",
       "options": {
         "baseURL": "http://ws-rarebox:11434/v1",
         "apiKey": "ollama"
@@ -113,8 +100,23 @@
             "field": "reasoning_text"
           }
         },
-        "laguna-xs-2.1": {
-          "name": "Laguna XS 2.1",
+        "hf.co/bartowski/zai-org_GLM-4.5-Air-GGUF:latest": {
+          "name": "GLM 4.5 Air GGUF",
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "laguna-xs-2.1:32k": {
+          "name": "Laguna XS 2.1 (32k)",
+          "limit": {
+            "context": 32768,
+            "output": 4096
+          },
           "modalities": {
             "input": [
               "text"
@@ -137,9 +139,24 @@
           "reasoning": true,
           "tool_call": true
         },
-        "glm-4.7-flash": {
+        "qwen3-coder": {
+          "name": "Qwen3 Coder",
+          "limit": {
+            "context": 32768,
+            "output": 4096
+          },
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "glm-4.7-flash:32k": {
           "name": "GLM 4.7 Flash (32k)",
-         "limit": {
+          "limit": {
             "context": 32768,
             "output": 4096
           },
@@ -155,32 +172,26 @@
           "reasoning": true,
           "temperature": true,
           "tool_call": true
-        },
-        "qwen3-coder": {
-          "name": "Qwen3 Coder",
-          "limit": {
-            "context": 32768,
-            "output": 4096
-          },
-          "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
-          }
         }
       }
     }
   },
   "mcp": {
-    "github": {
-      "type": "local",
-      "command": [
-        "/home/kine/.local/bin/github-mcp-wrapper"
-      ],
-      "enabled": true
+    "servers": {
+      "github": {
+        "type": "local",
+        "command": [
+          "/home/kine/.local/bin/github-mcp-wrapper"
+        ],
+        "enabled": true
+      },
+      "sonarqube": {
+        "type": "local",
+        "command": [
+          "/home/kine/.local/bin/sonarqube-mcp-wrapper"
+        ],
+        "enabled": true
+      }
     }
   }
 }
