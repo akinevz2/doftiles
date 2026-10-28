@@ -25,22 +25,26 @@ Primary consumer environments:
 | Package | Contents |
 | ----------- | ---------- |
 | `alacritty` | `.config/alacritty` |
-| `compton` | `.config/compton` (compositor config only) |
-| `dunst` | `.config/dunst` |
-| `git` | `.my-credentials` (git identity, name+email), `.local/bin/load-credentials` |
-| `herbst` | `.config/herbstluftwm`, `.local/bin/hc_*` helper scripts |
-| `opencode` | `.config/opencode` |
-| `polybar` | `.config/polybar`, `.local` |
-| `rofi` | `.config/rofi` |
-| `services` | `.config/systemd/user/*.service` (herbst, compton units) |
-| `shell` | `.bashrcx`, `.profile`, `.aliases`, `.exports`, `.config/aliases`, `.local/bin/install/bashrc` |
+| `compton` | `.config/compton` (compositor config plus rofi context-menu helpers) |
+| `dunst` | `.config/dunst`, `.local/bin/check-mail.sh`, `read-mail.sh` |
+| `git` | `.my-credentials` (git identity, name+email), `.local/bin/load-credentials`, `.local/bin/dekineify`, home-level `Makefile` (stowed as `~/Makefile`) |
+| `herbst` | `.config/herbstluftwm`, `.local/bin/` (`hc_*` helpers, `rofi_*` launchers, `polyctl`, `winbarctl`, `hlwm_cwds_dump`, ...) |
+| `llms` | `.config/opencode` (config, agents, skills, themes, `opencode-screencast` submodule), `.config/poolside`, `.local/bin/` (SonarQube/MCP tooling, `opencode-remote*`), `docker-compose.yml` |
+| `maintenance` | `.config/systemd/user/check-msi-dirs.service`, `.local/bin/check-msi-dirs.sh` |
+| `polybar` | `.config/polybar` (config.ini, scripts, `polyframes` node renderer, `polywins` submodule), `.local/bin/` |
+| `rofi` | `.config/rofi` (themes, applets, ~40 `bin/` helpers) |
+| `services` | `.config/systemd/user/*.service` (herbst, compton, dunst active; xvfb, x11vnc, novnc disabled) |
+| `shell` | `.bashrcx`, `.profile`, `.aliases`, `.exports`, `.config/{aliases,exports,mimeapps.list}`, `.local/bin/` (install hooks, firefox wrapper, check-wsl), `.local/share/applications/` |
+| `task` | `.taskrc` |
 | `vim` | `.vim` |
 | `zshell` | `.zshrc`, `.zprofile` |
 
 There is no `.stow-local-ignore`; everything in a package is linked.
-`analysis.md`, `polywins.md`, `Makefile`, `README.md` and this file are
-repo-level files, **not** stowed (never put dotfiles at repo root — they
-won't be linked).
+Repo-level files — `analysis.md`, `polywins.md`, `Makefile`, `README.md`,
+`AGENTS.md`, `wm.packages`, `wm.requires`, `service.order`, `depends/`
+(empty placeholder) — are **not** stowed (never put dotfiles at repo root —
+they won't be linked). `git/Makefile` is the exception that *is* stowed
+(it becomes `~/Makefile`).
 
 ## How stow linking works (and how to resolve files)
 
@@ -61,21 +65,41 @@ won't be linked).
 
 ## Makefile targets
 
-- `make bash` — stow `shell`, run the bashrc install hook.
-- `make git`  — stow `git`, run `load-credentials` (sets global git identity
+Package manifests live in repo-level files: `wm.packages` (WM stack list),
+`wm.requires` (required binaries — the Makefile reads only its **first
+line**; the second line `ubuntu` is a target-distro annotation),
+`service.order` (unit start order). Known stale: `wm.packages` still lists
+the pre-rename `opencode` package (now `llms`) and omits
+`vim`/`zshell`/`maintenance` — stow those individually.
+
+- `make bash` — metapackage: stow + post-stow hooks for `shell`, `git`,
+  `llms`, `task`.
+- `make git` — stow `git`, run `load-credentials` (sets global git identity
   from `~/.my-credentials`).
-- `make opencode` — stow `opencode`.
-- `make install` — `bash` + `opencode`.
-- `make wm` — stow the full WM stack (`herbst services polybar rofi compton
-  dunst alacritty`) after verifying required binaries
-  (`herbstluftwm herbstclient compton polybar rofi hsetroot xset dunst`);
-  runs `systemctl --user daemon-reload` at the end. Fails fast (Error 1)
-  listing missing binaries. `WM_PACKAGES` and `WM_BINARIES` are maintained
-  together at the top of the target — update both when adding/removing a
-  package.
+- `make llms`, `make task`, `make services` — stow the respective package.
+- `make wm` — `herbst`: stow `herbst`, `alacritty`, `dunst`, `compton`; the
+  `herbstluftwm` sub-target runs `herbstclient reload` after stowing. **No
+  binary verification here** — that lives in `add-packages`.
+- `make install` — `stow` (`bash` + `wm`) then `system`.
+- `make add-packages` — runs `on.deploy`, then verifies every binary in
+  `wm.requires`, failing fast listing missing ones (map binary → apt
+  package with `~/.local/bin/install/ubuntu.deploy <binary>`).
+- `make add-packages-system` — previews, then after confirmation
+  `sudo stow -t /` any `system-*` packages; runs the service stack via
+  `start-services`.
+- `make status`, `services-available`, `services-installed` — report
+  systemd user-unit state.
+- `make reload-systemd`, `start-services`, `stop-services`,
+  `restart-services` — restow `services`, daemon-reload, then
+  start/stop/restart units in `service.order` order (start/stop/restart
+  prompt for confirmation).
+- `make update`, `push`, `sync` — safe git flow: fetch + fast-forward
+  (fallback merge, `$EDITOR` on conflicts), stage/commit/push;
+  `stow-wm` loops over `wm.packages`.
 
 After changing anything in `services/`, restow and run
-`systemctl --user daemon-reload`, then restart the relevant unit.
+`systemctl --user daemon-reload` (or `make reload-systemd`), then restart
+the relevant unit.
 
 ## Services / WM runtime model
 
@@ -85,6 +109,9 @@ After changing anything in `services/`, restow and run
   and is killed when the WM stops (intentional).
 - The WM session runs inside VcXsrv on Windows (WSL2); the autostart script
   is `herbst/.config/herbstluftwm/autostart`.
+- `service.order` currently enables `herbst compton dunst`; `xvfb`, `x11vnc`
+  and `novnc` units exist for headless/VNC setups and are commented out in
+  the order file.
 
 ## Quirks and conventions established in this session
 
@@ -150,9 +177,11 @@ After changing anything in `services/`, restow and run
 9. **Files without trailing newlines** were normalized
    (`opencode.jsonc`, `shell/.config/aliases`, `shell/.profile`). Keep
    trailing newlines in new files to avoid noisy diffs.
-10. **`opencode/.config/opencode/opencode.jsonc`** intentionally has no
+10. **`llms/.config/opencode/opencode.jsonc`** intentionally has no
     `temperature`/`top_p` keys for the local Ollama provider — don't
-    re-add them.
+    re-add them. `opencode.json` in the same directory is a **symlink to
+    `opencode.jsonc`** (single source of truth; either filename loads) —
+    edit the `.jsonc` only.
 11. **`herbst/.config/herbstluftwm/autostart`** uses `hsetroot` (not
     `xsetroot`) for the background color.
 12. **Avoid `awk` in shell scripts** (polywins.sh lesson). Inline awk
@@ -185,13 +214,30 @@ After changing anything in `services/`, restow and run
     mid-run). Until it lands: when `task_status` returns `absent`,
     the task may still be running — re-check the floating terminal
     windows directly before re-spawning.
+15. **Ollama `num_ctx` vs OpenCode `limit.context`**: a `limit.context` in
+    `opencode.jsonc` is bookkeeping only — Ollama's runtime window stays at
+    its default `num_ctx` unless the model tag sets it. Established pattern:
+    create a `:<n>k` variant via `POST /api/create` with
+    `parameters: {"num_ctx": ...}` (e.g. `glm-4.7-flash:32k`,
+    `laguna-xs-2.1:32k` on ws-rarebox) and declare a matching model entry in
+    `opencode.jsonc` with the same limit. The GLM-4.7-Flash MOE entry stays
+    at its declared 96k by user choice.
+16. **No Python in this repo**: the last python3 script
+    (`polybar/.config/polybar/scripts/wm_icon_png`, an unwired
+    `_NET_WM_ICON`→PNG helper) was deleted. If window icons are ever
+    wanted, wire a helper into polywins explicitly instead of assuming one
+    exists.
+17. **herbstutil is a real global npm package** (used by
+    `herbst/.local/bin/hlwm_cwds_dump` and the screencast plugin) — not
+    junk. Its (and `bun`'s) postinstall may sit blocked under bun's default
+    trust policy (`bun pm trust -g herbstutil bun` to allow).
 
 ## Quick verification workflow
 
 ```sh
 cd ~/dots
-make wm            # stow WM stack + binary checks + daemon-reload
-systemctl --user restart herbst.service compton.service
+make wm                  # stow herbst + alacritty + dunst + compton
+make restart-services    # restow services, daemon-reload, restart service.order units
 journalctl --user -u herbst.service -u compton.service -b --since "2 min ago" --no-pager
 ```
 
