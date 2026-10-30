@@ -60,8 +60,9 @@ sel=$(set +o pipefail; list_commands | rofi -dmenu -i -p command \
 [ -n "${sel:-}" ] || exit 0
 
 case $rc in
-    10)  # Shift-Return: run in the temporary terminal
-        exec hc_launch "$sel"
+    10)  # Shift-Return: run in the temporary terminal — floated, so
+         # the palette's command output never disturbs the layout
+        exec hc_launch --floating "$sel"
         ;;
     0)   # Return: run silently, detached, output discarded
         printf 'hc_command: %s\n' "$sel" >> "$LOG" 2>/dev/null || true

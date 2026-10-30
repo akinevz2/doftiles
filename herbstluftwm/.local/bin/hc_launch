@@ -8,11 +8,18 @@
 # ("press any key to close"), then exits — and the terminal window
 # closes with it. Nothing lingers.
 #
-# Usage: hc_launch "<command string>"
+# Usage: hc_launch [--floating] [--urgent] [--no-distract] "<command>"
 #   TERMINAL overrides the terminal (default: alacritty).
 #
+# The switches install a `rule once` before the spawn, so the window
+# rules apply to exactly this terminal:
+#   --floating     the terminal window floats
+#   --urgent       the terminal raises the urgent hint (tag marker)
+#   --no-distract  the terminal does NOT take focus on attach
+# Several switches combine into one rule.
+#
 # Spawned through `herbstclient spawn` (detached, WM-managed) — NOT
-# through `hc spawn` rules: those are for graphical applications.
+# through `hc spawn` rules machinery: that is for graphical apps.
 
 set -euo pipefail
 
@@ -20,8 +27,18 @@ DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 unset WAYLAND_DISPLAY
 
+rule=()
+while [ "${1:-}" = "--floating" ] || [ "${1:-}" = "--urgent" ] || [ "${1:-}" = "--no-distract" ]; do
+    case $1 in
+        --floating)   rule+=(floating=on) ;;
+        --urgent)     rule+=(urgent=on) ;;
+        --no-distract) rule+=(focus=off) ;;
+    esac
+    shift
+done
+
 if [ -z "${1:-}" ]; then
-    echo "usage: hc_launch \"<command string>\"" >&2
+    echo "usage: hc_launch [--floating] [--urgent] [--no-distract] \"<command string>\"" >&2
     exit 1
 fi
 
@@ -34,5 +51,7 @@ USER_CMD="$*"
 # terminal closes naturally with its shell.
 QUOTED=$(printf '%q' "$USER_CMD")
 INNER="__rc=0; eval $QUOTED; __rc=\$?; echo; echo \"[exit \$__rc] press any key to close...\"; read -sn1 -r _"
+
+[ ${#rule[@]} -gt 0 ] && herbstclient rule once "${rule[@]}" 2>/dev/null || true
 
 herbstclient spawn "$TERMINAL" -e bash -ic "$INNER"
