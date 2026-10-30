@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+
+unset WAYLAND_DISPLAY
+source ${HOME}/.exports
+
+export local=${HOME}/.local/bin
+
+herb() {
+    herbstclient "$@"
+}
+
+keyreg() {
+    herb keybind "$@"
+}
+
+### CONFIG ###
+# single monitor only — running inside Xephyr
+
+### MODS ###
+Mod=Mod1            # Alt — primary mod inside Xephyr
+ModShift=Mod1-Shift
+ModCtrl=Mod1-Control
+
+### REGISTER RELOAD ###
+herb emit_hook reload
+herb set_layout max
+herb keyunbind --all
+# kill stale panel processes from a previous session; the polywins
+# hook listener exits with polybar (it is a child process)
+herb spawn ${HOME}/.local/bin/polyctl reload
+
+### SPAWN ENVIRONMENT ###
+# hlwm's spawn env inherits the systemd default PATH, which lacks the
+# nvm toolchain (herbstutil lives there and the hc_* helpers read WM
+# state through it). Push the user node toolchain into the WM's spawn
+# env explicitly — idempotent, nvm-version agnostic.
+for _nvm_bin in "$HOME"/.config/nvm/versions/node/*/bin; do
+    if [ -x "$_nvm_bin/herbstutil" ] && ! herbstclient getenv PATH | grep -qF "$_nvm_bin"; then
+        herb setenv PATH "$_nvm_bin:$(herbstclient getenv PATH)"
+    fi
+done
+
+
+### KEYBIND FRAGMENTS (stow-merged from the keybind packages) ###
+# Each keybind package drops a fragment into keys.d/; stow merges
+# them into one directory and this loop sources every one.
+for _frag in "$HOME"/.config/herbstluftwm/keys.d/*.sh; do
+    [ -e "$_frag" ] && source "$_frag"
+done
+
+# LAUNCHERS
+# TERMINAL="gnome-terminal --zoom 1.5"
+ROFITHEME=${HOME}/.config/rofi/launcher.rasi
+APPLAUNCHER="${HOME}/.local/bin/polyframes launch"
+SCREENSHOTTER="scrot"
+APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
+
+# terminal
+keyreg $Mod-Return          spawn $TERMINAL
+keyreg $ModShift-Return     chain . lock . split auto . cycle_frame . spawn $APPLAUNCHER . unlock
+
+keyreg $ModCtrl-Return      spawn $APPLAUNCHER
+# shift-t opens a second frame only when the focused one already holds
+# a window; an empty frame stays as is and the terminal opens into it
+keyreg $ModShift-t          chain , or : and . compare tags.focus.curframe_wcount gt 0 . chain ! split auto ! cycle_frame : true \
+                                , spawn $TERMINAL
+
+# applauncher
+
+# CLOSE OR QUIT WM
+keyreg $ModShift-q          or , and . compare clients.focus.floating = true . close , remove , close_or_remove
+keyreg $ModCtrl-q           or . and , attr clients.focus , spawn xkill . close_and_remove
+keyreg $ModShift-r          reload
+
+# WINDOWING
+keyreg $Mod-a               or , focus left --level=frame , split left 0.33333
+keyreg $ModShift-a           or . and , compare tags.focus.curframe_wcount gt 1 , chain ! split left ! shift left . spawn $APPLAUNCHER           # was Mod-Tab
+# ModShift-b mirrors ModShift-a downwards: with >1 window in the
+# focused frame, split a bottom frame and shift the window down into
+# it.
+keyreg $ModShift-b           or . and , compare tags.focus.curframe_wcount gt 1 , chain ! split bottom ! shift down
+keyreg $ModCtrl-a          or , shift left , focus left --level=frame , chain . split left . shift left
+keyreg $ModCtrl-e          or , shift right \
+# a single frame it cycles windows in the opposite direction of
+                              , cycle +1
+keyreg $Mod-e               or . and , compare tags.focus.frame_count gt 1 , cycle_frame -1 . chain ! split explode ! cycle_frame
+# the window up (#window leaves the frame, --level=all); when there is
+# nothing above, with >1 window in the focused frame it cycles -1,
+# otherwise it tries cycle_frame, then falls through to rotating the
+# frame tree.
+keyreg $ModShift-w  or , shift --level=all up \
+                      , or ! and . compare tags.focus.frame_count gt 1 \
+                                 . cycle_frame \
+                           ! cycle -1 \
+                      , chain ! lock ! rotate ! unlock
+
+# ModShift-s is ModShift-w's inverse: shift the window down (--level=all) and, when that leaves a frame holding a single window,
+# clean it up by removing it; when there is nothing below, cycle +1
+# (the opposite cycling direction of ModShift-w).
+                        
+keyreg $ModShift-s  or  , and . compare tags.focus.curframe_wcount = 0 \
+                              . remove \
+                        , and . compare tags.focus.curframe_wcount gt 1 \
+                              . or , shift down \
+                                   , chain ! split bottom \
+                                           ! shift down
+
+keyreg $ModShift-d  or \
+                    . and \
+                            , compare tags.focus.curframe_wcount gt 1 \
+                            , cycle_layout +1 max grid vertical \
+                    . remove
+keyreg $Mod-d   or \
+                , and \
+                    . compare tags.focus.curframe_wcount gt 3 \
+                            . cycle_layout +1 max vertical grid horizontal \
+                , and \
+                    . compare tags.focus.curframe_wcount = 2 \
+                    . cycle_layout +1 vertical max horizontal \
+                , cycle_layout -1 vertical horizontal max
+
+# rotate layout
+# flip layout
+keyreg $Mod-v               chain , split right  0.5 , cycle_frame
+keyreg $Mod-b               or ! focus --level=frame down ! chain , split bottom 0.5 , cycle_frame
+keyreg $ModCtrl-v           chain , split right  0.5 , focus -e right
+keyreg $ModCtrl-b           chain , split bottom 0.5 , focus -i down
+
+### TAGS ###
+herb set swap_monitors_to_get_tag 0
+
+tag_names=( work term browser logs task default )
+tag_keys=( {1..9} 0 )
+
+herb rename default "${tag_names[0]}" || true
+herb add term
+herb add config
+herb add logs
+herb add task
+herb add browser
+herb add discord
+for i in "${!tag_keys[@]}" ; do
+    if ! [ -z $name ] ; then
+        herb add "${tag_names[$i]}"
+    fi
+    key="${tag_keys[$i]}"
+    if [ -n "$key" ] ; then
+        keyreg "$Mod-$key" use_index "$i"
+        keyreg "$ModCtrl-$key" move_index "$i"
+    fi
+done
+
+# mouse
+herb mouseunbind --all
+herb mousebind $Mod-Button1 move
+herb mousebind $Mod-Button2 zoom
+
+# # focus other screen
+# # send to other screen
+# keyreg $ModCtrl-e           shift_to_monitor +1
+# keyreg $ModShift-x          spawn bring_last
+
+# source /home/kine/.config/herbstluftwm/dunst_keybinds
+
+# RESIZING
+resizestep=0.25
+nudgestep=0.083
+
+keyreg $Mod-bracketleft     use_index -1 --skip-visible
+keyreg $Mod-bracketright    use_index +1 --skip-visible
+
+keyreg $ModCtrl-comma       resize left +$resizestep
+keyreg $ModCtrl-period      resize right +$resizestep
+
+keyreg $ModShift-h          resize left +$nudgestep --level=all
+keyreg $ModShift-j          resize down +$nudgestep --level=all
+keyreg $ModShift-k          resize up +$nudgestep --level=all
+keyreg $ModShift-l          resize right +$nudgestep --level=all
+keyreg $ModShift-Left       resize left +$resizestep --level=all
+keyreg $ModShift-Down       resize down +$resizestep --level=all
+keyreg $ModShift-Up         resize up +$resizestep --level=all
+keyreg $ModShift-Right      resize right +$resizestep --level=all
+
+herb set default_direction_external_only 1
+
+
+# THEME — colors/decorations/wallpaper moved to the sibling "theme"
+# script: it applies only on a fresh WM start (guarded by a persistent
+# hlwm env flag) and exits immediately on reloads, so reloading this
+# autostart never re-sets decorations (no theme jitter).
+"$HOME/.local/bin/reload_theme"
+
+herb set snap_distance 10
+herb set snap_gap 5
+
+herb set mouse_recenter_gap 5
+herb set focus_follows_mouse off
+herb set focus_stealing_prevention off
+herb set focus_crosses_monitor_boundaries off
+herb set gapless_grid on
+herb set pseudotile_center_threshold 25
+herb set update_dragged_clients off
+
+# RULES
+herb unrule -F
+herb rule focus=on
+herb rule windowtype~'_NET_WM_WINDOW_TYPE_(DIALOG|UTILITY|SPLASH)' floating=on
+herb rule class~'[Yy]ad' floating=on
+herb rule windowtype='_NET_WM_WINDOW_TYPE_DIALOG' focus=on
+herb rule windowtype~'_NET_WM_WINDOW_TYPE_(NOTIFICATION|DOCK|DESKTOP)' manage=off focus=off
+
+herb rule class='pavucontrol' tag=volume
+herb rule class='spotify' tag=music
+herb rule class='firefox' windowtype='_NET_WM_WINDOW_TYPE_NORMAL' tag=browser
+herb rule title='Task Manager' tag=task
+herb rule title='Config Manager' tag=config
+
+herb set default_frame_layout grid
+
+# unlock, just to be sure
+herb unlock
+# herb set_monitors 1
+
+xmodmap -e "keycode 20 = minus underscore backslash bar backslash bar"
+
+# RELOAD DETECTION HOOK
+# Check if this is a fresh start or a reload
+# If reload detected, notify user via dunst to show session reloaded
+STATUS=$(hc_reload_hook)
+if [ "$STATUS" = "reload" ]; then
+    # Reload detected — wm survived, autostart re-running
+    # Debug output to stdout
+    echo "herbstluftwm reloaded - autostart is running again"
+    echo "Attribute my_autostart_loaded exists: $(herbstclient get_attr my_autostart_loaded 2>/dev/null || echo 'not found')"
+    
+    # Send notification via notify-send
+    notify-send -a "herbstluftwm" -u normal -t 2000 "herbstluftwm reloaded" "autostart completed"
+fi

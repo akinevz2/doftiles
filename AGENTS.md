@@ -28,10 +28,17 @@ Primary consumer environments:
 | `compton` | `.config/compton` (compositor config plus rofi context-menu helpers) |
 | `dunst` | `.config/dunst`, `.local/bin/check-mail.sh`, `read-mail.sh` |
 | `git` | `.my-credentials` (git identity, name+email), `.local/bin/load-credentials`, `.local/bin/dekineify`, home-level `Makefile` (stowed as `~/Makefile`) |
-| `herbst` | `.config/herbstluftwm`, `.local/bin/` (`hc_*` helpers — `hc_tile`/`hc_center` are shims to the compiled `polyframes` binary; the `rofi_*` menus and `hc_switcher`/`hc_menu` moved to `~/development/personal/polyframes`, `polyctl`, `winbarctl`, `hlwm_cwds_dump`, ...) |
+| `herbst_wm` | `.config/systemd/user/herbst.service`, trimmed `.config/herbstluftwm/autostart` (WM bootstrap + keys.d loop), `.local/bin/install/ubuntu.deploy`, `on.deploy`, generic `hc_*` query/tree tools |
+| `herbst_theme` | `.local/bin/reload_theme` + `.config/herbstluftwm/theme` (the theme data, extracted) |
+| `herbst_nav` | `keys.d/nav.sh` (focus/shift/cycle/tag keybinds), `hlwm_cwds_dump`, `hlwm_launch`, `hc_move` |
+| `herbst_floating` | `keys.d/floating.sh` (mod-f/mod-x/mod-ctrl-f), the float machinery (`hc_focus`, `hc_floatx`, `hc_zoom`, maximize family, `hc_center`/`hc_resize`/`hc_tile`/`hc_fit_to` shims, hide/reveal/show) |
+| `herbst_focus` | `keys.d/focus.sh` (mod-s grid, frame cycling), `hc_full_focus`, `hc_peek`, `hc_bounce` |
+| `herbst_titles` | `.local/bin/winbarctl` |
+| `herbst_bar` | `.config/polybar/` (+ the polywins submodule), `.local/bin/polyctl`, `.local/share/polybar/Makefile` (polyframes submodule/npm recipes), `.local/share/polyframes` (the submodule) |
+| `herbst_web` | `.config/systemd/user/`: xvfb/x11vnc/novnc units |
 | `llms` | `.config/opencode` (config, agents, skills, themes, `opencode-screencast` submodule), `.config/poolside`, `.local/bin/` (SonarQube/MCP tooling, `opencode-remote*`), `docker-compose.yml` |
 | `maintenance` | `.config/systemd/user/check-msi-dirs.service`, `.local/bin/check-msi-dirs.sh` |
-| `polybar` | `.config/polybar` (config.ini, scripts, `polywins` submodule), `.local/bin/` — `polyframes` moved out to `~/development/personal/polyframes` (compiled bunli/Bun binary, self-installed to `~/.local/bin`) |
+
 | `rofi` | `.config/rofi` (themes, applets, ~40 `bin/` helpers) |
 | `services` | `.config/systemd/user/*.service` (herbst, compton, dunst active; xvfb, x11vnc, novnc disabled) |
 | `shell` | `.bashrcx`, `.profile`, `.aliases`, `.exports`, `.config/{aliases,exports,mimeapps.list}`, `.local/bin/` (install hooks, firefox wrapper, check-wsl), `.local/share/applications/` |

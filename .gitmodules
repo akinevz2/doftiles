@@ -1,6 +1,6 @@
-[submodule "polybar/.config/polybar/polywins"]
-	path = polybar/.config/polybar/polywins
-	url = https://github.com/uniquepointer/polywins
 [submodule "llms/.config/opencode/opencode-screencast"]
 	path = llms/.config/opencode/opencode-screencast
 	url = git@github.com:akinevz2/opencode-screencast.git
+[submodule "herbst_bar/.local/share/polyframes"]
+	path = herbst_bar/.local/share/polyframes
+	url = https://github.com/akinevz2/polyframes

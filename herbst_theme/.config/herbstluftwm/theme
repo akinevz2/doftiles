@@ -1,50 +1,8 @@
-#!/usr/bin/env bash
-# reload_theme — herbstluftwm colors, decorations, and wallpaper.
-# Sibling of the autostart script (which calls it on every (re)start)
-# and symlinked into .local/bin, so it can also be run directly.
-#
-# Fresh-start guard: the hlwm environment flag below is set the first
-# time the theme is applied. hlwm survives `herbstclient reload` (only
-# the autostart re-runs, the WM process — and its environment — stays
-# alive), so reloads skip this entire block and decorations are never
-# re-set mid-session (no theme jitter). The flag vanishes whenever
-# hlwm itself restarts, which re-applies the theme.
-#
-# Usage: reload_theme [-f]
-#   -f  force: skip the fresh-start guard and re-apply the theme even
-#       when already applied this session — e.g. after editing this
-#       file (no unsetenv dance needed).
+# theme — herbstluftwm colors, decorations, and layout gaps.
+# Sourced by reload_theme (herbst_theme) inside its lock. All
+# values previously inline in reload_theme; widths/paddings
+# copied from the floating config per the user decision.
 
-set -euo pipefail
-
-DISPLAY=${DISPLAY:-localhost:0.0}
-export DISPLAY
-unset WAYLAND_DISPLAY
-
-herb() {
-    herbstclient "$@"
-}
-
-force=0
-if [ "${1:-}" = "-f" ] || [ "${1:-}" = "--force" ]; then
-    force=1
-elif [ -n "${1:-}" ]; then
-    echo "usage: reload_theme [-f]" >&2
-    exit 1
-fi
-
-# Already applied in this hlwm instance — nothing to do (unless -f).
-if [ "$force" -eq 0 ] && [ -n "$(herb getenv PF_THEME_APPLIED 2>/dev/null || true)" ]; then
-    echo "usage: reload_theme [-f]" >&2
-    echo "theme already applied; use -f to force re-apply" >&2
-    exit 0
-fi
-
-BACKGROUND_HEX='#2C001E'
-herb spawn hsetroot -solid "$BACKGROUND_HEX"
-
-herb lock
-trap 'herb unlock' EXIT
 
 herb attr theme.tiling.reset 1
 herb attr theme.floating.reset 1
@@ -146,7 +104,4 @@ herb set smart_frame_surroundings on
 
 herb set tree_style '        '
 
-herb unlock
-trap - EXIT
 
-herb setenv PF_THEME_APPLIED 1
