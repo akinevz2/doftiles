@@ -44,7 +44,7 @@ Further consolidation (second round): `llms` → **`agents`**;
 `alacritty`/`compton`/`rofi` merged into `herbstluftwm`;
 `zshell`/`vim`/`task`/`maintenance`/`git` merged into **`shell`**
 (`.zshrc`, `.vim`, `.taskrc`, `.my-credentials`, `Makefile`,
-`check-msi-dirs`, `load-credentials`, `dekineify` all moved). The
+`check-msi-dirs`, `load-credentials`, `adopt-these` (ex-dekineify) all moved). The
 `herbst`/`polybar`/`alacritty`/`compton`/`rofi`/`zshell`/`vim`/
 `task`/`maintenance`/`git`/`llms` packages retired.
 
@@ -160,7 +160,7 @@ git → shell; llms → agents) — the live matrix is now:
 | herbst_bar | polyctl | polyframes (submodule) | polybar | polybar/Makefile |
 | herbst_web | — | — | xvfb/x11vnc/novnc units | — |
 | agents | opencode-remote*, MCP tooling | — | opencode/poolside config | — |
-| shell | install hooks, firefox wrapper, check-wsl, check-msi-dirs, load-credentials, dekineify | — | bashrcx/profile/zshrc/vim/taskrc/credentials | — |
+| shell | install hooks, firefox wrapper, check-wsl, check-msi-dirs, load-credentials, adopt-these | — | bashrcx/profile/zshrc/vim/taskrc/credentials | — |
 | services | — | — | compton/dunst units | — |
 | rofi/compton remnants | merged into herbstluftwm | — | — | — |
 
@@ -187,7 +187,7 @@ resources: submodules + docs, or plaintext docs that just exist),
 | dunst | check-mail/read-mail | — | dunst config | — |
 | alacritty | — | — | alacritty config | — |
 | shell | install hooks, firefox wrapper, check-wsl | — | bashrcx/profile/aliases | — |
-| git | load-credentials, dekineify | — | `.my-credentials` | — |
+| git | load-credentials, adopt-these | — | `.my-credentials` | — |
 | llms | opencode-remote*, MCP tooling | — | opencode/poolside config | — |
 | services | — | — | systemd units | — |
 | maintenance | check-msi-dirs | — | check-msi-dirs unit | — |

@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-# dekineify - Customize dotfiles for new user
+# adopt-these - adopt these dotfiles as your own (was dekineify)
 # This script will:
 # 1) Prompt for preferred username/branch name
 # 2) Check if dry-run mode
@@ -191,7 +191,8 @@ if check_if_creator_present; then
         reduce_credentials "$user_name"
         reduce_defaults
     else
-        # Checkout new branch based on username
+        # Checkout the adopter's branch (the upstream 'kine' branch is the
+# maintained personal branch; adopters branch off main into their own)
         if ! git checkout -b "$user_name" 2>/dev/null; then
             echo "Error: your username isn't a valid branch name: $user_name"
             git checkout -b "user" 2>/dev/null

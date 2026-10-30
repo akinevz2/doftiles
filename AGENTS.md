@@ -45,7 +45,7 @@ STAYS here: `opencode.json(c)` loads the plugin via the relative path
 `.vim`, `.taskrc`, `.my-credentials`, `Makefile`,
 `.config/{aliases,exports,mimeapps.list}`, `.local/bin/` (install
 hooks, firefox wrapper, check-wsl, check-msi-dirs, load-credentials,
-dekineify), `.local/share/applications/` |
+adopt-these), `.local/share/applications/` |
 
 Repo-level files —
 `Makefile`, `README.md`, `AGENTS.md`, `wm.packages`, `wm.requires`,
