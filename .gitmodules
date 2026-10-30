@@ -10,3 +10,6 @@
 [submodule "depends/.local/share/on-deploy"]
 	path = depends/.local/share/on-deploy
 	url = https://github.com/akinevz2/on-deploy.git
+[submodule "depends/.local/share/herbctl"]
+	path = depends/.local/share/herbctl
+	url = https://github.com/akinevz2/herbctl.git

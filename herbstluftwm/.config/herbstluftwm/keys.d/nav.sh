@@ -18,52 +18,24 @@ keyreg $Mod-c       spawn ~/.local/bin/hc_command
 # hc_dismiss-notifs — sweep the notification stack (errors et al.)
 keyreg $ModCtrl-d   spawn ~/.local/bin/hc_dismiss-notifs
 
-keyreg $Mod-w       chain : lock : or \
-                                , and \
-                            ! compare tags.focus.floating_focused = 1 \
-                            ! attr tags.focus.floating_focused off \
-                                , and \
-                            ! compare tags.focus.curframe_wcount gt 1 \
-                            ! cycle +1 \
-                       , focus --level=frame up \
-                       , cycle_frame : unlock
+keyreg $Mod-w spawn ~/.local/bin/herbctl get-forward
 
 # ModShift-w: mirror of Mod-w's cycle -1 register — first tries shifting
 # the window up (#window leaves the frame, --level=all); when there is
 # nothing above, with >1 window in the focused frame it cycles -1,
 # otherwise it tries cycle_frame, then falls through to rotating the
 # frame tree.
-keyreg $ModShift-w  or , shift --level=all up \
-                      , or ! and . compare tags.focus.frame_count gt 1 \
-                                 . cycle_frame \
-                           ! cycle -1 \
-                      , chain ! lock ! rotate ! unlock
+keyreg $ModShift-w spawn ~/.local/bin/herbctl get-shuffle
 
-keyreg $ModShift-s  or  , and . compare tags.focus.curframe_wcount = 0 \
-                              . remove \
-                        , and . compare tags.focus.curframe_wcount gt 1 \
-                              . or , shift down \
-                                   , chain ! split bottom \
-                                           ! shift down
+keyreg $ModShift-s spawn ~/.local/bin/herbctl get-skip
 
-keyreg $ModShift-x          use_previous
+keyreg $ModShift-x use_previous
 
-keyreg $ModShift-d  or \
-                    . and \
-                            , compare tags.focus.curframe_wcount gt 1 \
-                            , cycle_layout +1 max grid vertical \
-                    . remove
+keyreg $ModShift-d spawn ~/.local/bin/herbctl get-dedeck
 
-keyreg $Mod-d   or \
-                , and \
-                    . compare tags.focus.curframe_wcount gt 3 \
-                            . cycle_layout +1 max vertical grid horizontal \
-                , and \
-                    . compare tags.focus.curframe_wcount = 2 \
-                    . cycle_layout +1 vertical max horizontal \
-                , cycle_layout -1 vertical horizontal max
+keyreg $Mod-d spawn ~/.local/bin/herbctl get-deck
 
-keyreg $ModShift-z          attr clients.focus.minimized toggle
+keyreg $ModShift-z          spawn ~/.local/bin/herbctl get-nap
 
 # tag switcher
 keyreg $Mod-t               spawn ~/.local/bin/polyframes tags
