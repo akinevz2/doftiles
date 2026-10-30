@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # hc_reset-workspaces — reset the tag layout to a clean two-tag state.
 #
-#   1. every EMPTY tag except the current one is removed;
+#   1. every EMPTY tag except the current one is removed (an empty
+#      "default" is removed too — it gets re-created by the rename);
 #   2. an "archive" tag is created (kept when it already exists);
 #   3. every remaining non-empty tag except the current one is merged
-#      into archive;
-#   4. the current tag is renamed to "default".
+#      into archive — EXCEPT "default", which is never merged away;
+#   4. the current tag is renamed to "default" — possible whenever no
+#      non-empty default survived step 3; otherwise the current tag
+#      keeps its name and a note is printed.
 #
 # The view and focus stay on the current tag (renaming preserves it),
 # so this is safe to run mid-session. Tag enumeration goes through
@@ -65,16 +68,25 @@ if ! herb attr "tags.by-name.$ARCHIVE.name" >/dev/null 2>&1; then
 fi
 
 # --- 3. merge every non-empty tag (except current/archive) into archive --
+# "default" is NEVER merged away — it is the home workspace.
 for tag in "${tags[@]}"; do
     [ "$tag" = "$current" ] && continue
     [ "$tag" = "$ARCHIVE" ] && continue
+    [ "$tag" = "$DEFAULT" ] && continue
     # skip tags already removed in step 1
     herb attr "tags.by-name.$tag.client_count" >/dev/null 2>&1 || continue
     herb merge_tag "$tag" "$ARCHIVE" && merged=$((merged + 1))
 done
 
 # --- 4. rename the current tag to default --------------------------------
-if [ "$current" != "$DEFAULT" ]; then
+# Possible whenever no non-empty default survived step 3 (an empty
+# default was removed in step 1); otherwise keep the current name.
+if [ "$current" = "$DEFAULT" ]; then
+    : # already named default
+elif herb attr "tags.by-name.$DEFAULT.name" >/dev/null 2>&1; then
+    echo "hc_reset-workspaces: a non-empty '$DEFAULT' tag survives;" \
+        "current tag '$current' keeps its name"
+else
     herb rename "$current" "$DEFAULT"
 fi
 
