@@ -52,6 +52,12 @@ case "${1:-}" in
         ;;
 esac
 
+# --- single instance -----------------------------------------------------
+# A held lock means another palette is already up: key repeat or a
+# double-press would otherwise stack two rofi windows.
+exec 9>"${TMPDIR:-/tmp}/hc_command.lock"
+flock -n 9 || exit 0
+
 # --- enumerate PATH executables with the declared prefixes --------------
 # ONE find pass over all PATH dirs (-L: the .local/bin entries are
 # symlinks into the dots repo) — the old per-file basename loop forked
