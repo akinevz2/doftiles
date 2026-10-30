@@ -60,13 +60,17 @@ hook() {
 }
 
 # --- stowed-state detection (for TUI preselection) -----------------------
+# Resolves the first package file's live path to its canonical repo
+# location — stow may fold DIRECTORY links, so the file itself is not
+# necessarily a symlink; the resolved path is.
 stowed() {
-    local pkg=$1 rel first
-    first=$(find "$pkg" -type f 2>/dev/null | head -1) || return 1
+    local pkg=$1 rel first target
+    first=$(find "$pkg" -type f -print -quit 2>/dev/null)
     [ -n "$first" ] || return 1
     rel=${first#"$pkg"/}
-    [ -L "$HOME/$rel" ] || return 1
-    case "$(readlink "$HOME/$rel")" in *"dots/$pkg/"*) return 0 ;; esac
+    [ -e "$HOME/$rel" ] || return 1
+    target=$(realpath -m "$HOME/$rel" 2>/dev/null) || return 1
+    case "$target" in *"/dots/$pkg/"*) return 0 ;; esac
     return 1
 }
 
@@ -75,6 +79,14 @@ if [ "${1:-}" = "--hook" ]; then
     [ -n "${2:-}" ] || { echo "deploy: --hook needs a package" >&2; exit 1; }
     hook "$2"
     exit 0
+fi
+
+# --stowed <pkg> — exit 0 when the package is currently stowed into
+# $HOME (used by `make status`).
+if [ "${1:-}" = "--stowed" ]; then
+    [ -n "${2:-}" ] || exit 1
+    if stowed "$2"; then exit 0; fi
+    exit 1
 fi
 
 P=${1:-}

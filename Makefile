@@ -64,7 +64,8 @@ deploy:
 # all — stow + hook every package (and remember them all)
 all: $(STOW_PKGS)
 
-# restow — the remembered subset (the default goal of bare `make`)
+# restow — the remembered subset (the default goal of bare `make`);
+# if nothing has ever been deployed, show the overview instead.
 restow:
 	@if [ -s $(STATE_FILE) ]; then \
 		for pkg in $$(sort -u $(STATE_FILE)); do \
@@ -74,8 +75,86 @@ restow:
 			esac; \
 		done; \
 	else \
-		echo "restow: nothing remembered yet — 'make all' deploys everything,"; \
-		echo "restow: or pick packages with 'make deploy' / 'make deploy P=\"...\"'"; \
+		$(MAKE) --no-print-directory help; \
+	fi
+
+# help — the overview (also what bare `make` shows before the first
+# deployment).
+help:
+	@echo "doftiles — stow-based dotfiles deployment"
+	@echo ""
+	@echo "Deployment:"
+	@echo "  make              restow the remembered subset (help if never deployed)"
+	@echo "  make all          stow + hook every package"
+	@echo "  make deploy       selective: whiptail TUI (interactive) or P=\"a b\""
+	@echo "  make <package>    stow + hook one package (e.g. make polybar)"
+	@echo "  make bootstrap    full single-call deployment (headless-safe)"
+	@echo "  make clean        unstow every package (system binaries untouched)"
+	@echo "  make forget P=... drop packages from the remembered set"
+	@echo ""
+	@echo "Inspection:"
+	@echo "  make status       binaries, packages, services, git state"
+	@echo "  make update       safe pull (-ff / --rebase) + submodule/npm refresh"
+	@echo "  make push, sync   commit/push flow (see AGENTS.md)"
+	@echo ""
+	@echo "Services (order from service.order; YES=1 bypasses prompts):"
+	@echo "  make services-start | services-stop | restart"
+	@echo "  make reload-systemd  daemon-reload + enable --now"
+	@echo ""
+	@echo "Dependencies (depends package; state in ~/.config/doftiles.conf):"
+	@echo "  make -C ~/.local/share/doftiles deploy-fromsource | deploy-fromnpm"
+	@echo "  make -C ~/.local/share/doftiles uninstall"
+	@echo ""
+	@echo "Packages: $(STOW_PKGS)"
+
+# clean — undeploy every package from $HOME. System-* packages (stowed
+# to /) and deployed binaries (e.g. ~/.local/bin/polyframes) are NOT
+# touched; the remembered set is reset.
+clean:
+	@for pkg in $(STOW_PKGS); do \
+		echo "clean: unstowing $$pkg"; \
+		$(STOW) -D -t $$HOME "$$pkg" 2>/dev/null || true; \
+	done
+	@rm -f $(STATE_FILE)
+	@echo "clean: all packages unstowed; system binaries untouched"
+
+# status — binaries, packages, services, git state.
+status:
+	@echo "== binaries (wm.requires) =="
+	@for bin in $(WM_BINARIES); do \
+		if command -v "$$bin" >/dev/null 2>&1; then st=installed; else st=MISSING; fi; \
+		printf '  %-24s %s\n' "$$bin" "$$st"; \
+	done
+	@echo "== packages =="
+	@for pkg in $(STOW_PKGS); do \
+		if $(SCRIPT) --stowed "$$pkg" 2>/dev/null; then st=stowed; else st="not stowed"; fi; \
+		printf '  %-24s %s\n' "$$pkg" "$$st"; \
+	done
+	@echo "== services (available in the repo) =="
+	@for f in $$(find . -name '*.service' -not -path './.git/*' | sort); do \
+		unit=$$(basename $$f); \
+		act=$$(systemctl --user is-active $$unit 2>/dev/null); \
+		[ -n "$$act" ] || act=unknown; \
+		ena=$$(systemctl --user is-enabled $$unit 2>/dev/null); \
+		[ -n "$$ena" ] || ena=unknown; \
+		printf '  %-24s %-10s %s\n' "$$unit" "$$act" "$$ena"; \
+	done
+	@echo "== git =="
+	@branch=$$(git branch --show-current); \
+	up=$$(git rev-parse --abbrev-ref '@{u}' 2>/dev/null || echo none); \
+	if [ "$$up" != "none" ]; then \
+		ahead=$$(git rev-list --count '@{u}..HEAD'); \
+		behind=$$(git rev-list --count 'HEAD..@{u}'); \
+		echo "  branch $$branch (ahead $$ahead, behind $$behind of $$up)"; \
+	else \
+		echo "  branch $$branch (no upstream)"; \
+	fi; \
+	dirty=$$(git status --short | wc -l); \
+	if [ "$$dirty" -eq 0 ]; then \
+		echo "  worktree clean"; \
+	else \
+		echo "  worktree dirty ($$dirty entries):"; \
+		git status --short | head -10 | sed 's/^/    /'; \
 	fi
 
 # forget — drop P="pkg ..." from the remembered set (does not unstow)
@@ -123,8 +202,7 @@ wm: $(WM_PACKAGES)
 
 stow: wm
 
-# status — systemd user-unit reports
-status: services-available services-installed
+# help/clean/status follow below
 
 # sync — perform update followed by push only if update succeeded.
 sync: push

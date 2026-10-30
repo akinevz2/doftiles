@@ -65,9 +65,11 @@ hooks, firefox wrapper, check-wsl, check-msi-dirs, load-credentials,
 dekineify), `.local/share/applications/` |
 
 Repo-level files —
-`analysis.md`, `polywins.md`, `Makefile`, `README.md`, `AGENTS.md`,
-`wm.packages`, `wm.requires`, `service.order` — are **not** stowed
-(never put dotfiles at repo root — they won't be linked).
+`Makefile`, `README.md`, `AGENTS.md`, `wm.packages`, `wm.requires`,
+`service.order` — are **not** stowed (never put dotfiles at repo root
+— they won't be linked). Misc documentation lives in `docs/`
+(`PLAN.polyframes-deployment.md`, `analysis.md`, `polywins.md`) —
+also not stowed.
 
 ## How stow linking works (and how to resolve files)
 

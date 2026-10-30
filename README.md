@@ -2,8 +2,8 @@
 
 Personal configuration repository managed with [GNU Stow](https://www.gnu.org/software/stow/).
 Every top-level directory is a **stow package** whose contents mirror `$HOME`.
-Repo-level files (`Makefile`, `README.md`, `AGENTS.md`, `analysis.md`, `polywins.md`,
-`wm.packages`, `wm.requires`, `service.order`, `depends/`) are **not** stowed.
+Repo-level files (`Makefile`, `README.md`, `AGENTS.md`, `docs/*`,
+`wm.packages`, `wm.requires`, `service.order`) are **not** stowed; `docs/` holds the misc documentation.
 
 **Deploy through Make, never bare stow.** The recipes wrap `stow -R -t $HOME <package>`
 with hooks, service reloads and checks (see the recipe table below); running
