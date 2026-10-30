@@ -1,21 +1,17 @@
 #!/usr/bin/env bash
-# hc_unmaximize — restore a maximized client to its original location.
+# hc_unmaximize — restore a maximized client to its original location,
+# by TRIGGERING the per-tag janitor (hc_maximize-daemon) instead of
+# performing the restore dance here. The daemon's dismissal path owns
+# the move-home + merge without the destination-tag flash (the old
+# `use`-round-trip) — and the janitor hc_clean_max-tag checks that the
+# max tag being merged isn't the viewed one, stepping aside to the
+# base tag first when it is.
 #
 # Usage: hc_unmaximize <wid>
-#
-# The window must currently live on a "<...>-max" tag (see hc_maximize).
-# Moves it back to its recorded original tag, re-focuses its recorded
-# frame (selection walk root→frame), then tiles it via hc_tile into the
-# empty frame closest to that frame (splitting the focused frame to
-# create one when none is empty).
-#
-# ALL other clients parked on the max tag move home as well: the max
-# tag is a temporary checkpoint over the base tag, not a parking
-# space, so no maximized client is ever left behind on it (the janitor
-# hc_clean_max-tag / hc_maximize-daemon then merges the empty tag
-# away). Windows other than the triggered one are dropped into the
-# base tag's current frame layout. No-op (exit 0) if the window is not
-# on a max tag.
+#   - the window must live on a "<...>-max" tag; no-op otherwise.
+#   - daemon instance alive -> emit_hook unmaximize_request <tag>
+#     (the running daemon handles it on its event stream);
+#   - no daemon alive       -> spawn it detached with --dismiss-now.
 
 set -euo pipefail
 
@@ -23,92 +19,18 @@ DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 unset WAYLAND_DISPLAY
 
-herb() {
-    herbstclient "$@"
-}
-
 WID=${1:?usage: hc_unmaximize <wid>}
 
-flat_to_dotted() {
-    printf '%s' "$1" | sed 's/./&./g; s/.$//'
-}
-
-cur_tag=$(herb attr "clients.${WID}.tag" 2>/dev/null) || cur_tag=""
+cur_tag=$(herbstclient attr "clients.${WID}.tag" 2>/dev/null) || cur_tag=""
 case "$cur_tag" in
     *-max) ;;          # proceed
     *) exit 0 ;;       # not maximized — nothing to do
 esac
-orig_tag=${cur_tag%-max}
-# Base tag missing (e.g. it was merged while the window sat on the max
-# tag) — recreate it so the batch move below has somewhere to land.
-herb add "$orig_tag" 2>/dev/null || true
 
-# Inhibit the hc_maximize-daemon watcher for the duration of this run:
-# it treats "navigation away from the max tag" as dismissing the
-# workspace, and the `use "$orig_tag"` below is exactly such a
-# navigation — without the marker the daemon would race this script's
-# own batch move and tag cleanup.
-inhibit="${TMPDIR:-/tmp}/hc_maximize-daemon.inhibit.${cur_tag}"
-: > "$inhibit" 2>/dev/null || true
-
-herb lock
-trap 'herb unlock; rm -f "$inhibit"' EXIT
-
-# Snapshot the other parked windows BEFORE anything moves: they all
-# ride home with the triggered one.
-others=$(herb list_clients --tag="$cur_tag" 2>/dev/null | grep -vFx "$WID" || true)
-
-# Restore state recorded at maximize time (defaults for safety).
-# PF_MAX_FRAME drives the selection walk below; PF_MAX_WIN is no longer
-# used for insertion (hc_tile decides the target frame) but is still
-# unset at the end to clean up what hc_maximize wrote.
-frame=$(herb getenv "PF_MAX_FRAME_${WID}" 2>/dev/null || echo "")
-
-herb move "$orig_tag"
-herb use "$orig_tag"
-
-# Re-focus the original frame: walk the selection path root→frame.
-dotted=$(flat_to_dotted "$frame")
-path="tags.focus.tiling.root"
-if [ -n "$dotted" ]; then
-    for d in $(printf '%s' "$dotted" | tr '.' ' '); do
-        herb attr "$path.selection" "$d" 2>/dev/null || true
-        path="$path.$d"
-    done
+lockdir="${TMPDIR:-/tmp}/hc_maximize-daemon.lock.${cur_tag}"
+if [ -d "$lockdir" ]; then
+    herbstclient emit_hook unmaximize_request "$cur_tag"
+else
+    "$HOME/.local/bin/hc_maximize-daemon" "$cur_tag" --dismiss-now &
 fi
-
-# Tile the window into a suitable EMPTY frame via hc_tile: the empty
-# leaf closest to the window's original frame is selected, or the
-# focused frame is split to create one. NOT via unfloating into a
-# possibly occupied frame. hc_tile runs synchronously while the outer
-# lock is held (its nested lock/trap unwinds cleanly); it must NOT be
-# spawned inside a chain — spawn is async and the bring below would
-# race the frame navigation.
-herb attr "clients.${WID}.minimized" false
-"$HOME/.local/bin/hc_tile" "$WID" || true
-herb chain \
-    . set_attr "clients.${WID}.floating" false \
-    . bring "$WID"
-
-# Ride the other parked windows home (jumpto focuses each — `move`
-# acts on the focused client — then moves it to the base tag; the view
-# ends on the max tag after the last hop and is restored below).
-for w in $others; do
-    herb chain . jumpto "$w" . move "$orig_tag"
-done
-herb jumpto "$WID"
-herb raise "$WID"
-
-# The max tag is now guaranteed empty — the shared janitor restores
-# the base tag's index slot and merges the tag (sorting out the
-# currently-viewed-tag restriction this build's merge_tag has),
-# mirroring what the daemon does on the close-while-maximized path.
-"$HOME/.local/bin/hc_clean_max-tag" "$cur_tag"
-for w in $WID $others; do
-    herb unsetenv "PF_MAX_FRAME_${w}" 2>/dev/null || true
-    herb unsetenv "PF_MAX_WIN_${w}" 2>/dev/null || true
-done
-
-herb unlock
-rm -f "$inhibit"
-trap - EXIT
+exit 0

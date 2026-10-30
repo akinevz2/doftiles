@@ -3,6 +3,8 @@
 unset WAYLAND_DISPLAY
 source ${HOME}/.exports
 
+export local=${HOME}/.local/bin
+
 herb() {
     herbstclient "$@"
 }
@@ -27,50 +29,86 @@ herb keyunbind --all
 # hook listener exits with polybar (it is a child process)
 herb spawn ${HOME}/.local/bin/polyctl reload
 
+### SPAWN ENVIRONMENT ###
+# hlwm's spawn env inherits the systemd default PATH, which lacks the
+# nvm toolchain (herbstutil lives there and the hc_* helpers read WM
+# state through it). Push the user node toolchain into the WM's spawn
+# env explicitly — idempotent, nvm-version agnostic.
+for _nvm_bin in "$HOME"/.config/nvm/versions/node/*/bin; do
+    if [ -x "$_nvm_bin/herbstutil" ] && ! herbstclient getenv PATH | grep -qF "$_nvm_bin"; then
+        herb setenv PATH "$_nvm_bin:$(herbstclient getenv PATH)"
+    fi
+done
+
 # LAUNCHERS
 # TERMINAL="gnome-terminal --zoom 1.5"
 ROFITHEME=${HOME}/.config/rofi/launcher.rasi
-APPLAUNCHER="${HOME}/.local/bin/rofi_launch"
+APPLAUNCHER="${HOME}/.local/bin/polyframes launch"
 SCREENSHOTTER="scrot"
 APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
 
 # terminal
 keyreg $Mod-Return          spawn $TERMINAL
-keyreg $ModShift-Return     chain . lock . split auto . cycle_frame . spawn $TERMINAL . unlock
+keyreg $ModShift-Return     chain . lock . split auto . cycle_frame . spawn $APPLAUNCHER . unlock
 
 keyreg $ModCtrl-Return      spawn $APPLAUNCHER
-keyreg $ModShift-t      spawn $APPLAUNCHER
+# shift-t opens a second frame only when the focused one already holds
+# a window; an empty frame stays as is and the terminal opens into it
+keyreg $ModShift-t          chain , or : and . compare tags.focus.curframe_wcount gt 0 . chain ! split auto ! cycle_frame : true \
+                                , spawn $TERMINAL
+
 # applauncher
 keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 , spawn $APPSWITCHER . close_or_remove         # was Mod-Tab
-keyreg $ModCtrl-a           or . and , compare tags.focus.curframe_wcount gt 1 , split explode . spawn $APPLAUNCHER           # was Mod-Tab
-keyreg $Mod-q          or . and , compare tags.focus.floating_focused = true , attr clients.focus.floating off . close_or_remove
+# Mod-q: a focused float is ONLY un-floated (the closing branches run
+# only when the focused window is not floating); tiling windows get
+# closed, with a lone-window frame removed afterwards.
+keyreg $Mod-q               chain ! lock \
+                                  ! or . and , compare tags.focus.floating_focused = true \
+                                             , attr clients.focus.floating off \
+                                       . and , compare tags.focus.curframe_wcount = 1 \
+                                             , close_and_remove \
+                                       . close_or_remove \
+                                  ! unlock  
 # screenshot; revision HHKB custom caps
 
 # CLOSE OR QUIT WM
-keyreg $ModShift-q               or . and , compare clients.focus.floating = true , attr tags.focus.floating_focused off . close_or_remove
-keyreg $ModCtrl-q           spawn xkill
-keyreg $ModShift-w          reload
+keyreg $ModShift-q          or , and . compare clients.focus.floating = true . close , remove , close_or_remove
+keyreg $ModCtrl-q           or . and , attr clients.focus , spawn xkill . close_and_remove
+keyreg $ModShift-r          reload
 
 # WINDOWING
 keyreg $Mod-a               or , focus left --level=frame , split left 0.33333
-keyreg $ModShift-a          or , shift left , focus left --level=frame , chain . split left . shift left
-keyreg $ModShift-e          chain . split explode . cycle_frame
-keyreg $ModCtrl-e           chain . split auto . cycle_frame
-keyreg $ModShift-r               chain ! lock ! rotate ! unlock
-keyreg $ModCtrl-r      or , and . compare tags.focus.frame_count lt 2 \
-                            . cycle -1 \
-                      , cycle_frame
-keyreg $Mod-e               or . and , compare tags.focus.frame_count gt 1 , cycle_frame . chain ! split explode ! cycle_frame
+keyreg $ModShift-a           or . and , compare tags.focus.curframe_wcount gt 1 , chain ! split left ! shift left . spawn $APPLAUNCHER           # was Mod-Tab
+# ModShift-b mirrors ModShift-a downwards: with >1 window in the
+# focused frame, split a bottom frame and shift the window down into
+# it.
+keyreg $ModShift-b           or . and , compare tags.focus.curframe_wcount gt 1 , chain ! split bottom ! shift down
+keyreg $ModCtrl-a          or , shift left , focus left --level=frame , chain . split left . shift left
+keyreg $ModCtrl-e          or , shift right \
+                              , chain . split right . focus --level=frame right
+keyreg $ModShift-e           chain . split auto . spawn $local/hc_tile
+# ModShift-r: rotate the tree (>3 frames) or cycle frames forward; on
+# a single frame it cycles windows in the opposite direction of
+# ModShift-w.
+keyreg $ModCtrl-r          or , and . compare tags.focus.frame_count lt 3 . chain ! lock ! rotate ! unlock \
+                              , and . compare tags.focus.frame_count gt 1 . cycle_frame \
+                              , cycle +1
+keyreg $Mod-e               or . and , compare tags.focus.frame_count gt 1 , cycle_frame -1 . chain ! split explode ! cycle_frame
 
 # cycle; was $Mod-s / $ModShift-s
-# zoom/peek grid
+# zoom/peek grid — focuses the frame below first; when there is none,
+# falls back to the window cycle / pseudotile toggle
 keyreg $Mod-s               chain : lock \
                                   :  or , jumpto urgent \
+                                        , focus --level=frame down \
+                                        , and . attr tags.focus.floating_focused on \
+                                              . attr clients.focus.floating off \
+                                              . attr clients.focus.pseudotile off \
                                         , and ! compare tags.focus.curframe_wcount gt 1 \
                                               ! cycle -1 \
-                                        , and . set_attr clients.focus.floating off \
-                                                . pseudotile toggle \
-                                  : unlock                
+                                              ! attr clients.focus.pseudotile off \
+                                        , pseudotile toggle \
+                                  : unlock
                                             
                                             
                                             
@@ -84,11 +122,37 @@ keyreg $Mod-c       or \
                     . chain \
                         , cycle_frame \
                         , jumpto urgent
-keyreg $Mod-w       chain : lock : or , and \
+keyreg $Mod-w       chain : lock : or \
+                                , and \
+                            ! compare tags.focus.floating_focused = 1 \
+                            ! attr tags.focus.floating_focused off \
+                                , and \
                             ! compare tags.focus.curframe_wcount gt 1 \
                             ! cycle +1 \
                        , focus --level=frame up \
                        , cycle_frame : unlock
+
+# ModShift-w: mirror of Mod-w's cycle -1 register — first tries shifting
+# the window up (#window leaves the frame, --level=all); when there is
+# nothing above, with >1 window in the focused frame it cycles -1,
+# otherwise it tries cycle_frame, then falls through to rotating the
+# frame tree.
+keyreg $ModShift-w  or , shift --level=all up \
+                      , or ! and . compare tags.focus.frame_count gt 1 \
+                                 . cycle_frame \
+                           ! cycle -1 \
+                      , chain ! lock ! rotate ! unlock
+
+# ModShift-s is ModShift-w's inverse: shift the window down (--level=all) and, when that leaves a frame holding a single window,
+# clean it up by removing it; when there is nothing below, cycle +1
+# (the opposite cycling direction of ModShift-w).
+                        
+keyreg $ModShift-s  or  , and . compare tags.focus.curframe_wcount = 0 \
+                              . remove \
+                        , and . compare tags.focus.curframe_wcount gt 1 \
+                              . or , shift down \
+                                   , chain ! split bottom \
+                                           ! shift down
 
 keyreg $ModShift-x          use_previous
 
@@ -103,7 +167,7 @@ keyreg $Mod-d   or \
                             . cycle_layout +1 max vertical grid horizontal \
                 , and \
                     . compare tags.focus.curframe_wcount = 2 \
-                    . cycle_layout +1 vertical max grid \
+                    . cycle_layout +1 vertical max horizontal \
                 , cycle_layout -1 vertical horizontal max
 
 # rotate layout
@@ -115,10 +179,13 @@ keyreg $ModShift-z          attr clients.focus.minimized toggle
 # non-zero when nothing is hidden, so fall back to the previous tag.
 # Wrapped in sh -c because "spawn" itself is always truthy — the or
 # chain has to see the script's exit code.
-keyreg $Mod-g               spawn sh -c '~/.local/bin/rofi_hidden || herbstclient use_previous'
+keyreg $Mod-g               spawn ~/.local/bin/polyframes hidden 
+
+# tile helper: (re)tiles the focused frame's clients (polyframes tile)
+keyreg $ModCtrl-t           spawn ~/.local/bin/polyframes tile
 
 # tag switcher
-keyreg $Mod-t               spawn ~/.local/bin/rofi_tags
+keyreg $Mod-t               spawn ~/.local/bin/polyframes tags
 
 # quick float toggle for the focused window: floated windows are
 # centered inside their focused frame (visual float indicator);
@@ -127,7 +194,7 @@ keyreg $Mod-f               spawn ~/.local/bin/hc_focus
 # zoom: 3-state toggle for the focused window — float the focused
 # window if tiled (a), maximize onto a <tag>-max tag if floating (b),
 # restore via hc_unmaximize if maximized (c) (hc_zoom)
-keyreg $ModCtrl-f          spawn ~/.local/bin/hc_zoom
+keyreg $ModShift-f          spawn ~/.local/bin/hc_zoom
 
 # tidying tool: pulls the focused client out of its frame (float +
 # center on screen, focus back to tiling); with a float on the tag,
@@ -137,10 +204,9 @@ keyreg $Mod-x               spawn ~/.local/bin/hc_floatx
 
 # split into direction
 keyreg $Mod-v               chain , split right  0.5 , cycle_frame
-keyreg $Mod-b               chain , split bottom 0.5 , cycle_frame
+keyreg $Mod-b               or ! focus --level=frame down ! chain , split bottom 0.5 , cycle_frame
 keyreg $ModCtrl-v           chain , split right  0.5 , focus -e right
 keyreg $ModCtrl-b           chain , split bottom 0.5 , focus -i down
-keyreg $ModShift-b          chain split top 0.5 , focus -i down
 
 
 # FOCUS — hjkl stays within visible clients; arrows traverse all

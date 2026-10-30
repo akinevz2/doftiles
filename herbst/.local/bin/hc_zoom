@@ -62,9 +62,14 @@ case "$tag" in
             # rather than float the focused window.
             herb attr "clients.$wid.fullscreen" off 2>/dev/null || true
             herb attr "clients.$wid.pseudotile" off 2>/dev/null || true
-            "$HOME/.local/bin/hc_center" frame || true
-            # stretch the fresh float to fill the frame exactly
+            "$HOME/.local/bin/hc_center" root || true
+            # Deco-flush fill: the floating window is sized to the frame
+            # content rect MINUS its decoration margins, so the deco
+            # borders coincide exactly with the frame's content rect
+            # (polygon-checked: frame vs decoration_geometry are equal
+            # after the fill). hc_fit_to frame is the idempotent guard.
             "$HOME/.local/bin/hc_resize" "$wid" frame || true
+            "$HOME/.local/bin/hc_fit_to" root || true
         fi
         ;;
 esac

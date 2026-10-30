@@ -28,10 +28,10 @@ Primary consumer environments:
 | `compton` | `.config/compton` (compositor config plus rofi context-menu helpers) |
 | `dunst` | `.config/dunst`, `.local/bin/check-mail.sh`, `read-mail.sh` |
 | `git` | `.my-credentials` (git identity, name+email), `.local/bin/load-credentials`, `.local/bin/dekineify`, home-level `Makefile` (stowed as `~/Makefile`) |
-| `herbst` | `.config/herbstluftwm`, `.local/bin/` (`hc_*` helpers, `rofi_*` launchers, `polyctl`, `winbarctl`, `hlwm_cwds_dump`, ...) |
+| `herbst` | `.config/herbstluftwm`, `.local/bin/` (`hc_*` helpers — `hc_tile`/`hc_center` are shims to the compiled `polyframes` binary; the `rofi_*` menus and `hc_switcher`/`hc_menu` moved to `~/development/personal/polyframes`, `polyctl`, `winbarctl`, `hlwm_cwds_dump`, ...) |
 | `llms` | `.config/opencode` (config, agents, skills, themes, `opencode-screencast` submodule), `.config/poolside`, `.local/bin/` (SonarQube/MCP tooling, `opencode-remote*`), `docker-compose.yml` |
 | `maintenance` | `.config/systemd/user/check-msi-dirs.service`, `.local/bin/check-msi-dirs.sh` |
-| `polybar` | `.config/polybar` (config.ini, scripts, `polyframes` node renderer, `polywins` submodule), `.local/bin/` |
+| `polybar` | `.config/polybar` (config.ini, scripts, `polywins` submodule), `.local/bin/` — `polyframes` moved out to `~/development/personal/polyframes` (compiled bunli/Bun binary, self-installed to `~/.local/bin`) |
 | `rofi` | `.config/rofi` (themes, applets, ~40 `bin/` helpers) |
 | `services` | `.config/systemd/user/*.service` (herbst, compton, dunst active; xvfb, x11vnc, novnc disabled) |
 | `shell` | `.bashrcx`, `.profile`, `.aliases`, `.exports`, `.config/{aliases,exports,mimeapps.list}`, `.local/bin/` (install hooks, firefox wrapper, check-wsl), `.local/share/applications/` |
@@ -231,6 +231,39 @@ the relevant unit.
     `herbst/.local/bin/hlwm_cwds_dump` and the screencast plugin) — not
     junk. Its (and `bun`'s) postinstall may sit blocked under bun's default
     trust policy (`bun pm trust -g herbstutil bun` to allow).
+18. **polyframes lives outside this repo** (2026-10): the polybar module
+    is a standalone Bun/bunli binary built from
+    `~/development/personal/polyframes` (`make install` puts it in
+    `~/.local/bin/polyframes`). `[module/polyframes]` in `config.ini`
+    execs the binary directly; the Node renderer dir and the
+    `polyframes.sh` shim were deleted from the `polybar` package.
+    Click actions re-exec the binary itself — there is intentionally no
+    shim and no nvm/Node dependency.
+19. **rofi menus also moved into the polyframes binary** (2026-10):
+    `rofi_tags`, `rofi_hidden`, `rofi_windows`, `rofi_launch`,
+    `hc_switcher` and `hc_menu` were deleted from `herbst/.local/bin`
+    and are now subcommands of `polyframes` (`tags`, `hidden`,
+    `windows`, `launch`, `switcher-menu`, `window-menu`). The autostart
+    keybinds call `polyframes tags|hidden|launch`; `hc_tile` and
+    `hc_center` REMAIN in dots as two-line exec-shims delegating to
+    `polyframes tile|center` (dots-side callers in hc_zoom/hc_focus/
+    hc_full_focus/hc_unmaximize and the compton context menu depend on
+    the untouched names). Window enumeration is pure hlwm
+    (`herbstclient attr clients`), no xprop; JSON parsing is delegated
+    to the herbstutil npm package (`parseAttr` imported directly, not
+    its CLI).
+20. **`polyframes spawn` = typed one-shot `hc rule once`** (2026-10):
+    spawns a client detached after installing a single-use rule as
+    typed flags (`--class`, `--instance`, `--title`, `--tag`,
+    `--float on|off`, `--switchtag on|off`, `--focus`, `--center`).
+    At least one criterion is required — a criterion-free rule would
+    float the next attach of ANY class. hlwm 0.9.5 has no
+    `floating=center` consequence, so `--center` floats+focuses the
+    window and then centers it post-attach with decoration-aware
+    geometry. Careful: bunli parses flag-like tokens even after `--`,
+    so commands with flags go through `--cmd '<string>'` (shell-form)
+    or a wrapper FILE, never raw dash tokens. `scripts/live.guard.sh`
+    (repo) uses this for its xmessage confirmation dialog.
 
 ## Quick verification workflow
 

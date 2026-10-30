@@ -135,6 +135,14 @@ dismiss() {
     exit 0
 }
 
+# Triggered restore: hc_unmaximize (thin trigger since the flash fix)
+# starts us detached with --dismiss-now when no daemon instance was
+# alive, or emits the unmaximize_request hook when one was — either
+# way THIS function owns the move-home + merge, with no view dance.
+if [ "${2:-}" = "--dismiss-now" ]; then
+    dismiss
+fi
+
 # --- client-set tracking ------------------------------------------------
 # remembered = the wids currently on the tag at the last observation.
 # On each membership-relevant event, any wid that disappeared has died
@@ -195,6 +203,9 @@ while IFS=$'\t' read -r -a ev <&"${HC[0]}"; do
             fi
             if is_viewed; then viewing=true; else viewing=false; fi
             sync_tag_state
+            ;;
+        unmaximize_request)
+            [ "$arg" = "$TAG" ] && dismiss
             ;;
         tag_flags|focus_changed|client_killed)
             sync_tag_state

@@ -49,59 +49,97 @@ trap 'herb unlock' EXIT
 herb attr theme.tiling.reset 1
 herb attr theme.floating.reset 1
 
+herb set frame_transparent_width 5
+herb set frame_border_width 2
+
+herb attr theme.minimal.border_width 0
+# widths copied from the floating config (visual parity floats/tiles —
+# the polyframes deco-flush fills assume matching band widths):
+herb attr theme.inner_width 2
+herb attr theme.border_width 2
+herb attr theme.outer_width 2
+
+
 #= COLOURS =#
-herb set frame_border_active_color $BACKGROUND_HEX
-herb set frame_border_normal_color '#333333'
-herb set frame_bg_active_color '#feef69'
-herb set frame_bg_normal_color '#333333'
-herb attr theme.active.color '#feef69'
-herb attr theme.normal.color '#333333'
-herb attr theme.urgent.color '#ffffff'
-herb attr theme.minimal.color '#333'
-herb attr theme.active.inner_color '#feef69'
+herb attr theme.color $BACKGROUND_HEX
+herb attr theme.inner_color $BACKGROUND_HEX
+herb attr theme.outer_color $BACKGROUND_HEX
+# herb attr theme.outer_color $BACKGROUND_HEX
+herb attr theme.active.color '#333333'
 herb attr theme.active.outer_color '#eeeeee'
-herb attr theme.active.title_height 16
-herb attr theme.active.title_depth 5
-herb attr theme.active.title_color '#333333'
+herb attr theme.active.inner_color '#333333'
+# herb attr theme.active.inner_color $BACKGROUND_HEX
+herb attr theme.normal.color '#333333'
+herb attr theme.normal.outer_color $BACKGROUND_HEX
+herb attr theme.normal.inner_color '#333333'
+
+herb set frame_border_normal_color $BACKGROUND_HEX
+herb set frame_border_active_color '#feef69'
+herb set frame_bg_normal_color $BACKGROUND_HEX
+herb set frame_bg_active_color '#333333'
+herb attr theme.active.title_height 15
+herb attr theme.active.title_depth 4
+herb attr theme.title_color '#feef69'
+herb attr theme.normal.title_color '#eeeeee'
+
 herb attr theme.background_color $BACKGROUND_HEX
+
+#= TILING SWAP (trial block - comment out to revert to the theme above) =#
+# tiling base: both states grey; the focused state is overridden to the
+# background colour directly below
+# herb attr theme.tiling.color                 $BACKGROUND_HEX
+# active/focused: background-coloured title bar and inner border,
+# gold title text, white outer border
+# normal/unfocused: white title on grey fill, compact look — grey inner
+# border against a background-coloured outer border
+# state-level: the active/normal children are resolved for windows too,
+# so compact-look outer also has to be pinned at the normal state level
+# herb attr theme.tiling.normal.color    '#333333'
+# herb attr theme.tiling.normal.inner_color    '#333333'
+# floating focused: the inner border is background-coloured so floats
+# look borderless-inward; outer stays #333333 from the floating block
 
 herb set hide_covered_windows on
 herb set always_show_frame on
 herb set frame_bg_transparent on
-herb set frame_transparent_width 2
-herb set frame_border_width 2
 
-herb attr theme.minimal.border_width 0
-herb attr theme.inner_width 5
-herb attr theme.outer_color '#eeeeee'
-herb attr theme.inner_color $BACKGROUND_HEX
-herb attr theme.border_width 2
-
-herb attr theme.padding_left 2
-herb attr theme.padding_right 2
-herb attr theme.padding_top 2
-herb attr theme.padding_bottom 2
-herb attr theme.floating.outer_color '#333333'
-herb attr theme.floating.active.outer_color '#333333'
-herb attr theme.floating.active.inner_color '#feef69'
+# paddings copied from the floating config (5s; were 4 — parity with
+# the floating deco bands)
+herb attr theme.padding_left 5
+herb attr theme.padding_right 5
+herb attr theme.padding_top 5
+herb attr theme.padding_bottom 5
+herb attr theme.floating.color '#333333'
+herb attr theme.floating.outer_color $BACKGROUND_HEX
+herb attr theme.floating.inner_color '#eeeeee'
+herb attr theme.floating.active.inner_color '#333333'
+herb attr theme.floating.active.outer_color '#feef69'
+herb attr theme.floating.active.color $BACKGROUND_HEX
 herb attr theme.floating.outer_width 2
+herb attr theme.floating.inner_width 2
 
 herb attr theme.floating.tight_decoration true
-herb attr theme.floating.padding_left 2
-herb attr theme.floating.padding_right 2
-herb attr theme.floating.padding_top 2
-herb attr theme.floating.padding_bottom 2
-herb attr theme.normal.title_color '#eeeeee'
-herb attr theme.normal.title_height 16
-herb attr theme.normal.title_depth 5
+herb attr theme.floating.padding_left 5
+herb attr theme.floating.padding_right 5
+herb attr theme.floating.padding_top 5
+herb attr theme.floating.padding_bottom 5
+herb attr theme.normal.title_height 15
+herb attr theme.normal.title_depth 4
+herb attr theme.floating.title_color '#eeeeee'
 herb attr theme.floating.title_height 24
 herb attr theme.floating.title_depth 5
 herb attr theme.floating.title_when always
-herb attr theme.floating.border_width 4
+# title heights synchronized with the floating mode (24/5): tiling
+# windows render the same title strip (theme.tiling outranks the
+# state-level 15s for tiled windows)
+herb attr theme.tiling.title_height 24
+herb attr theme.tiling.title_depth 5
+herb attr theme.tiling.title_when always
+herb attr theme.floating.border_width 2
 
 herb set frame_gap 2
 herb set window_gap 5
-herb set frame_padding 0
+herb set frame_padding 2
 
 herb set smart_window_surroundings off
 herb set smart_frame_surroundings on
