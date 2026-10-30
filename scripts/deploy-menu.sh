@@ -37,15 +37,9 @@ hook() {
         herbstluftwm)
             if herbstclient version >/dev/null 2>&1; then
                 herbstclient reload
-            else
-                echo "deploy: no running hlwm — reload skipped"
-            fi
-            ;;
-        herbst_theme)
-            if herbstclient version >/dev/null 2>&1; then
                 "$HOME/.local/bin/reload_theme" -f
             else
-                echo "deploy: no running hlwm — theme apply skipped"
+                echo "deploy: no running hlwm — reload skipped"
             fi
             ;;
         polybar)
@@ -108,7 +102,7 @@ fi
 
 if [ ! -t 0 ]; then
     echo "deploy: non-interactive without P= — nothing selected" >&2
-    echo "deploy: usage: make deploy P=\"shell herbst_theme\"" >&2
+    echo "deploy: usage: make deploy P=\"shell herbstluftwm\"" >&2
     exit 1
 fi
 

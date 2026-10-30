@@ -121,6 +121,28 @@ IMPLEMENTED. The package set after round three:
   herbst_focus herbst_titles herbst_web dunst polybar depends agents
   shell.
 
+## B3. Consolidation round four (2026-10-30): the herbst re-merge
+
+IMPLEMENTED. The four herbst split packages are folded back into
+`herbstluftwm`, undoing the herbst half of round three (the
+polybar/depends half stays):
+
+- `herbst_focus` -> `herbstluftwm` (keys.d/{focus,floating}.sh + the
+  whole .local/bin float machinery incl. the polyframes shims
+  hc_center/hc_resize/hc_tile/hc_fit_to).
+- `herbst_theme` -> `herbstluftwm` (theme + reload_theme + winbarctl).
+- `herbst_titles` -> `herbstluftwm` (theme.d/titles.theme).
+- `herbst_web` -> `herbstluftwm` (xvfb/x11vnc/novnc units).
+- `wm.packages`: herbstluftwm dunst polybar depends agents shell.
+- deploy-menu.sh: the herbst_theme post-stow hook (reload_theme -f)
+  folded into the herbstluftwm hook (reload + theme apply).
+- Live cutover order: stow -D the four packages FIRST (unstow while
+  the dirs are intact), git mv the trees, rmdir the emptied packages,
+  stow -R herbstluftwm, herbstclient reload. Verified: the full
+  keybind set (91) survives the reload and no dangling links.
+- `~/.config/herbstluftwm` is now a single stow FOLD (whole-dir
+  symlink) — the autostart configuration lives in exactly one place.
+
 ## C. Per-package resource matrix
 
 SUPERSEDED by the second consolidation round (the herbst split +

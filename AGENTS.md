@@ -24,25 +24,7 @@ Primary consumer environments:
 
 | Package | Contents |
 | ----------- | ---------- |
-| `dunst` | `.config/dunst`, `.local/bin/check-mail.sh`, `read-mail.sh` |
-| `herbstluftwm` | the WM bootstrap (autostart + keys.d sourcing loop),
-`.config/systemd/user/{herbst,compton,dunst}.service` (merged from
-`services`), the nav keybinds + scripts (merged from `herbst_nav`:
-`keys.d/nav.sh`, `hlwm_launch`, `hlwm_cwds_dump`, `hc_move`), generic
-`hc_*` tools, `.config/{alacritty,compton,rofi}`, `rofi_hc_context`,
-the deploy scripts' old home (now in `depends`) |
-| `herbst_theme` | `.local/bin/reload_theme` + `.config/herbstluftwm/theme`
-(the main theme file) + `winbarctl` (merged from `herbst_titles`) |
-| `herbst_titles` | `.config/herbstluftwm/theme.d/titles.theme` — ONLY
-the window-title subsection of the theme; `reload_theme` sources every
-`theme.d/*.theme` after the main theme (keys.d-style stow merging) |
-| `herbst_focus` | the float machinery + focus helpers merged
-(`herbst_folding` folded in): `keys.d/{focus,floating}.sh`,
-`hc_focus`, `hc_floatx`, `hc_zoom`, the maximize family
-(`hc_maximize`, `hc_maximize-daemon`, `hc_unmaximize`,
-`hc_clean_max-tag`), `hc_center`/`hc_resize`/`hc_tile`/`hc_fit_to`
-shims, minimize/reveal/show (`hc_minimize`, `hc_reveal`, `hc_show`),
-`hc_full_focus`, `hc_peek`, `hc_bounce` |
+| `herbstluftwm` | THE single herbst stack package (2026-10 re-merge: herbst_focus, herbst_theme, herbst_titles and herbst_web folded back in). The WM bootstrap (autostart + keys.d sourcing loop), the keybind fragments (`keys.d/{nav,focus,floating}.sh`), the theme (`theme`, `theme.d/titles.theme`, `reload_theme`, `winbarctl`), ALL the float machinery + focus helpers (`hc_focus`, `hc_floatx`, `hc_zoom`, the maximize family, `hc_center`/`hc_resize`/`hc_tile`/`hc_fit_to` shims, minimize/reveal/show, `hc_bounce`, `hc_peek`, `hc_full_focus`), the generic `hc_*` tools + `hlwm_*` scripts, `rofi_hc_context`, `.config/{alacritty,compton,rofi}` and all systemd user units (`herbst`, `compton`, `dunst`, `hc_send-error-daemon`, `xvfb`, `x11vnc`, `novnc`). |
 | `polybar` | `.config/polybar/` (config.ini + polybar.sh + polywins.sh
 scripts), `.local/bin/{polyctl,ewmh_labels}`,
 `.local/share/polybar/Makefile` (bar control: theme/reload/up/down) |
@@ -54,7 +36,7 @@ polyframes submodule at `.local/share/polyframes`,
 `~/.local/share/doftiles`, runnable from either side; every path
 anchors to the real file location), `.config/doftiles.conf`
 (install-method state) |
-| `herbst_web` | `.config/systemd/user/`: xvfb/x11vnc/novnc units |
+| `dunst` | `.config/dunst`, `.local/bin/check-mail.sh`, `read-mail.sh` |
 | `agents` | `.config/opencode`, `.config/poolside`, `.local/bin`,
 `.local/share` — OpenCode config (the `opencode-screencast` submodule
 STAYS here: `opencode.json(c)` loads the plugin via the relative path
