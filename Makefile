@@ -15,15 +15,18 @@ SERVICE_ORDER := $(shell grep -vi '^#' $(SERVICES_FILE))
 WM_PACKAGES := $(shell grep -vi '^#' $(WM_PACKAGES))
 WM_BINARIES := $(shell head -1 $(WM_BINARIES) | grep -vi '^#')
 
-MAKEFILES := $(wildcard Makefile*)
-ALL_TARGETS := $(foreach mf,$(MAKEFILES),$(shell grep -hE '^[a-zA-Z_-]+:' $(mf) | sed 's/://'))
+# (not named MAKEFILES — that variable is special to make: a sub-make
+# inheriting it re-reads those files and every target ends up defined
+# twice, spamming "overriding recipe" warnings)
+MF_FILES := $(wildcard Makefile*)
+ALL_TARGETS := $(foreach mf,$(MF_FILES),$(shell grep -hE '^[a-zA-Z_-]+:' $(mf) | sed 's/://'))
 PHONY_LIST := $(sort $(ALL_TARGETS))
 
 .PHONY: $(PHONY_LIST) system depends install sync update push
 
 install: stow system 
 
-depends: wm
+deps: wm
 	@if ! ls -al *.packages *.requires *.order; then \
 		exit 1; \
 	fi
@@ -34,9 +37,6 @@ bash: shell agents
 
 # wm:
 status: services-available services-installed
-
-services:
-	$(STOW) -R -t $$HOME services
 
 shell:
 	$(STOW) -R -t $$HOME shell
@@ -49,7 +49,7 @@ agents:
 	$(STOW) -R -t $$HOME agents
 
 
-wm: herbstluftwm
+wm: herbstluftwm herbst_theme herbst_focus herbst_titles polybar depends
 
 herbstluftwm: dunst
 
@@ -61,6 +61,21 @@ herbstluftwm:
 
 dunst:
 	$(STOW) -R -t $$HOME dunst
+
+herbst_theme:
+	$(STOW) -R -t $$HOME herbst_theme
+
+herbst_focus:
+	$(STOW) -R -t $$HOME herbst_focus
+
+herbst_titles:
+	$(STOW) -R -t $$HOME herbst_titles
+
+polybar:
+	$(STOW) -R -t $$HOME polybar
+
+depends:
+	$(STOW) -R -t $$HOME depends
 
 stow-wm: status  
 	@for pkg in $(WM_PACKAGES); do \
@@ -77,24 +92,11 @@ sync: push
 # merge; falls back to a normal merge. If real conflicts occur, launch $EDITOR
 # with each conflicting file. If the merge is blocked by local uncommitted
 # changes, stage everything and launch $EDITOR with the files to be committed.
-# NOTE: the whole recipe is one shell (backslash continuations) so that
-# `exit` actually stops the target.
+# update — delegated to depends (the dependency/deployment manager),
+# which owns the safe pull (-ff, fallback --rebase --autostash) plus the
+# submodule and per-method artifact refreshes.
 update:
-	@git fetch origin; \
-	if git merge --ff-only origin/main 2>/dev/null; then \
-		echo "update: fast-forwarded to origin/main"; \
-	elif git merge --no-edit origin/main 2>/dev/null; then \
-		echo "update: merged origin/main"; \
-	else \
-		conflicts=$$(git ls-files -u | cut -f2 | sort -u); \
-		if [ -n "$$conflicts" ]; then \
-			exec $$EDITOR "$$PWD" $$conflicts; \
-		fi; \
-		echo "update: merge blocked by local changes; staging for commit" >&2; \
-		git add -A; \
-		modified=$$(git diff --staged --name-only); \
-		exec $$EDITOR "$$PWD" $$modified; \
-	fi
+	@$(MAKE) --no-print-directory -C depends update
 
 # push — push commits if the worktree is clean; otherwise stage everything
 # and launch $EDITOR with the current directory plus each modified file.
@@ -180,7 +182,7 @@ services-installed:
 		echo -e "Missing services:\033[33m$$missing\033[0m"; \
 	fi
 
-reload-systemd: services
+reload-systemd:
 	@echo ""
 	@systemctl --user daemon-reload 2>/dev/null || \
 		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2

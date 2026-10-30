@@ -50,6 +50,15 @@ trap 'herb unlock' EXIT
 source "${HOME}/.config/herbstluftwm/theme" \
     || echo "reload_theme: the theme file failed to source" >&2
 
+# Theme subsection partials (stow-merged from the herbst_titles
+# package): every theme.d/*.theme is sourced after the main theme so
+# its overrides win.
+for _theme_part in "$HOME"/.config/herbstluftwm/theme.d/*.theme; do
+    [ -e "$_theme_part" ] || continue
+    source "$_theme_part" \
+        || echo "reload_theme: could not source $_theme_part" >&2
+done
+
 herb unlock
 trap - EXIT
 

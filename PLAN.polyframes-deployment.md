@@ -83,6 +83,44 @@ submodule):
 - both end at the same invariant: `~/.local/bin/polyframes` exists and
   `[module/polyframes]` execs it.
 
+## B2. Consolidation round three (2026-10-30)
+
+IMPLEMENTED. The package set after round three:
+
+- `compton`, `git` — empty dirs, removed. (`git`'s personal settings
+  would live on a separate branch if reintroduced; nothing to move.)
+- `herbst_nav` -> `herbstluftwm` (nav.sh keybinds + the three nav
+  scripts).
+- `services` -> `herbstluftwm` (compton/dunst units join herbst.service).
+- `herbst_floating` -> `herbst_focus` (the whole float machinery +
+  keys.d/floating.sh join focus.sh and the focus helpers).
+- `herbst_bar` -> `polybar` (config, polyctl, the polybar Makefile —
+  now bar-control only, polyframes deploys delegated to depends).
+- `herbst_titles` repurposed: winbarctl moved to `herbst_theme`; the
+  package now holds ONLY the window-title subsection of the theme as
+  `.config/herbstluftwm/theme.d/titles.theme`, sourced by
+  reload_theme after the main theme file (keys.d-style partials).
+- `depends` (was an empty placeholder) is now the deployment +
+  dependency package: the deploy scripts (on.deploy,
+  install/ubuntu.deploy), the polyframes submodule (moved from
+  herbst_bar), a Makefile with `deploy-fromsource` (conditional
+  submodule clone + build + install), `deploy-fromnpm` (npm install
+  -g github:akinevz2/polyframes), `update` (fetch + ff-only with
+  --rebase --autostash fallback; submodule sync; per-method artifact
+  refresh), `uninstall`, and conf-get/conf-set helpers backed by
+  `.config/doftiles.conf` (POLYFRAMES_METHOD=source|npm|none).
+  The top-level `make update` delegates here. The opencode-screencast
+  submodule STAYS in agents: opencode.json(c) loads the plugin via
+  the relative path ./opencode-screencast.
+- Top-level Makefile: the `depends` metapackage renamed to `deps`
+  (the name now belongs to the stow target); the `services` stow
+  target dropped; `wm` covers the full WM stack; the MAKEFILES
+  variable renamed to MF_FILES (a sub-make inheriting MAKEFILES
+  re-reads the files and double-defines every target).
+- `wm.packages` updated to the final set: herbstluftwm herbst_theme
+  herbst_focus herbst_titles herbst_web dunst polybar depends agents
+  shell.
+
 ## C. Per-package resource matrix
 
 SUPERSEDED by the second consolidation round (the herbst split +

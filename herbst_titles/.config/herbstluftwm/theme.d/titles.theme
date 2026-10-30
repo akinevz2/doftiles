@@ -1,0 +1,20 @@
+# titles — the herbstluftwm window-title subsection of the theme.
+# Sourced by reload_theme (herbst_theme) after the main theme file;
+# stow-merged from the herbst_titles package via theme.d/.
+
+herb attr theme.active.title_height 15
+herb attr theme.active.title_depth 4
+herb attr theme.title_color '#eeeeee'
+herb attr theme.normal.title_color '#eeeeee'
+herb attr theme.normal.title_height 15
+herb attr theme.normal.title_depth 4
+herb attr theme.floating.title_color '#eeeeee'
+herb attr theme.floating.title_height 24
+herb attr theme.floating.title_depth 5
+herb attr theme.floating.title_when always
+# title heights synchronized with the floating mode (24/5): tiling
+# windows render the same title strip (theme.tiling outranks the
+# state-level 15s for tiled windows)
+herb attr theme.tiling.title_height 24
+herb attr theme.tiling.title_depth 5
+herb attr theme.tiling.title_when always

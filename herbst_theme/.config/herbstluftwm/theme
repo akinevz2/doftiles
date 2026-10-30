@@ -35,10 +35,6 @@ herb set frame_border_normal_color $BACKGROUND_HEX
 herb set frame_border_active_color '#eeeeee'
 herb set frame_bg_normal_color $BACKGROUND_HEX
 herb set frame_bg_active_color '#333333'
-herb attr theme.active.title_height 15
-herb attr theme.active.title_depth 4
-herb attr theme.title_color '#eeeeee'
-herb attr theme.normal.title_color '#eeeeee'
 
 herb attr theme.background_color $BACKGROUND_HEX
 
@@ -81,18 +77,9 @@ herb attr theme.floating.padding_left 5
 herb attr theme.floating.padding_right 5
 herb attr theme.floating.padding_top 5
 herb attr theme.floating.padding_bottom 5
-herb attr theme.normal.title_height 15
-herb attr theme.normal.title_depth 4
-herb attr theme.floating.title_color '#eeeeee'
-herb attr theme.floating.title_height 24
-herb attr theme.floating.title_depth 5
-herb attr theme.floating.title_when always
 # title heights synchronized with the floating mode (24/5): tiling
 # windows render the same title strip (theme.tiling outranks the
 # state-level 15s for tiled windows)
-herb attr theme.tiling.title_height 24
-herb attr theme.tiling.title_depth 5
-herb attr theme.tiling.title_when always
 herb attr theme.floating.border_width 2
 
 herb set frame_gap 2

@@ -25,24 +25,50 @@ Primary consumer environments:
 | Package | Contents |
 | ----------- | ---------- |
 | `dunst` | `.config/dunst`, `.local/bin/check-mail.sh`, `read-mail.sh` |
-| `herbstluftwm` | `.config/systemd/user/herbst.service`, trimmed autostart (WM bootstrap + keys.d loop), generic `hc_*` tools, `.config/{alacritty,compton,rofi}` (merged), `rofi_hc_context` |
-| `herbst_theme` | `.local/bin/reload_theme` + `.config/herbstluftwm/theme` (the theme data, extracted) |
-| `herbst_nav` | `keys.d/nav.sh` (focus/shift/cycle/tag keybinds), `hlwm_cwds_dump`, `hlwm_launch`, `hc_move` |
-| `herbst_floating` | `keys.d/floating.sh` (mod-f/mod-x/mod-ctrl-f), the float machinery (`hc_focus`, `hc_floatx`, `hc_zoom`, maximize family, `hc_center`/`hc_resize`/`hc_tile`/`hc_fit_to` shims, hide/reveal/show) |
-| `herbst_focus` | `keys.d/focus.sh` (mod-s grid, frame cycling), `hc_full_focus`, `hc_peek`, `hc_bounce` |
-| `herbst_titles` | `.local/bin/winbarctl` |
-| `herbst_bar` | `.config/polybar/` (+ the polywins submodule), `.local/bin/polyctl`, `.local/share/polybar/Makefile` (polyframes submodule/npm recipes), `.local/share/polyframes` (the submodule) |
+| `herbstluftwm` | the WM bootstrap (autostart + keys.d sourcing loop),
+`.config/systemd/user/{herbst,compton,dunst}.service` (merged from
+`services`), the nav keybinds + scripts (merged from `herbst_nav`:
+`keys.d/nav.sh`, `hlwm_launch`, `hlwm_cwds_dump`, `hc_move`), generic
+`hc_*` tools, `.config/{alacritty,compton,rofi}`, `rofi_hc_context`,
+the deploy scripts' old home (now in `depends`) |
+| `herbst_theme` | `.local/bin/reload_theme` + `.config/herbstluftwm/theme`
+(the main theme file) + `winbarctl` (merged from `herbst_titles`) |
+| `herbst_titles` | `.config/herbstluftwm/theme.d/titles.theme` — ONLY
+the window-title subsection of the theme; `reload_theme` sources every
+`theme.d/*.theme` after the main theme (keys.d-style stow merging) |
+| `herbst_focus` | the float machinery + focus helpers merged
+(`herbst_folding` folded in): `keys.d/{focus,floating}.sh`,
+`hc_focus`, `hc_floatx`, `hc_zoom`, the maximize family
+(`hc_maximize`, `hc_maximize-daemon`, `hc_unmaximize`,
+`hc_clean_max-tag`), `hc_center`/`hc_resize`/`hc_tile`/`hc_fit_to`
+shims, hide/reveal/show, `hc_full_focus`, `hc_peek`, `hc_bounce` |
+| `polybar` | `.config/polybar/` (config.ini + polybar.sh + polywins.sh
+scripts), `.local/bin/{polyctl,ewmh_labels}`,
+`.local/share/polybar/Makefile` (bar control: theme/reload/up/down) |
+| `depends` | deployment + dependency management: `.local/bin/on.deploy`,
+`.local/bin/install/ubuntu.deploy` (moved from herbstluftwm), the
+polyframes submodule at `.local/share/polyframes`, `Makefile`
+(`deploy-fromsource`, `deploy-fromnpm`, `update`, `uninstall`,
+conf-get/conf-set — repo-side only, ignored via the package's
+`.stow-local-ignore`), `.config/doftiles.conf` (install-method state) |
 | `herbst_web` | `.config/systemd/user/`: xvfb/x11vnc/novnc units |
+| `agents` | `.config/opencode`, `.config/poolside`, `.local/bin`,
+`.local/share` — OpenCode config (the `opencode-screencast` submodule
+STAYS here: `opencode.json(c)` loads the plugin via the relative path
+`./opencode-screencast`, so moving it would break plugin loading) |
+| `shell` | `.bashrcx`, `.profile`, `.aliases`, `.exports`, `.zshrc`,
+`.vim`, `.taskrc`, `.my-credentials`, `Makefile`,
+`.config/{aliases,exports,mimeapps.list}`, `.local/bin/` (install
+hooks, firefox wrapper, check-wsl, check-msi-dirs, load-credentials,
+dekineify), `.local/share/applications/` |
 
-| `services` | `.config/systemd/user/*.service` (compton, dunst active; herbst lives in herbst_wm, xvfb/x11vnc/novnc in herbst_web) |
-| `shell` | `.bashrcx`, `.profile`, `.aliases`, `.exports`, `.zshrc`, `.vim`, `.taskrc`, `.my-credentials`, `Makefile`, `.config/{aliases,exports,mimeapps.list}`, `.local/bin/` (install hooks, firefox wrapper, check-wsl, check-msi-dirs, load-credentials, dekineify), `.local/share/applications/` |
-
-There is no `.stow-local-ignore`; everything in a package is linked.
-Repo-level files — `analysis.md`, `polywins.md`, `Makefile`, `README.md`,
-`AGENTS.md`, `wm.packages`, `wm.requires`, `service.order`, `depends/`
-(empty placeholder) — are **not** stowed (never put dotfiles at repo root —
-they won't be linked). `git/Makefile` is the exception that *is* stowed
-(it becomes `~/Makefile`).
+Package-root files ARE stowed unless ignored: `depends` carries a
+per-package `.stow-local-ignore` (stow supports these per package)
+excluding its `Makefile` — it is repo-side tooling, and stowing it
+would collide with `shell`'s `~/Makefile`. Repo-level files —
+`analysis.md`, `polywins.md`, `Makefile`, `README.md`, `AGENTS.md`,
+`wm.packages`, `wm.requires`, `service.order` — are **not** stowed
+(never put dotfiles at repo root — they won't be linked).
 
 ## How stow linking works (and how to resolve files)
 
@@ -54,31 +80,28 @@ they won't be linked). `git/Makefile` is the exception that *is* stowed
   live config, edit the repo file, not the symlink target in `$HOME`
   (they're the same inode for stowed links, but new files must be added in
   the repo and restowed).
-- `~/.my-credentials -> dots/git/.my-credentials` is provided **by stow**
-  (the `git` target). Do not create manual symlinks for files that are
-  top-level entries of a stow package — stow handles them.
+- `~/.my-credentials -> dots/shell/.my-credentials` is provided **by
+  stow** (the `shell` target). Do not create manual symlinks for files
+  that are top-level entries of a stow package — stow handles them.
 - Conflict caveat: if a real file already exists at the target path, stow
   fails. For `~/.bashrc` specifically, the distributed file is preserved via
   the `shell` package's `.bashrcx` + install hook instead of a direct link.
 
 ## Makefile targets
 
-Package manifests live in repo-level files: `wm.packages` (WM stack list),
-`wm.requires` (required binaries — the Makefile reads only its **first
-line**; the second line `ubuntu` is a target-distro annotation),
-`service.order` (unit start order). Known stale: `wm.packages` still lists
-the pre-rename `opencode` package (now `llms`) and omits
-`vim`/`zshell`/`maintenance` — stow those individually.
+Package manifests live in repo-level files: `wm.packages` (WM stack
+list), `wm.requires` (required binaries — the Makefile reads only its
+**first line**; the second line `ubuntu` is a target-distro
+annotation), `service.order` (unit start order).
 
-- `make bash` — metapackage: stow + post-stow hooks for `shell`, `git`,
-  `llms`, `task`.
-- `make git` — stow `git`, run `load-credentials` (sets global git identity
-  from `~/.my-credentials`).
-- `make llms`, `make task`, `make services` — stow the respective package.
-- `make wm` — `herbst`: stow `herbst`, `alacritty`, `dunst`, `compton`; the
-  `herbstluftwm` sub-target runs `herbstclient reload` after stowing. **No
-  binary verification here** — that lives in `add-packages`.
+- `make bash` — metapackage: stow + post-stow hooks for `shell` and
+  `agents`.
+- `make wm` — stow the whole WM stack (`herbstluftwm`, `herbst_theme`,
+  `herbst_focus`, `herbst_titles`, `polybar`, `depends`); the
+  `herbstluftwm` sub-target runs `herbstclient reload` after stowing.
+  `make stow-wm` loops over `wm.packages` instead.
 - `make install` — `stow` (`bash` + `wm`) then `system`.
+- `make deps` — manifest existence check, then `make sync`.
 - `make add-packages` — runs `on.deploy`, then verifies every binary in
   `wm.requires`, failing fast listing missing ones (map binary → apt
   package with `~/.local/bin/install/ubuntu.deploy <binary>`).
@@ -88,12 +111,25 @@ the pre-rename `opencode` package (now `llms`) and omits
 - `make status`, `services-available`, `services-installed` — report
   systemd user-unit state.
 - `make reload-systemd`, `services-start`, `services-stop`,
-  `restart` — restow `services`, daemon-reload, then
-  start/stop/restart units in `service.order` order (start/stop/restart
-  prompt for confirmation).
-- `make update`, `push`, `sync` — safe git flow: fetch + fast-forward
-  (fallback merge, `$EDITOR` on conflicts), stage/commit/push;
-  `stow-wm` loops over `wm.packages`.
+  `restart` — daemon-reload, then start/stop/restart units in
+  `service.order` order (start/stop/restart prompt for confirmation).
+- `make update` — delegates to `depends/Makefile`: fetch + fast-forward
+  (fallback `git pull --rebase --autostash`), submodule sync to the
+  recorded commits, then refresh the polyframes artifact per the
+  install method recorded in `~/.config/doftiles.conf`.
+- `make -C ~/dots/depends deploy-fromsource` — conditional clone of the
+  polyframes submodule + build + install; records
+  `POLYFRAMES_METHOD=source` in the conf.
+- `make -C ~/dots/depends deploy-fromnpm` — `npm install --global
+  github:akinevz2/polyframes`; records `POLYFRAMES_METHOD=npm`.
+- `make -C ~/dots/depends uninstall` — removes the deployed artifact
+  per the recorded method and resets the conf.
+- `make push`, `make sync` — push commits if clean; `sync` = update +
+  push.
+
+`~/.config/doftiles.conf` (stowed from `depends`) tracks the install
+method per deployable (`POLYFRAMES_METHOD=source|npm|none`) — it lives
+in the repo, so method changes show up as tracked diffs.
 
 After changing anything in `services/`, restow and run
 `systemctl --user daemon-reload` (or `make reload-systemd`), then restart
@@ -229,14 +265,14 @@ the relevant unit.
     `herbst/.local/bin/hlwm_cwds_dump` and the screencast plugin) — not
     junk. Its (and `bun`'s) postinstall may sit blocked under bun's default
     trust policy (`bun pm trust -g herbstutil bun` to allow).
-18. **polyframes lives outside this repo** (2026-10): the polybar module
-    is a standalone Bun/bunli binary built from
-    `~/development/personal/polyframes` (`make install` puts it in
-    `~/.local/bin/polyframes`). `[module/polyframes]` in `config.ini`
-    execs the binary directly; the Node renderer dir and the
-    `polyframes.sh` shim were deleted from the `polybar` package.
-    Click actions re-exec the binary itself — there is intentionally no
-    shim and no nvm/Node dependency.
+18. **polyframes deployment lives in `depends`** (2026-10): the
+    polybar module is a standalone Bun/bunli binary. The git
+    submodule checkout is `dots/depends/.local/share/polyframes`
+    (stowed to `~/.local/share/polyframes`); `make -C ~/dots/depends
+    deploy-fromsource` (or `deploy-fromnpm`) builds/installs
+    `~/.local/bin/polyframes` and records the method in
+    `~/.config/doftiles.conf`. `[module/polyframes]` in `config.ini`
+    execs the binary directly — no shim, no nvm/Node dependency.
 19. **rofi menus also moved into the polyframes binary** (2026-10):
     `rofi_tags`, `rofi_hidden`, `rofi_windows`, `rofi_launch`,
     `hc_switcher` and `hc_menu` were deleted from `herbst/.local/bin`
@@ -268,7 +304,7 @@ the relevant unit.
 ```sh
 cd ~/dots
 make wm                  # stow herbst + alacritty + dunst + compton
-make restart-services    # restow services, daemon-reload, restart service.order units
+make restart             # daemon-reload, restart service.order units
 journalctl --user -u herbst.service -u compton.service -b --since "2 min ago" --no-pager
 ```
 
