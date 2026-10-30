@@ -84,11 +84,11 @@ the pre-rename `opencode` package (now `llms`) and omits
   package with `~/.local/bin/install/ubuntu.deploy <binary>`).
 - `make add-packages-system` — previews, then after confirmation
   `sudo stow -t /` any `system-*` packages; runs the service stack via
-  `start-services`.
+  `services-start`.
 - `make status`, `services-available`, `services-installed` — report
   systemd user-unit state.
-- `make reload-systemd`, `start-services`, `stop-services`,
-  `restart-services` — restow `services`, daemon-reload, then
+- `make reload-systemd`, `services-start`, `services-stop`,
+  `restart` — restow `services`, daemon-reload, then
   start/stop/restart units in `service.order` order (start/stop/restart
   prompt for confirmation).
 - `make update`, `push`, `sync` — safe git flow: fetch + fast-forward

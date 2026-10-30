@@ -136,7 +136,7 @@ add-packages: shell
 		exit 1; \
 	fi
 
-add-packages-system: start-services
+add-packages-system: services-start
 	@if [ -z "$(SYSTEM_PACKAGES)" ]; then \
 		echo "packages: no system-* packages found; skipping"; \
 		exit 0; \
@@ -190,10 +190,10 @@ reload-systemd: services
 		exit 1; \
 	fi
 	@for service in $(SERVICE_ORDER); do \
-		systemctl --user enable --now "$$service" || echo "check-services: failed to enable and start $$service"; \
+		systemctl --user enable --now "$$service" || echo "services-check: failed to enable and start $$service"; \
 	done && echo "Enabled services: $(SERVICE_ORDER)"
 
-start-services: reload-systemd
+services-start: reload-systemd
 	@echo ""
 	@for service in $(SERVICE_ORDER); do \
 		echo "preparing start for $$service"; \
@@ -217,7 +217,7 @@ start-services: reload-systemd
 	done; \
 	echo "services: started"
 
-stop-services: reload-systemd
+services-stop: reload-systemd
 	@echo ""
 	@for service in $(SERVICE_ORDER); do \
 		echo "preparing stop for $$service"; \
@@ -241,7 +241,7 @@ stop-services: reload-systemd
 	done; \
 	echo "services: stopped"
 
-restart-services: reload-systemd
+restart: reload-systemd
 	@echo ""
 	@for service in $(SERVICE_ORDER); do \
 		echo "preparing restart for $$service"; \
