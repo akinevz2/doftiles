@@ -30,7 +30,7 @@ depends: wm
 	@$(MAKE) sync
 
 # bash metapackage
-bash: shell git llms task
+bash: shell agents
 
 # wm:
 status: services-available services-installed
@@ -43,30 +43,21 @@ shell:
 	@chmod +x shell/.local/bin/install/bashrc
 	~/.local/bin/install/bashrc
 
-git:
-	$(STOW) -R -t $$HOME git
-	@chmod +x git/.local/bin/load-credentials
 	~/.local/bin/load-credentials
 
-llms:
-	$(STOW) -R -t $$HOME llms
+agents:
+	$(STOW) -R -t $$HOME agents
 
-task:
-	$(STOW) -R -t $$HOME task
 
-wm: herbst
+wm: herbstluftwm
 
-herbst: herbstluftwm alacritty dunst compton
+herbstluftwm: dunst
 
 herbstluftwm:
-	$(STOW) -R -t $$HOME herbst
+	$(STOW) -R -t $$HOME herbstluftwm
 	@herbstclient reload
 
-alacritty:
-	$(STOW) -R -t $$HOME alacritty
 
-compton:
-	$(STOW) -R -t $$HOME compton
 
 dunst:
 	$(STOW) -R -t $$HOME dunst
