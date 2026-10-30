@@ -27,16 +27,28 @@ polyframes-submodule:
 polyframes-npm:
 	npm install -g polyframes
 
-polyframes: polyframes-$(POLYFRAMES_SOURCE)
+# --- theme --------------------------------------------------------------
+# The hlwm theme lives in herbst_theme (doftiles); applying it is part
+# of both install and reload.
 
-# --- bar control -------------------------------------------------------
-reload:
+theme:
+	$(HOME)/.local/bin/reload_theme -f
+
+# --- polyframes: the binary deploy (both sources end here) -------------
+install: polyframes-$(POLYFRAMES_SOURCE) theme-binary
+theme-binary:
+	install -m 755 $(HOME)/.local/share/polyframes/dist/polyframes \
+	    $(HOME)/.local/bin/polyframes
+
+# "make reload" = the theme + the bar restart (a full refresh).
+reload: theme
 	~/.local/bin/polyctl reload
 
+# --- bar control -------------------------------------------------------
 up:
 	~/.local/bin/polyctl up
 
 down:
 	~/.local/bin/polyctl down
 
-.PHONY: polyframes polyframes-submodule polyframes-npm reload up down
+.PHONY: polyframes polyframes-submodule polyframes-npm theme install reload up down
