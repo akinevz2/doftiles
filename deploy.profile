@@ -1,10 +1,10 @@
-# deploy.profile — platform provisioning features for on-deploy provision
-# One feature per line: xserver | xinitrc | greeter
+# deploy.profile — platform provisioning for on-deploy provision
+# session: HOW the graphical session starts
+#   greetd       a display manager owns the console (bare-OS targets)
+#   wsl-systemd  NO display manager — hlwm runs as the systemd user
+#                unit herbst.service, waiting for the Windows-side X
+#                server (VcXsrv) to be reachable
+session = wsl-systemd
 #
-# Absent/empty = no provisioning. This WSL2 host: the X server is
-# VcXsrv on Windows reached over TCP (localhost:0.0), so nothing to
-# provision. A bare-OS target (ubuntu server, the manjaro machine)
-# would list:
-#   xserver
-#   xinitrc
-#   greeter
+# features (one per line): xserver | xinitrc | greeter
+# none for this WSL2 host — the X server is the Windows app.
