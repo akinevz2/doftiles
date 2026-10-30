@@ -25,6 +25,11 @@ POLYFRAMES_NPM  ?= github:akinevz2/polyframes
 POLYFRAMES_BIN  ?= $(HOME)/.local/bin/polyframes
 CONF            := $(HOME)/.config/doftiles.conf
 
+# Toolchain-free artifact (github release asset, glibc linux-x64):
+# the fallback path so machines without bun can still install.
+RELEASE_ASSET ?= polyframes-linux-x64
+RELEASE_URL   ?= $(POLYFRAMES_REPO)/releases/latest/download/$(RELEASE_ASSET)
+
 # --- conf helpers -------------------------------------------------------
 # The conf is a flat KEY=VALUE file (sh-sourceable). It lives in the
 # repo via stow, so method changes show up as a tracked diff.
@@ -77,14 +82,52 @@ deploy-fromnpm:
 	npm install --global $(POLYFRAMES_NPM)
 	@$(MAKE) --no-print-directory conf-set VAR=POLYFRAMES_METHOD VAL=npm
 
+# --- polyframes: install the github release asset -------------------------
+# No git clone, no bun, no npm: fetch the latest release artifact over
+# https (public repo, no credentials) straight into ~/.local/bin —
+# the friend-arch path that never happens to have a JS toolchain.
+deploy-fromrelease:
+	@command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || { \
+		echo "deploy-fromrelease: neither curl nor wget found (arch: pacman -S curl)" >&2; \
+		exit 1; }
+	@tmp=$$(mktemp /tmp/polyframes-install.XXXXXX); \
+	rc=0; \
+	if command -v curl >/dev/null 2>&1; then \
+		curl -fL --retry 3 --user-agent doftiles-deploy $(RELEASE_URL) -o "$$tmp" || rc=1; \
+	else \
+		wget -q -O "$$tmp" $(RELEASE_URL) || rc=1; \
+	fi; \
+	if [ $$rc -eq 0 ]; then \
+		install -m 755 "$$tmp" $(POLYFRAMES_BIN); \
+		rm -f "$$tmp"; \
+		$(MAKE) --no-print-directory conf-set VAR=POLYFRAMES_METHOD VAL=release; \
+		echo "deploy-fromrelease: installed $(RELEASE_URL) -> $(POLYFRAMES_BIN)"; \
+	else \
+		rm -f "$$tmp"; \
+		echo "deploy-fromrelease: download failed from $(RELEASE_URL)" >&2; \
+		exit 1; \
+	fi
+
 # --- deploy --------------------------------------------------------------
-# Dispatch on the recorded install method; no record (or "none")
-# defaults to building from the submodule checkout.
+# Dispatch on the recorded install method; no record (or "none") tries
+# a source build when bun exists and falls back to the toolchain-free
+# release download otherwise.
 deploy:
 	@. $(CONF) 2>/dev/null; \
-	case "$${POLYFRAMES_METHOD:-none}" in \
-		npm) $(MAKE) --no-print-directory deploy-fromnpm ;; \
-		*)   $(MAKE) --no-print-directory deploy-fromsource ;; \
+	method=$${POLYFRAMES_METHOD:-none}; \
+	if [ "$$method" != npm ] && [ "$$method" != release ] && ! command -v bun >/dev/null 2>&1; then \
+		if command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1; then \
+			echo "deploy: bun missing — falling back to the github release artifact"; \
+			$(MAKE) --no-print-directory deploy-fromrelease; \
+			exit $$?; \
+		fi; \
+		echo "deploy: neither bun nor curl/wget found — cannot install polyframes (arch: pacman -S bun curl)" >&2; \
+		exit 1; \
+	fi; \
+	case "$$method" in \
+		npm)     $(MAKE) --no-print-directory deploy-fromnpm ;; \
+		release) $(MAKE) --no-print-directory deploy-fromrelease ;; \
+		*)       $(MAKE) --no-print-directory deploy-fromsource ;; \
 	esac
 
 # --- ensure ----------------------------------------------------------------
@@ -119,6 +162,8 @@ update:
 			$(MAKE) --no-print-directory polyframes-sync && \
 			cd $(SUBMOD) && bun install && \
 			$(MAKE) -C $(SUBMOD) install ;; \
+		release) \
+			$(MAKE) --no-print-directory deploy-fromrelease ;; \
 		npm) \
 			npm install --global $(POLYFRAMES_NPM) ;; \
 		*) \
@@ -134,6 +179,8 @@ uninstall:
 	case "$${POLYFRAMES_METHOD:-none}" in \
 		npm) \
 			npm uninstall --global polyframes ;; \
+		release) \
+			rm -f $(POLYFRAMES_BIN) ;; \
 		source) \
 			rm -f $(POLYFRAMES_BIN) ;; \
 		*) \
