@@ -44,6 +44,13 @@ BACKGROUND_HEX='#2C001E'
 herb spawn hsetroot -solid "$BACKGROUND_HEX"
 
 herb lock
-source "${HOME}/.config/herbstluftwm/theme"
+trap 'herb unlock' EXIT
+# Failure-safe: a theme file error must not abort the script before
+# the unlock runs (set -e would leak the lock and hang the WM).
+source "${HOME}/.config/herbstluftwm/theme" \
+    || echo "reload_theme: the theme file failed to source" >&2
+
+herb unlock
+trap - EXIT
 
 herb setenv PF_THEME_APPLIED 1

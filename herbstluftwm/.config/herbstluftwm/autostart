@@ -188,7 +188,7 @@ herb set default_direction_external_only 1
 # script: it applies only on a fresh WM start (guarded by a persistent
 # hlwm env flag) and exits immediately on reloads, so reloading this
 # autostart never re-sets decorations (no theme jitter).
-"$HOME/.local/bin/reload_theme"
+"$HOME/.local/bin/reload_theme" -f
 
 herb set snap_distance 10
 herb set snap_gap 5
