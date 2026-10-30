@@ -31,6 +31,16 @@ fi
 # Set default terminal if not specified
 TERMINAL="${TERMINAL:-alacritty}"
 
+# Scope the one-shot float rule to the terminal's WM class: a
+# criterion-free `rule once floating=true` arms a float on the NEXT
+# attach of ANY class (the hc_command stray-float symptom). Case-
+# tolerate the first char (binary `alacritty` -> WM_CLASS
+# `Alacritty`); maxage discards never-matched rules at the next
+# attach, so a failed spawn cannot leave the float armed.
+TERM_BIN="${TERMINAL%% *}"; TERM_CLASS=$(basename "$TERM_BIN")
+_first="${TERM_CLASS:0:1}"; _rest="${TERM_CLASS:1}"
+CLASSPAT="[${_first^}${_first,,}]${_rest}"
+
 # Get current command
 USER_CMD="$@"
 DEFLOAT="herbstclient and , compare tags.focus.tiling.focused_frame.client_count lt 1 , attr clients.focus.floating off"
@@ -38,7 +48,7 @@ DEFLOAT="herbstclient and , compare tags.focus.tiling.focused_frame.client_count
 # Build the blocking command
 BLOCKING_CMD="$USER_CMD || echo -n \"Confirm exit? [Y]:\" && read -sn1 -r _ "
 
-herbstclient rule once floating="true"
+herbstclient rule once maxage=5 class~"$CLASSPAT" floating="true"
 
 # Launch in hlwm using herbstclient spawn
 # This detaches the process and creates a focus-stealing window

@@ -12,7 +12,9 @@
 #   TERMINAL overrides the terminal (default: alacritty).
 #
 # The switches install a `rule once` before the spawn, so the window
-# rules apply to exactly this terminal:
+# rules apply to exactly this terminal — scoped by class pattern
+# derived from $TERMINAL (a criterion-free once-rule floats the next
+# attach of ANY class; maxage bounds the arm):
 #   --floating     the terminal window floats AND is centered in the
 #                  monitor once it attached and took focus (suppressed
 #                  by --no-distract)
@@ -81,6 +83,18 @@ fi
 TERMINAL="${TERMINAL:-alacritty}"
 USER_CMD="$*"
 
+# Scope the once-rule to the spawned terminal's WM class: a
+# criterion-free `rule once floating=on` arms a float on the NEXT
+# attach of ANY class, and any race/failure between rule and spawn
+# makes the stray fire on an unrelated window (the reported
+# hc_command-splits-a-float bug). Case-tolerate the first char — the
+# binary `alacritty` reports WM_CLASS `Alacritty` (repo's [Yy]ad
+# idiom). maxage bounds the armed rule: hlwm discards it at the next
+# attach, so a failed spawn can never leave the float armed.
+termsel="${TERMINAL%% *}"; termclass=$(basename "$termsel")
+_first="${termclass:0:1}"; _rest="${termclass:1}"
+classpat="[${_first^}${_first,,}]${_rest}"
+
 # Interactive bash so the user's aliases and functions resolve. The
 # command string is %q-quoted and eval'd; after it exits the shell
 # reports the status and waits for ONE key press, then exits — the
@@ -88,7 +102,10 @@ USER_CMD="$*"
 QUOTED=$(printf '%q' "$USER_CMD")
 INNER="__rc=0; eval $QUOTED; __rc=\$?; echo; echo \"[exit \$__rc] press any key to close...\"; read -sn1 -r _"
 
-[ ${#rule[@]} -gt 0 ] && hc rule once "${rule[@]}" 2>/dev/null || true
+# The switches install one scoped `rule once` (class-matched via the
+# pattern derived above; maxage bounds the arm) BEFORE the spawn, so
+# the rules apply to exactly this terminal.
+[ ${#rule[@]} -gt 0 ] && hc rule once maxage=5 class~"$classpat" "${rule[@]}" 2>/dev/null || true
 
 # The `before` snapshot MUST precede the spawn — the window can attach
 # within the first poll tick.
