@@ -26,14 +26,12 @@ main() {
     first="$(basename "$(realpath "$path")")"; shift
     current="$(basename "$PWD")"
     if [ "$first" = "$current" ] || [ -d "$path" ]; then
-        echo "first: $first"
-        echo "current: $current"
-        echo "path: $path"
         ls -al --color=auto
 
         # Locate each extra argument beneath the listing directory:
         # print every directory/file whose basename matches.
         for name in "$@"; do
+            echo
             # -name matches basenames; -print0 keeps odd names safe.
             find . -name "$name"
         done
