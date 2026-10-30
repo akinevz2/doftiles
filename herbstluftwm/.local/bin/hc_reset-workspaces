@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# hc_reset-workspaces — reset the tag layout to a clean two-tag state.
+#
+#   1. every EMPTY tag except the current one is removed;
+#   2. an "archive" tag is created (kept when it already exists);
+#   3. every remaining non-empty tag except the current one is merged
+#      into archive;
+#   4. the current tag is renamed to "default".
+#
+# The view and focus stay on the current tag (renaming preserves it),
+# so this is safe to run mid-session. Tag enumeration goes through
+# herbstutil (attr tags.by-name. parsed to JSON) — no object_tree/dump
+# text scraping.
+#
+# Edge cases:
+#   - current tag already named "default": the rename is skipped;
+#   - current tag IS "archive": every other non-empty tag merges into
+#     it and it then becomes "default" (the archive folds into the
+#     default workspace — everything ends up on one tag).
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+herb() {
+    herbstclient "$@"
+}
+
+command -v herbstutil >/dev/null 2>&1 || {
+    echo "hc_reset-workspaces: herbstutil is not installed" >&2
+    exit 1
+}
+command -v jq >/dev/null 2>&1 || {
+    echo "hc_reset-workspaces: jq is not installed" >&2
+    exit 1
+}
+
+ARCHIVE=archive
+DEFAULT=default
+
+current=$(herb attr tags.focus.name)
+
+# --- enumerate the tags (herbstutil parse of attr tags.by-name.) --------
+# children come through with a trailing dot from the attr tree — strip it.
+mapfile -t tags < <(herb attr tags.by-name. | herbstutil | jq -r '.children[]' | sed 's/\.$//')
+
+removed=0
+merged=0
+
+# --- 1. remove every empty tag except the current one --------------------
+for tag in "${tags[@]}"; do
+    [ "$tag" = "$current" ] && continue
+    [ "$tag" = "$ARCHIVE" ] && continue
+    count=$(herb attr "tags.by-name.$tag.client_count" 2>/dev/null || echo 0)
+    if [ "$count" = "0" ]; then
+        herb merge_tag "$tag" && removed=$((removed + 1))
+    fi
+done
+
+# --- 2. create the archive tag (kept when it already exists) -------------
+if ! herb attr "tags.by-name.$ARCHIVE.name" >/dev/null 2>&1; then
+    herb add "$ARCHIVE"
+fi
+
+# --- 3. merge every non-empty tag (except current/archive) into archive --
+for tag in "${tags[@]}"; do
+    [ "$tag" = "$current" ] && continue
+    [ "$tag" = "$ARCHIVE" ] && continue
+    # skip tags already removed in step 1
+    herb attr "tags.by-name.$tag.client_count" >/dev/null 2>&1 || continue
+    herb merge_tag "$tag" "$ARCHIVE" && merged=$((merged + 1))
+done
+
+# --- 4. rename the current tag to default --------------------------------
+if [ "$current" != "$DEFAULT" ]; then
+    herb rename "$current" "$DEFAULT"
+fi
+
+remaining=$(herb attr tags.by-name. | herbstutil | jq -r '.children[]' | sed 's/\.$//' | tr '\n' ' ')
+echo "hc_reset-workspaces: removed $removed empty tag(s), merged $merged into $ARCHIVE;" \
+    "remaining tags: $remaining"
