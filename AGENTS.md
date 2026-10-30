@@ -129,6 +129,34 @@ annotation), `service.order` (unit start order).
 - `make -C ~/dots/depends uninstall` — removes the deployed artifact
   per the recorded method and resets the conf.
 
+## Deployment profiles
+
+`profiles/<name>.profile` in the repo root selects HOW the session
+starts; `make install`/`make provision` pick one (whiptail radiolist
+interactive, `PROFILE=<name>` explicit, remembered in
+`~/.local/state/doftiles/profile` otherwise):
+
+- `wsl` — session=wsl-systemd: hlwm as the `herbst.service` user unit
+  waiting for the Windows VcXsrv X server (this host). Provision also
+  checks `C:\Program Files\VcXsrv\vcxsrv.exe` and offers to
+  download + silently install it from the SourceForge release feed.
+- `nested` — session=nested: hlwm inside Xvfb `:1` (herbst-nested
+  unit), shared via x11vnc `:5901` + noVNC `:6081` — the temporary
+  browser-access profile, CO-INSTALLABLE with a primary one (units
+  enable additively; `:1` never collides with `:0`).
+- `xinit` — session=xinit: startx + ~/.xinitrc (no display manager).
+- `greetd` — session=greetd: greetd + tuigreet own the console.
+
+Profile lines: `session =`, `features =` (xserver xinitrc greeter
+nested), `units =` (systemd user units enabled additively),
+`env = KEY=VALUE` (written to ~/.config/doftiles/env, which the units
+read via EnvironmentFile — the profile-DISPLAY override of the WSL
+hardcodes). on-deploy `snapshot` collects a machine's pre-existing
+config into `defaults/` before the first deploy clobbers it (not
+auto-stowed; `make restore-defaults` puts it back). `make uninstall`
+disables every shipped unit + unstows everything + clears state,
+leaving installed binaries alone.
+
 `~/.config/doftiles.conf` (stowed from `depends`) tracks the install
 method per deployable (`POLYFRAMES_METHOD=source|npm|none`) — it lives
 in the repo, so method changes show up as tracked diffs. conf-set
