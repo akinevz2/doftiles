@@ -31,7 +31,9 @@ keyreg $Mod-f               spawn ~/.local/bin/hc_focus
 # zoom: 3-state toggle for the focused window — float the focused
 # window if tiled (a), maximize onto a <tag>-max tag if floating (b),
 # restore via hc_unmaximize if maximized (c) (hc_zoom)
-keyreg $ModShift-f          spawn ~/.local/bin/hc_zoom
+keyreg $ModCtrl-f          spawn ~/.local/bin/hc_zoom
+
+keyreg $ModShift-f         attr clients.focus.fullscreen toggle
 
 # tidying tool: pulls the focused client out of its frame (float +
 # center on screen, focus back to tiling); with a float on the tag,

@@ -82,6 +82,13 @@ herb attr theme.floating.padding_bottom 5
 # state-level 15s for tiled windows)
 herb attr theme.floating.border_width 2
 
+#= URGENT (unfocused, demand-attention) =#
+# the dunst critical red — replaces the inherited #eeeeee-based
+# accents on urgent windows
+herb attr theme.urgent.color '#AA0033'
+herb attr theme.urgent.inner_color '#AA0033'
+herb attr theme.urgent.outer_color '#AA0033'
+
 herb set frame_gap 2
 herb set window_gap 5
 herb set frame_padding 2

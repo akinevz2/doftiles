@@ -15,7 +15,7 @@ keyreg $Mod-e               or . and , compare tags.focus.frame_count gt 1 , cyc
 # zoom/peek grid — focuses the frame below first; when there is none,
 # falls back to the window cycle / pseudotile toggle
 keyreg $Mod-s               chain : lock \
-                                  :  or , jumpto urgent \
+                                  :  or , and , compare tags.focus.urgent_count gt 0 , jumpto urgent \
                                         , focus --level=frame down \
                                         , and . attr tags.focus.floating_focused on \
                                               . attr clients.focus.floating off \
