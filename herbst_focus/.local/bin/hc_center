@@ -5,5 +5,15 @@
 # (hc_zoom, hc_focus, hc_full_focus, the compton context menu)
 # working while the single implementation lives there.
 #
-# Usage: hc_center [frame|root]
+# Usage:
+#   hc_center [frame|root]  center the FOCUSED float, size-preserving,
+#                           in the focused frame ('frame') or the
+#                           workspace ('root', default); a tiled
+#                           window is floated first
+#   hc_center --wid 0x…     center THAT window within its OWN parent
+#                           frame instead (-w short; no float
+#                           toggling — old centerInFrame semantics)
+#
+# -h/--help pass through to polyframes' native help (bunli); keep this
+# shim's arg surface synced with `polyframes center --help`.
 exec "$HOME/.local/bin/polyframes" center "$@"

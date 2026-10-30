@@ -5,11 +5,16 @@
 # (the full outline is kept inside), size-preserving otherwise.
 #
 # Usage:
-#   hc_fit_to            fit to the MONITOR's work area (default)
-#   hc_fit_to frame      fit to the FOCUSED frame's content geometry
-#   hc_fit_to --wid 0x…  target a specific window
+#   hc_fit_to [monitor|frame]  target to fit within: the MONITOR's
+#                              work area (default) or the focused
+#                              frame's content geometry
+#   hc_fit_to --target frame   same via flag (-t short)
+#   hc_fit_to --wid 0x…        fit THAT window (-w short)
 #
 # Companion to hc_center: post-center verification for Mod-f lifts and
-# yanks (a centered window is inside the frame when the frame is on-screen;
-# the monitor pass is the screen-bounds safety net).
+# yanks (a centered window is inside the frame when the frame is
+# on-screen; the monitor pass is the screen-bounds safety net).
+#
+# -h/--help pass through to polyframes' native help (bunli); keep this
+# shim's arg surface synced with `polyframes fit --help`.
 exec "$HOME/.local/bin/polyframes" fit "$@"

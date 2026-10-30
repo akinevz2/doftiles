@@ -4,5 +4,12 @@
 # Bun/bunli binary managed there); this shim keeps the palette uniform:
 # hc_command lists every hc_* executable on PATH.
 #
-# Usage: hc_hidden [args...]   (args pass through to polyframes hidden)
+# Usage:
+#   hc_hidden [args...]  minimized-windows picker (polyframes hidden
+#                        passthrough); exits non-zero when no window
+#                        is minimized, for shell chaining
+#
+# Takes no options itself; -h/--help pass through to polyframes'
+# native help (bunli). Keep this shim synced with
+# `polyframes hidden --help`.
 exec "$HOME/.local/bin/polyframes" hidden "$@"

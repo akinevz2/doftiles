@@ -4,5 +4,12 @@
 # managed there); this shim keeps dots-side callers (hc_unmaximize,
 # keybinds) working while the single implementation lives there.
 #
-# Usage: hc_tile [wid]
+# Usage:
+#   hc_tile [wid]  navigate to the closest empty frame (splitting
+#                  auto) and tile the window into it; without a wid
+#                  the focused window is used
+#
+# No options, no flags — the palette's --help pass (bunli native help)
+# is the only dash-token; keep this shim synced with
+# `polyframes tile --help`.
 exec "$HOME/.local/bin/polyframes" tile "$@"
