@@ -3,7 +3,8 @@
 #
 # The PREFIXES array below declares which executable name prefixes are
 # listed; every matching executable on PATH shows up in a rofi dmenu
-# styled like the app launcher (launcher.rasi).
+# styled like the app launcher (the dedicated command.rasi
+# clone — launcher.rasi's auto-features/icons caused stalls).
 #
 # Selection handling:
 #   Shift-Return (kb-custom-1)  -> hc_launch "<selection>" — runs it in
@@ -91,11 +92,12 @@ list_commands() {
 filter=""
 while :; do
     rc=0
-    # -no-auto-select: launcher.rasi sets auto-select true (fine for
-    # the app launcher) — the palette must NOT fire when a filter
-    # happens to leave a single entry; the user confirms explicitly.
+    # -no-auto-select: belt-and-braces — the dedicated command.rasi
+    # carries no auto-select, but the palette must NEVER fire when a
+    # filter happens to leave a single entry; the user confirms
+    # explicitly.
     sel=$(set +o pipefail; list_commands | rofi -dmenu -i -p command \
-            -theme "$HOME/.config/rofi/launcher.rasi" \
+            -theme "$HOME/.config/rofi/command.rasi" \
             -no-auto-select \
             -matching regex \
             -matching-negate-char "" \

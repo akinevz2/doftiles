@@ -1,0 +1,110 @@
+// command.rasi — the hc_command palette theme. Cloned from
+// launcher.rasi (same look) with every auto-feature and scroll/mouse
+// handling stripped: the palette is keyboard-only, must open instantly,
+// and must never auto-submit or hover-select.
+
+configuration {
+	click-to-exit: true;
+}
+
+* {
+	bg: #333333;
+	bg-alt: #222222;
+	fg: #eeeeee;
+	fg-alt: #888888;
+	accent: #feef59;
+	normal-border: #666666;
+	transparent: rgba ( 0, 0, 0, 0 % );
+}
+
+window {
+	background-color: @bg;
+	border: 5px;
+	border-color: @normal-border;
+	border-radius: 0px;
+	padding: 0px;
+	width: 45em;
+	outline: 1px;
+	outline-color: @bg-alt;
+	location: 0;
+	fullscreen: false;
+}
+
+mainbox {
+	background-color: @bg;
+	padding: 8px 8px 0px 8px;
+	children: [ inputbar, listview ];
+}
+
+inputbar {
+	spacing: 0px;
+	text-color: @fg;
+	background-color: @bg-alt;
+	padding: 10px 14px;
+	border: 0 0 2px 0;
+	border-color: @accent;
+	children: [ prompt, entry ];
+}
+
+prompt {
+	expand: false;
+	text-color: @accent;
+	background-color: @bg-alt;
+	padding: 0px 10px 0px 0px;
+}
+
+entry {
+	text-color: @fg;
+	background-color: @bg-alt;
+	placeholder: "filter...";
+	placeholder-color: @fg-alt;
+}
+
+listview {
+	line-number: 8;
+	columns: 1;
+	fixed-height: false;
+	scrollbar: false;
+	spacing: 2px;
+	padding: 8px 4px;
+	background-color: @bg;
+}
+
+element {
+	padding: 6px 10px;
+	text-color: @fg-alt;
+	background-color: @transparent;
+	border: 0 0 2px 0;
+	border-color: @transparent;
+	border-radius: 0px;
+}
+
+element normal.active,
+element selected.active {
+	text-color: @accent;
+	border-color: @accent;
+}
+
+element selected {
+	background-color: @bg-alt;
+	text-color: @fg;
+	border-color: @accent;
+}
+
+element-text {
+	background-color: @transparent;
+	text-color: inherit;
+	vertical-align: 0.5;
+}
+
+element-icon {
+	background-color: @transparent;
+	size: 1em;
+	text-color: inherit;
+	vertical-align: 0.5;
+}
+
+textbox {
+	text-color: @fg-alt;
+	background-color: @bg;
+}
