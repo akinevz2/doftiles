@@ -19,6 +19,35 @@ thing.
 
 ## A. The herbst package split
 
+IMPLEMENTED (plus the follow-up consolidation): the final package set
+after both rounds:
+
+- `herbstluftwm` (ex `herbst_wm`, absorbing alacritty/compton/rofi:
+  `.config/{alacritty,compton,rofi}`, `rofi_hc_context`) — the systemd
+  unit, the trimmed autostart (WM bootstrap + the keys.d sourcing
+  loop), the deploy scripts, the generic `hc_*` query/tree tools.
+- `herbst_theme` — `reload_theme` + `.config/herbstluftwm/theme`
+  (the theme data, extracted from the script).
+- `herbst_nav` — `keys.d/nav.sh` + the nav scripts.
+- `herbst_floating` — `keys.d/floating.sh` + the float machinery.
+- `herbst_focus` — `keys.d/focus.sh` + the focus helpers.
+- `herbst_titles` — `winbarctl`.
+- `herbst_bar` — polybar + polyctl + the Makefile + the polyframes
+  submodule.
+
+The keys.d fragment pattern: each keybind package drops a fragment
+into `.config/herbstluftwm/keys.d/`; the autostart sources
+`keys.d/*.sh` — stow unfolds the shared directory into per-file
+links (verified live).
+
+Further consolidation (second round): `llms` → **`agents`**;
+`alacritty`/`compton`/`rofi` merged into `herbstluftwm`;
+`zshell`/`vim`/`task`/`maintenance`/`git` merged into **`shell`**
+(`.zshrc`, `.vim`, `.taskrc`, `.my-credentials`, `Makefile`,
+`check-msi-dirs`, `load-credentials`, `dekineify` all moved). The
+`herbst`/`polybar`/`alacritty`/`compton`/`rofi`/`zshell`/`vim`/
+`task`/`maintenance`/`git`/`llms` packages retired.
+
 | new package | owns | trimmed from |
 | --- | --- | --- |
 | `herbst_wm` | STARTING the WM and nothing else: `.config/systemd/user/herbst.service`, a trimmed `.config/herbstluftwm/autostart` (WM spawn, `emit_hook reload`, the spawn-env `setenv` block), `.local/bin/install/ubuntu.deploy`, `.local/bin/on.deploy` | `herbst` |
@@ -53,6 +82,29 @@ submodule):
   (or `github:akinevz2/polyframes` pre-publish).
 - both end at the same invariant: `~/.local/bin/polyframes` exists and
   `[module/polyframes]` execs it.
+
+## C. Per-package resource matrix
+
+SUPERSEDED by the second consolidation round (the herbst split +
+alacritty/compton/rofi → herbstluftwm; zshell/vim/task/maintenance/
+git → shell; llms → agents) — the live matrix is now:
+
+| package | bin | share | config | share Makefile |
+| --- | --- | --- | --- | --- |
+| herbstluftwm | generic hc_* tools, deploy scripts | — | hlwm autostart + keys.d, alacritty, compton, rofi | — |
+| herbst_theme | reload_theme | — | hlwm/theme | — |
+| herbst_nav | hlwm_cwds_dump, hlwm_launch, hc_move | — | keys.d/nav.sh | — |
+| herbst_floating | the float machinery + shims | — | keys.d/floating.sh | — |
+| herbst_focus | hc_full_focus, hc_peek, hc_bounce | — | keys.d/focus.sh | — |
+| herbst_titles | winbarctl | — | — | — |
+| herbst_bar | polyctl | polyframes (submodule) | polybar | polybar/Makefile |
+| herbst_web | — | — | xvfb/x11vnc/novnc units | — |
+| agents | opencode-remote*, MCP tooling | — | opencode/poolside config | — |
+| shell | install hooks, firefox wrapper, check-wsl, check-msi-dirs, load-credentials, dekineify | — | bashrcx/profile/zshrc/vim/taskrc/credentials | — |
+| services | — | — | compton/dunst units | — |
+| rofi/compton remnants | merged into herbstluftwm | — | — | — |
+
+Original matrix (pre-consolidation, kept for reference):
 
 ## C. Per-package resource matrix (all dots stow packages)
 
