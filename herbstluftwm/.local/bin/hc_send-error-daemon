@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# hc_send-error-daemon — surface herbstluftwm errors as notifications.
+#
+# hlwm has no on-error hook; it prints errors to stderr, which the
+# herbst systemd unit captures in the journal. This daemon follows the
+# unit journal and notifies on error lines via hc_send-error.
+#
+#   journalctl --user --unit herbst --follow -o cat -n 0
+#
+# Tunables (environment):
+#   ERROR_MATCH    egrep pattern deciding what counts (case-insensitive)
+#   QUIET_MATCH    egrep pattern for noise to drop (the reload banner)
+#   DEDUP_SECONDS  identical consecutive lines notify once per window
+#
+# Long-running: spawn it detached (e.g. from the autostart) or as a
+# user unit — it never exits on its own.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+ERROR_MATCH=${ERROR_MATCH:-'error|cannot parse|failed'}
+QUIET_MATCH=${QUIET_MATCH:-'autostart is running again|herbstluftwm reloaded'}
+DEDUP_SECONDS=${DEDUP_SECONDS:-5}
+
+SEND_ERROR="$HOME/.local/bin/hc_send-error"
+
+last_msg=""
+last_ts=0
+
+journalctl --user --unit herbst --follow -o cat -n 0 2>/dev/null |
+while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    # noise first (the reload banner et al. — debug, not errors)
+    if printf '%s' "$line" | grep -iqE "$QUIET_MATCH"; then
+        continue
+    fi
+    printf '%s' "$line" | grep -iqE "$ERROR_MATCH" || continue
+    # de-dup: identical line within the window notifies once
+    now=$(date +%s)
+    if [ "$line" = "$last_msg" ] && [ "$((now - last_ts))" -lt "$DEDUP_SECONDS" ]; then
+        continue
+    fi
+    last_msg=$line
+    last_ts=$now
+    "$SEND_ERROR" "herbstluftwm" "${line:0:200}" || true
+done

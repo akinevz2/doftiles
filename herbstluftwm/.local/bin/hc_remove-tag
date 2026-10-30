@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# hc_remove-tag — merge a tag away into a destination and land there.
+#
+#   hc_remove-tag              current -> default
+#   hc_remove-tag <dst>        current -> <dst>   (dst replaces default)
+#   hc_remove-tag <src> <dst>  <src>   -> <dst>
+#
+# "default" is created as the LAST tag when it does not exist yet (the
+# no-arg and one-arg forms); the two-arg form never invents tags — it
+# errors instead.
+#
+# This build refuses merge_tag on the VIEWED tag, so when the source
+# is being viewed the view first hops to the destination; the view
+# ends on the merge target either way.
+#
+# Errors surface as desktop notifications (hc_send-error):
+#   - no args and the current tag IS default (nothing to remove);
+#   - the source tag does not exist;
+#   - the destination tag does not exist (two-arg form only);
+#   - source and destination are the same tag.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+herb() {
+    herbstclient "$@"
+}
+
+SEND_ERROR="$HOME/.local/bin/hc_send-error"
+DEFAULT_TAG=default
+
+src=""
+dst=""
+case $# in
+    0) dst=$DEFAULT_TAG ;;                      # src = current tag
+    1) dst=$1 ;;                                # src = current tag
+    2) src=$1 dst=$2 ;;
+    *) "$SEND_ERROR" "hc_remove-tag" "usage: hc_remove-tag [src] [dst]"
+       exit 1 ;;
+esac
+
+current=$(herb attr tags.focus.name)
+[ -n "$src" ] || src=$current
+
+# --- validation ----------------------------------------------------------
+if [ $# -eq 0 ] && [ "$current" = "$DEFAULT_TAG" ]; then
+    "$SEND_ERROR" "hc_remove-tag" \
+        "cannot remove '$DEFAULT_TAG': it is the current tag"
+    exit 1
+fi
+
+if [ "$src" = "$dst" ]; then
+    "$SEND_ERROR" "hc_remove-tag" "cannot merge '$src' into itself"
+    exit 1
+fi
+
+if ! herb attr "tags.by-name.$src.name" >/dev/null 2>&1; then
+    "$SEND_ERROR" "hc_remove-tag" "source tag '$src' not found"
+    exit 1
+fi
+
+if ! herb attr "tags.by-name.$dst.name" >/dev/null 2>&1; then
+    if [ $# -lt 2 ]; then
+        herb add "$dst"                        # appended as the last tag
+    else
+        "$SEND_ERROR" "hc_remove-tag" "destination tag '$dst' not found"
+        exit 1
+    fi
+fi
+
+# --- merge (hop to the destination first when the source is viewed) -----
+if [ "$src" = "$current" ]; then
+    herb use "$dst"
+fi
+herb merge_tag "$src" "$dst"
+
+echo "hc_remove-tag: merged '$src' into '$dst'"

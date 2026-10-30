@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# hc_send-error — desktop error notification (notify-send wrapper).
+# hlwm has no on-error hook, so scripts and the journal daemon use this
+# to surface failures.
+#
+# Usage: hc_send-error <summary> [body]
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+if [ -z "${1:-}" ]; then
+    echo "usage: hc_send-error <summary> [body]" >&2
+    exit 1
+fi
+
+exec notify-send -a "herbstluftwm" -u critical -i dialog-error "$1" "${2:-}"

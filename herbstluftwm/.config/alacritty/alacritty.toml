@@ -44,12 +44,12 @@ style = "Italic"
 
 [[keyboard.bindings]]
 action = "Paste"
-key = "V"
+key = "v"
 mods = "Control|Shift"
 
 [[keyboard.bindings]]
 action = "Copy"
-key = "C"
+key = "c"
 mods = "Control|Shift"
 
 [[keyboard.bindings]]

@@ -207,10 +207,6 @@ xmodmap -e "keycode 20 = minus underscore backslash bar backslash bar"
 STATUS=$(hc_reload_hook)
 if [ "$STATUS" = "reload" ]; then
     # Reload detected — wm survived, autostart re-running
-    # Debug output to stdout
-    echo "herbstluftwm reloaded - autostart is running again"
-    echo "Attribute my_autostart_loaded exists: $(herbstclient get_attr my_autostart_loaded 2>/dev/null || echo 'not found')"
-
     # Send notification via notify-send
-    notify-send -a "herbstluftwm" -u normal -t 2000"herbstluftwm reloaded" "autostart completed"
+    notify-send -a "herbstluftwm" -u normal -t 2000 "herbstluftwm reloaded" "autostart completed"
 fi
