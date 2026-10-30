@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# hc_command — rofi command palette over the hlwm/shell helper scripts.
+#
+# The PREFIXES array below declares which executable name prefixes are
+# listed; every matching executable on PATH shows up in a rofi dmenu
+# styled like the app launcher (launcher.rasi).
+#
+# Selection handling:
+#   Shift-Return (kb-custom-1)  -> hc_launch "<selection>" — runs it in
+#                                  a temporary terminal (see hc_launch)
+#   Return                      -> run silently: detached, output
+#                                  discarded (deliberately NOT via
+#                                  `hc spawn` — that applies window
+#                                  rules and is for graphical apps)
+#   Escape                      -> cancelled, nothing runs
+
+PREFIXES=("rofi_" "hc_" "hlwm")
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+LOG=${POLYFRAMES_LOG:-/tmp/polyframes.log}
+
+# --- enumerate PATH executables with the declared prefixes --------------
+list_commands() {
+    local pat dir base b
+    pat="^($(IFS='|'; echo "${PREFIXES[*]}"))"
+    for dir in ${PATH//:/ }; do
+        [ -d "$dir" ] || continue
+        for base in "$dir"/*; do
+            [ -x "$base" ] || continue
+            b=$(basename "$base")
+            # if (not &&) — a failed [[ ]] must not poison the pipeline
+            # status under pipefail
+            if [[ "$b" =~ $pat ]]; then printf '%s\n' "$b"; fi
+        done
+    done | sort -u
+}
+
+# --- the palette ---------------------------------------------------------
+# pipefail is disabled for THIS pipeline: its meaningful exit is rofi's
+# (0 accept / 10 custom / 1 cancel) — the enumeration side may die with
+# SIGPIPE when rofi stops reading early, and that must not count.
+rc=0
+sel=$(set +o pipefail; list_commands | rofi -dmenu -i -p command \
+        -theme "$HOME/.config/rofi/launcher.rasi" \
+        -kb-accept-alt "" \
+        -kb-custom-1 "Shift+Return") || rc=$?
+
+[ -n "${sel:-}" ] || exit 0
+
+case $rc in
+    10)  # Shift-Return: run in the temporary terminal
+        exec hc_launch "$sel"
+        ;;
+    0)   # Return: run silently, detached, output discarded
+        printf 'hc_command: %s\n' "$sel" >> "$LOG" 2>/dev/null || true
+        setsid bash -c "$sel" </dev/null >/dev/null 2>&1 &
+        ;;
+    *)   # cancelled
+        exit 0
+        ;;
+esac

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# hc_launch — run a command string inside a spawned $TERMINAL.
+#
+# Pattern ported from the screencast plugin's single-shot terminal
+# (development/system screencast_scripts): the command runs under an
+# interactive bash inside the spawned terminal; when it exits, the
+# shell reports the exit status and waits for a SINGLE key press
+# ("press any key to close"), then exits — and the terminal window
+# closes with it. Nothing lingers.
+#
+# Usage: hc_launch "<command string>"
+#   TERMINAL overrides the terminal (default: alacritty).
+#
+# Spawned through `herbstclient spawn` (detached, WM-managed) — NOT
+# through `hc spawn` rules: those are for graphical applications.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+if [ -z "${1:-}" ]; then
+    echo "usage: hc_launch \"<command string>\"" >&2
+    exit 1
+fi
+
+TERMINAL="${TERMINAL:-alacritty}"
+USER_CMD="$*"
+
+# Interactive bash so the user's aliases and functions resolve. The
+# command string is %q-quoted and eval'd; after it exits the shell
+# reports the status and waits for ONE key press, then exits — the
+# terminal closes naturally with its shell.
+QUOTED=$(printf '%q' "$USER_CMD")
+INNER="__rc=0; eval $QUOTED; __rc=\$?; echo; echo \"[exit \$__rc] press any key to close...\"; read -sn1 -r _"
+
+herbstclient spawn "$TERMINAL" -e bash -ic "$INNER"
