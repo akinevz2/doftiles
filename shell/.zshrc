@@ -18,7 +18,9 @@ if [ -d "$HOME/.oh-my-zsh" ]; then
     DISABLE_AUTO_TITLE="true"
     source "$ZSH/oh-my-zsh.sh"
 else
-    # completion without omz
+    # completion without omz; the user-level completion dir (where
+    # herbstutil's npm completion script installs) joins fpath first
+    fpath=("$HOME/.local/share/zsh/site-functions" $fpath)
     autoload -Uz compinit && compinit -d "$HOME/.zcompdump"
 fi
 
