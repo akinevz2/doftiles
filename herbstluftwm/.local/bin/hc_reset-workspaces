@@ -90,6 +90,20 @@ else
     herb rename "$current" "$DEFAULT"
 fi
 
+# --- 5. order: archive first (index 0), default second (index 1) ---------
+# The tag index attribute is writable (set_attr swaps positions); no
+# view/focus dance needed.
+if herb attr "tags.by-name.$ARCHIVE.index" >/dev/null 2>&1; then
+    if [ "$(herb attr "tags.by-name.$ARCHIVE.index")" != "0" ]; then
+        herb set_attr "tags.by-name.$ARCHIVE.index" 0
+    fi
+    if herb attr "tags.by-name.$DEFAULT.name" >/dev/null 2>&1; then
+        if [ "$(herb attr "tags.by-name.$DEFAULT.index")" != "1" ]; then
+            herb set_attr "tags.by-name.$DEFAULT.index" 1
+        fi
+    fi
+fi
+
 remaining=$(herb attr tags.by-name. | herbstutil | jq -r '.children[]' | sed 's/\.$//' | tr '\n' ' ')
 echo "hc_reset-workspaces: removed $removed empty tag(s), merged $merged into $ARCHIVE;" \
     "remaining tags: $remaining"
