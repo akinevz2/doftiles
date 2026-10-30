@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# arch.deploy — resolve a binary name to its Arch Linux package and
+# (with the 'install' argument) print the pacman command for the
+# on.deploy walk. The arch-generic companion of ubuntu.deploy.
+#
+#   arch.deploy <binary>            -> package name
+#   arch.deploy install <binary>    -> "sudo pacman -S <pkg>"
+
+# a) Accept binary name from command line
+BINARY_NAME="$1"
+
+if [ -z "$BINARY_NAME" ]; then
+    echo "$(basename $0): returns package name for a binary"
+    echo "pass 'install' to perform platform-specific installation"
+    echo "Usage: arch.deploy [install] <binary_name>"
+    exit 1
+fi
+
+if [ "$1" == "install" ]; then
+    BINARY_NAME="$2"
+fi
+
+# b) Known WM-stack binaries -> packages (arch [extra] names).
+#    Fuzzy searching is only for anything outside this map.
+case "$BINARY_NAME" in
+    herbstluftwm|herbstclient)  PKG="herbstluftwm" ;;
+    compton)                    PKG="compton" ;;
+    picom)                      PKG="picom" ;;
+    polybar)                    PKG="polybar" ;;
+    rofi)                       PKG="rofi" ;;
+    hsetroot)                   PKG="hsetroot" ;;
+    xset)                       PKG="xorg-xset" ;;
+    dunst)                      PKG="dunst" ;;
+    notify-send)                PKG="libnotify" ;;
+    bun|bunx)                   PKG="bun" ;;
+    curl)                       PKG="curl" ;;
+    wget)                       PKG="wget" ;;
+    npm|node|npx)               PKG="npm" ;;
+    git)                        PKG="git" ;;
+    stow)                       PKG="stow" ;;
+    *)
+        # c) Unknown binary: consult pacman's file database
+        #    (pkgfile equivalent; needs the files db refreshed).
+        pacman -Fy >/dev/null 2>&1 || true
+        PKG=$(pacman -Fql "usr/bin/$BINARY_NAME" 2>/dev/null | head -n1)
+        if [ -z "$PKG" ]; then
+            echo "Error: no Arch package found providing /usr/bin/$BINARY_NAME" >&2
+            exit 1
+        fi
+        ;;
+esac
+
+if [ "$1" == "install" ]; then
+    echo "sudo pacman -S ${PKG}"
+    exit 0
+fi
+
+echo "${PKG}"
