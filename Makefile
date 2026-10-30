@@ -176,7 +176,13 @@ forget:
 # headless), verify required binaries, daemon-reload + enable --now
 # the service stack (units needing X stay enabled-but-failed until X
 # exists), deploy the depends artifact, then report status.
-bootstrap: stow
+# submodules — ensure every dependency subrepo is initialized AND at
+# its remote tip (--remote): the depends deployers build from these
+# checkouts, so they must be fresh before anything stows or builds.
+submodules:
+	git submodule update --init --recursive --remote
+
+bootstrap: submodules stow
 	@echo "bootstrap: ensuring polyframes artifact (palette/launchers/bar exec it directly)"
 	@$(MAKE) --no-print-directory polyframes-ensure || \
 		echo "bootstrap: polyframes deploy FAILED — launchers/bar will degrade; install bun (arch: pacman -S bun) or npm, then run 'make polyframes-ensure'" >&2
