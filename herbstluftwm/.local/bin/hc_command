@@ -102,11 +102,14 @@ while :; do
     # carries no auto-select, but the palette must NEVER fire when a
     # filter happens to leave a single entry; the user confirms
     # explicitly.
+    # The negation char must be a character that can never be typed:
+    # an empty string disables the option but makes rofi log 'Failed
+    # to parse character string: ""' on every start.
     sel=$(set +o pipefail; list_commands | rofi -dmenu -i -p command \
             -theme "$HOME/.config/rofi/command.rasi" \
             -no-auto-select \
             -matching regex \
-            -matching-negate-char "" \
+            -matching-negate-char "$(printf '\001')" \
             ${filter:+-filter "$filter"} \
             -kb-accept-alt "" \
             -kb-accept-custom "" \

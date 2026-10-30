@@ -76,11 +76,12 @@ trap 'hc unlock' EXIT
 
 hc spawn "$TERMINAL" -e bash -ic "$INNER"
 
-# --floating centers the window AFTER it attached and took focus.
-# The focus check is deliberate: centering acts on the focused window,
-# so if the new window never took focus (no-distract races, focus
-# steal), skipping is the only safe move — centering blind would move
-# whatever the user is looking at.
+# --floating centers the window as part of the locked sequence: wait
+# for the attach, then jumpto (focus it explicitly — a freshly spawned
+# client cannot be relied on to hold focus) and center. No polling on
+# focus: the old focus-settle loop burned its whole timeout whenever
+# hlwm left focus on the previous window, delaying the unlock (the
+# first paint) by seconds and skipping the centering.
 if [ "$floating" = 1 ] && [ "$nodistract" = 0 ]; then
     new=""
     for i in $(seq 1 50); do
@@ -92,13 +93,8 @@ if [ "$floating" = 1 ] && [ "$nodistract" = 0 ]; then
         [ -n "$new" ] && break
     done
     if [ -n "$new" ]; then
-        for i in $(seq 1 30); do
-            if [ "$(hc attr clients.focus.winid 2>/dev/null)" = "$new" ]; then
-                "$HOME/.local/bin/hc_center" root || true
-                break
-            fi
-            sleep 0.1
-        done
+        hc jumpto "$new" 2>/dev/null || true
+        "$HOME/.local/bin/hc_center" root || true
     fi
 fi
 
