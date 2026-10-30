@@ -1,2 +1,2 @@
 #xvfb x11vnc herbst novnc compton herbst compton dunst
-herbst compton dunst
+herbst compton dunst hc_send-error-daemon

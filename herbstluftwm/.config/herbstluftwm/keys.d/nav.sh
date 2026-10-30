@@ -15,6 +15,9 @@ keyreg $ModCtrl-c   or \
 # hc_command — the rofi command palette over the helper scripts
 keyreg $Mod-c       spawn ~/.local/bin/hc_command
 
+# hc_dismiss-notifs — sweep the notification stack (errors et al.)
+keyreg $ModCtrl-d   spawn ~/.local/bin/hc_dismiss-notifs
+
 keyreg $Mod-w       chain : lock : or \
                                 , and \
                             ! compare tags.focus.floating_focused = 1 \

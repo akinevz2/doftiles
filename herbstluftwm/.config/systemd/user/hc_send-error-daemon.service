@@ -1,0 +1,15 @@
+# hc_send-error-daemon — surfaces herbstluftwm errors from the unit
+# journal as desktop notifications (see the script header).
+# Independent of X/WM ordering: starts with the user session.
+
+[Unit]
+Description=herbstluftwm error notifier (journal follow -> dunst)
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/env bash %h/.local/bin/hc_send-error-daemon
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

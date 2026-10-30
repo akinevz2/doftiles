@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# hc_dismiss-notifs — close all currently displayed notifications.
+# Bound to modctrl-d: one press sweeps the error stack (dunst stacks
+# duplicates, so a burst of journal errors is one keypress away).
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+exec dunstctl close-all
