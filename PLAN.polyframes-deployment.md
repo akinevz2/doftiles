@@ -1,7 +1,7 @@
 # PLAN — doftiles stow-package restructure + polyframes deployment
 
-Status: PROPOSAL (not implemented). Owner sign-off on the package
-allocation below, then implementation in dependency order.
+Status: IMPLEMENTED (first pass) — the split landed in doftiles
+(`3bc8fe1`); the npm publish path remains an owner decision.
 
 ## Goal
 
