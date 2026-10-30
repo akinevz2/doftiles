@@ -24,6 +24,33 @@ unset WAYLAND_DISPLAY
 
 LOG=${POLYFRAMES_LOG:-/tmp/polyframes.log}
 
+# --- usage ----------------------------------------------------------------
+# Ctrl-Shift-Return in the palette appends --help to the selection —
+# hc_command itself must answer that here instead of opening a second
+# palette inside the spawned terminal.
+usage() {
+    cat <<'EOF'
+hc_command — rofi command palette over the helper scripts.
+Lists every PATH executable starting with: rofi_, hc_, hlwm
+
+Keymap:
+  Return              run the selection silently (detached)
+  Shift-Return        run in a temporary floated terminal (hc_launch)
+  Ctrl-Shift-Return   same, with --help appended to the command
+  Ctrl-Return, Tab    complete the selection into the input
+  Escape              cancel
+EOF
+}
+case "${1:-}" in
+    "") : ;;
+    -h|--help) usage; exit 0 ;;
+    *)
+        echo "hc_command: unexpected argument '$1' — hc_command takes no arguments" >&2
+        usage >&2
+        exit 1
+        ;;
+esac
+
 # --- enumerate PATH executables with the declared prefixes --------------
 # ONE find pass over all PATH dirs (-L: the .local/bin entries are
 # symlinks into the dots repo) — the old per-file basename loop forked
@@ -44,49 +71,64 @@ list_commands() {
 }
 
 # --- the palette ---------------------------------------------------------
-# Keymap (rofi 2.0, per rofi-keys(5)):
+# Keymap (rofi 2.0):
 #   Return              accept entry (or typed text) -> silent run
 #   Shift-Return        kb-custom-1                  -> hc_launch --floating
 #   Ctrl-Shift-Return   kb-custom-2                  -> hc_launch + --help
-#   Ctrl-Return, Tab    kb-mode-complete             -> complete the
-#                       selection into the input WITHOUT submitting
-#                       (append arguments, then Return/Shift-Return)
+#   Tab, Ctrl-Return    kb-custom-3/4                -> COMPLETE: re-open
+#                       the palette with the input pre-filled from the
+#                       highlighted entry, so arguments can be appended
+#                       before the real submit.
+#   (dmenu has NO inline completion: kb-mode-complete is a mode-SWITCH
+#   action that cancels in dmenu — verified empirically. The re-open
+#   with -filter is the completion.)
 # The defaults occupying those keys (kb-accept-custom on Ctrl+Return,
 # kb-accept-custom-alt on Ctrl+Shift+Return, kb-element-next on Tab)
 # are unbound first; arrows still move the selection.
 # pipefail is disabled for THIS pipeline: its meaningful exit is rofi's
-# (0 accept / 10,11 custom / 1 cancel) — the enumeration side may die
+# (0 accept / 10-13 custom / 1 cancel) — the enumeration side may die
 # with SIGPIPE when rofi stops reading early, and that must not count.
-rc=0
-# -no-auto-select: launcher.rasi sets auto-select true (fine for the
-# app launcher) — the palette must NOT fire when a filter happens to
-# leave a single entry; the user confirms with Return/Shift-Return.
-sel=$(set +o pipefail; list_commands | rofi -dmenu -i -p command \
-        -theme "$HOME/.config/rofi/launcher.rasi" \
-        -no-auto-select \
-        -kb-accept-alt "" \
-        -kb-accept-custom "" \
-        -kb-accept-custom-alt "" \
-        -kb-element-next "" \
-        -kb-custom-1 "Shift+Return" \
-        -kb-custom-2 "Control+Shift+Return" \
-        -kb-mode-complete "Control+l,Control+Return,Tab") || rc=$?
+filter=""
+while :; do
+    rc=0
+    # -no-auto-select: launcher.rasi sets auto-select true (fine for
+    # the app launcher) — the palette must NOT fire when a filter
+    # happens to leave a single entry; the user confirms explicitly.
+    sel=$(set +o pipefail; list_commands | rofi -dmenu -i -p command \
+            -theme "$HOME/.config/rofi/launcher.rasi" \
+            -no-auto-select \
+            -matching regex \
+            -matching-negate-char "" \
+            ${filter:+-filter "$filter"} \
+            -kb-accept-alt "" \
+            -kb-accept-custom "" \
+            -kb-accept-custom-alt "" \
+            -kb-element-next "" \
+            -kb-custom-1 "Shift+Return" \
+            -kb-custom-2 "Control+Shift+Return" \
+            -kb-custom-3 "Tab" \
+            -kb-custom-4 "Control+Return") || rc=$?
 
-[ -n "${sel:-}" ] || exit 0
+    [ -n "${sel:-}" ] || exit 0
 
-case $rc in
-    10)  # Shift-Return: run in the temporary terminal — floated, so
-         # the palette's command output never disturbs the layout
-        exec hc_launch --floating "$sel"
-        ;;
-    11)  # Ctrl-Shift-Return: same, with --help appended
-        exec hc_launch --floating "$sel --help"
-        ;;
-    0)   # Return: run silently, detached, output discarded
-        printf 'hc_command: %s\n' "$sel" >> "$LOG" 2>/dev/null || true
-        setsid bash -c "$sel" </dev/null >/dev/null 2>&1 &
-        ;;
-    *)   # cancelled
-        exit 0
-        ;;
-esac
+    case $rc in
+        12|13)  # Tab / Ctrl-Return: complete into the input and re-open
+            filter=$sel
+            ;;
+        10)  # Shift-Return: run in the temporary terminal — floated, so
+             # the palette's command output never disturbs the layout
+            exec hc_launch --floating "$sel"
+            ;;
+        11)  # Ctrl-Shift-Return: same, with --help appended
+            exec hc_launch --floating "$sel --help"
+            ;;
+        0)   # Return: run silently, detached, output discarded
+            printf 'hc_command: %s\n' "$sel" >> "$LOG" 2>/dev/null || true
+            setsid bash -c "$sel" </dev/null >/dev/null 2>&1 &
+            exit 0
+            ;;
+        *)   # cancelled
+            exit 0
+            ;;
+    esac
+done
