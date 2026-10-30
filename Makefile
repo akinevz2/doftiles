@@ -119,6 +119,13 @@ clean:
 	@echo "clean: all packages unstowed; system binaries untouched"
 
 # status — binaries, packages, services, git state.
+# provision — platform provisioning via on-deploy (deploy.profile):
+# xserver packages, the xinitrc session line, the greeter (or the
+# WSL verify-only bypass). See on-deploy's README for the contract.
+# Runs from ~/dots — on-deploy's cwd contract.
+provision:
+	@cd $(CURDIR) && ~/.local/bin/on-deploy provision
+
 status:
 	@echo "== binaries (wm.requires) =="
 	@for bin in $(WM_BINARIES); do \
@@ -262,7 +269,7 @@ push: update
 # packages:
 SYSTEM_PACKAGES := $(shell ls -d system-* 2>/dev/null)
 
-# add-packages — verify required binaries; the on.deploy walk (which
+# add-packages — verify required binaries; the on-deploy walk (which
 # prompts per missing binary) runs only on an interactive terminal.
 add-packages:
 	@if [ -t 0 ]; then ~/.local/bin/on.deploy || true; fi

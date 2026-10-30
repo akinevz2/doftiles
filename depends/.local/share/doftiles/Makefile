@@ -188,4 +188,10 @@ uninstall:
 	esac; \
 	$(MAKE) --no-print-directory conf-set VAR=POLYFRAMES_METHOD VAL=none
 
-.PHONY: conf-get conf-set deploy polyframes-sync deploy-fromsource deploy-fromnpm update uninstall
+# provision — platform provisioning via on-deploy (the ~/dots
+# deploy.profile manifest: xserver | xinitrc | greeter; session model
+# greetd | wsl-systemd). See on-deploy's README for the contract.
+provision:
+	~/.local/bin/on-deploy provision
+
+.PHONY: provision conf-get conf-set deploy polyframes-sync deploy-fromsource deploy-fromnpm update uninstall
