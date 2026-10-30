@@ -79,7 +79,7 @@ herb set frame_bg_normal_color $BACKGROUND_HEX
 herb set frame_bg_active_color '#333333'
 herb attr theme.active.title_height 15
 herb attr theme.active.title_depth 4
-herb attr theme.title_color '#feef69'
+herb attr theme.title_color '#eeeeee'
 herb attr theme.normal.title_color '#eeeeee'
 
 herb attr theme.background_color $BACKGROUND_HEX

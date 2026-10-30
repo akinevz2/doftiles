@@ -79,7 +79,7 @@ has_minimized_clients() {
     return 1
 }
 
-# Register read + first visible (non-minimized) float on the tag,
+# Scan for the first visible (non-minimized) float on the tag,
 # resolved UP FRONT (clients.focus settles late after the switch).
 ff=$(hc attr tags.focus.floating_focused 2>/dev/null || echo false)
 first_float=""

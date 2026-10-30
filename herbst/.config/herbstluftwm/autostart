@@ -212,14 +212,14 @@ keyreg $ModCtrl-b           chain , split bottom 0.5 , focus -i down
 # FOCUS — hjkl stays within visible clients; arrows traverse all
 # frames/layers (levels exchanged: hjkl was all, arrows was visible;
 # directions unchanged on both sets)
-keyreg $Mod-h                   focus --level=all left
-keyreg $Mod-j                   focus --level=all down
-keyreg $Mod-k                   focus --level=all up
-keyreg $Mod-l                   focus --level=all right
-keyreg $Mod-Left                or . focus left . focus --level=all left
-keyreg $Mod-Down                or . focus down . focus --level=all down
-keyreg $Mod-Up                  or . focus up . focus --level=all up
-keyreg $Mod-Right               or . focus right . focus --level=all right
+keyreg $Mod-h                   focus --level=visible left
+keyreg $Mod-j                   focus --level=visible down
+keyreg $Mod-k                   focus --level=visible up
+keyreg $Mod-l                   focus --level=visible right
+keyreg $Mod-Left                or . focus --level=all left . focus --level=all left
+keyreg $Mod-Down                or . focus --level=all down . focus --level=all down
+keyreg $Mod-Up                  or . focus --level=all up . focus --level=all up
+keyreg $Mod-Right               or . focus --level=all right . focus --level=all right
 
 # SHIFT windows — Alt+Ctrl+arrows and Alt+Ctrl+hjkl
 # (hjkl slot freed up by dropping the old focus aliases)
