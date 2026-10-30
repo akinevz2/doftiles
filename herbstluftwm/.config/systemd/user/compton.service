@@ -5,6 +5,9 @@ Requires=basic.target
 BindsTo=herbst.service
 
 [Service]
+# profile override: a provision-written env file wins over the
+# hardcoded DISPLAY (absent file = the WSL default below stands)
+EnvironmentFile=-%h/.config/doftiles/env
 Type=simple
 Environment=DISPLAY=localhost:0.0
 # WSLg exposes a Wayland socket (wayland-0) that dual-backend apps like

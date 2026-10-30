@@ -120,13 +120,6 @@ clean:
 	@echo "clean: all packages unstowed; system binaries untouched"
 
 # status — binaries, packages, services, git state.
-# provision — platform provisioning via on-deploy (deploy.profile):
-# xserver packages, the xinitrc session line, the greeter (or the
-# WSL verify-only bypass). See on-deploy's README for the contract.
-# Runs from ~/dots — on-deploy's cwd contract.
-provision:
-	@cd $(CURDIR) && ~/.local/bin/on-deploy provision
-
 status:
 	@echo "== binaries (wm.requires) =="
 	@for bin in $(WM_BINARIES); do \
@@ -190,13 +183,102 @@ forget:
 submodules:
 	git submodule update --init --recursive --remote
 
-bootstrap: submodules stow
+# profile — the deployment profile selection. Prompted on interactive
+# install (whiptail radiolist, plain menu fallback); overridable with
+# PROFILE=<name>; persisted to ~/.local/state/doftiles/profile so
+# repeat runs and profile switches remember the choice.
+PROFILES := wsl nested xinit greetd
+PROFILE_STATE := $(STATE_DIR)/profile
+
+profile-pick:
+	@if [ -n "$(PROFILE)" ]; then \
+		CHOICE="$(PROFILE)"; echo "profile: $$CHOICE (explicit)"; \
+	elif [ -t 0 ] && [ -t 1 ] && command -v whiptail >/dev/null 2>&1; then \
+		CHOICE=$$(whiptail --title "doftiles — deployment profile" \
+			--radiolist "How does the graphical session start?" \
+			0 70 0 \
+			wsl    "WSL2: hlwm as the systemd user unit; Windows VcXsrv is the X server" ON \
+			nested "Nested: hlwm inside Xvfb :1, browser access via noVNC :6081 (co-installable)" OFF \
+			xinit  "Native: startx ~/.xinitrc execs herbstluftwm, no display manager" OFF \
+			greetd "Greeter: greetd + tuigreet own the console" OFF \
+			3>&1 1>&2 2>&3) && [ -n "$$CHOICE" ] \
+			&& echo "profile: $$CHOICE (picked)" \
+			|| echo "profile: whiptail unavailable — falling back"; \
+		case " $(PROFILES) " in *" $$CHOICE "*) ;; *) CHOICE="";; esac; \
+	fi; \
+	if [ -z "$$CHOICE" ] && [ -t 0 ]; then \
+		echo "profiles: $(PROFILES)"; \
+		read -r -p "profile [wsl]: " CHOICE || true; \
+		CHOICE=$${CHOICE:-wsl}; \
+		echo "profile: $$CHOICE (typed)"; \
+	fi; \
+	if [ -z "$$CHOICE" ]; then \
+		CHOICE=$$(cat $(PROFILE_STATE) 2>/dev/null || true); \
+		case " $(PROFILES) " in *" $$CHOICE "*) ;; *) CHOICE=wsl ;; esac; \
+		echo "profile: $$CHOICE (remembered)"; \
+	fi; \
+	mkdir -p $(STATE_DIR); \
+	echo "$$CHOICE" > $(PROFILE_STATE)
+
+# provision — platform provisioning for the PICKED profile: passes
+# profiles/<name>.profile to on-deploy (cwd contract: runs from ~/dots).
+# Headless shells get --yes (confirm prompts would block forever); the
+# sudo password still requires a real terminal, so run profile installs
+# interactively when packages must be installed.
+provision: profile-pick
+	@prof=$$(cat $(PROFILE_STATE)); \
+	echo "provision: profiles/$$prof.profile"; \
+	if [ -t 0 ]; then \
+		~/.local/bin/on-deploy provision --profile profiles/$$prof.profile; \
+	else \
+		~/.local/bin/on-deploy provision --yes --profile profiles/$$prof.profile; \
+	fi
+
+# profile-snapshot — the bootstrap guard: collect the machine's
+# pre-existing user config into defaults/ BEFORE stow overwrites it
+# (on-deploy snapshot; idempotent — already-dots files are skipped, so
+# repeat installs are no-ops). Never fatal: a snapshot failure must not
+# block deployment.
+profile-snapshot:
+	@~/.local/bin/on-deploy snapshot || \
+		echo "bootstrap: snapshot FAILED (continuing — existing configs may be overwritten; re-run 'on-deploy snapshot')" >&2
+
+# uninstall — maximum undeploy: disable + stop every user unit the
+# repo ships, unstow every package, clear the remembered state.
+# Installed PACKAGES (binaries, artifacts) are deliberately untouched,
+# as are files outside the stow universe.
+UNINSTALL_UNITS := herbst herbst-nested xvfb xvfb-nested x11vnc x11vnc-nested novnc novnc-nested compton dunst hc_send-error-daemon
+
+uninstall:
+	@echo "uninstall: disabling user units: $(UNINSTALL_UNITS)"; \
+	for u in $(UNINSTALL_UNITS); do \
+		systemctl --user disable --now "$$u.service" 2>/dev/null || true; \
+	done; \
+	systemctl --user daemon-reload 2>/dev/null || true; \
+	echo "uninstall: unstowing every package"; \
+	for pkg in $(STOW_PKGS); do \
+		$(STOW) -D -t $$HOME "$$pkg" 2>/dev/null && echo "  unstowed $$pkg" || true; \
+	done; \
+	rm -f $(STATE_FILE) $(PROFILE_STATE); \
+	echo "uninstall: dots fully undeployed (binaries/packages untouched; restore with 'make install')"
+
+# restore-defaults — put a snapshotted machine's original config back:
+# stow the defaults package (its links replace the dots links 1:1).
+restore-defaults:
+	@if [ ! -d defaults ]; then \
+		echo "restore-defaults: no defaults/ package (run 'on-deploy snapshot' on the machine first)"; \
+		exit 1; \
+	fi; \
+	$(STOW) -R -t $$HOME defaults && echo "restore-defaults: defaults stowed (the machine's pre-dots config is back)"
+
+bootstrap: submodules stow profile-snapshot
 	@echo "bootstrap: ensuring polyframes artifact (palette/launchers/bar exec it directly)"
 	@$(MAKE) --no-print-directory polyframes-ensure || \
 		echo "bootstrap: polyframes deploy FAILED — launchers/bar will degrade; install bun (arch: pacman -S bun) or npm, then run 'make polyframes-ensure'" >&2
 	@echo "bootstrap: verifying required binaries (continues on missing ones)"
 	@$(MAKE) --no-print-directory add-packages || \
 		echo "bootstrap: missing packages listed below — install them and re-run when ready" >&2
+	@$(MAKE) --no-print-directory provision
 	@$(MAKE) --no-print-directory reload-systemd
 	@$(MAKE) --no-print-directory status
 	@echo "bootstrap: complete — units enabled; the WM stack comes up when X is available"

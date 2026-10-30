@@ -1,0 +1,13 @@
+[Unit]
+Description=x11vnc on the nested display :1
+After=xvfb-nested.service
+Requires=xvfb-nested.service
+[Service]
+Type=simple
+Environment=DISPLAY=:1
+Environment=XDG_SESSION_TYPE=x11
+UnsetEnvironment=WAYLAND_DISPLAY
+ExecStart=/usr/bin/x11vnc -display :1 -nopw -forever -shared -listen localhost -rfbport 5901 -noshm
+Restart=on-failure
+[Install]
+WantedBy=default.target

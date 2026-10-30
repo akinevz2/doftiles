@@ -1,0 +1,21 @@
+# herbst-nested.service — herbstluftwm on the NESTED display (:1), the
+# Xvfb framebuffer. Co-installable with herbst.service (the WSL
+# profile's :0 unit): both can be enabled; each owns its own display.
+#
+# The unit starts AFTER Xvfb is up; a bounded settle wait keeps a slow
+# Xvfb from failing the start job (the same pattern as herbst.service).
+[Unit]
+Description=herbstluftwm on the nested Xvfb display (:1)
+After=xvfb-nested.service
+Requires=xvfb-nested.service
+[Service]
+Type=simple
+Environment=DISPLAY=:1
+Environment=XDG_SESSION_TYPE=x11
+UnsetEnvironment=WAYLAND_DISPLAY
+ExecStartPre=/bin/bash -c 'i=0; until xdpyinfo -display :1 >/dev/null 2>&1; do i=$$((i+1)); if [ "$$i" -ge 30 ]; then echo "herbst-nested: display :1 not reachable after 30s" >&2; exit 1; fi; sleep 1; done'
+ExecStart=/usr/bin/herbstluftwm
+Restart=on-failure
+RestartSec=3
+[Install]
+WantedBy=default.target

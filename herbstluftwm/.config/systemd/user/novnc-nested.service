@@ -1,0 +1,12 @@
+[Unit]
+Description=noVNC proxy for the nested display (browser -> :6081 -> VNC :5901)
+After=x11vnc-nested.service
+Requires=x11vnc-nested.service
+[Service]
+Type=simple
+Environment=XDG_SESSION_TYPE=x11
+UnsetEnvironment=WAYLAND_DISPLAY
+ExecStart=/usr/share/novnc/utils/novnc_proxy --vnc localhost:5901 --listen localhost:6081
+Restart=on-failure
+[Install]
+WantedBy=default.target
