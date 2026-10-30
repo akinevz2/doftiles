@@ -105,6 +105,12 @@ annotation), `service.order` (unit start order).
   a whiptail checklist (preselecting currently-stowed packages; plain
   numbered menu when whiptail is missing). Fine-grained and
   non-interactive: `make deploy P="shell herbst_theme"`.
+- bare `make` — restows the REMEMBERED subset: every stow action
+  records itself in `~/.local/state/doftiles/stowed` (machine-local
+  XDG state, deliberately not in the repo — the stowed set differs per
+  machine). Stale entries are skipped with a note; `make forget
+  P="pkg ..."` drops entries (without unstowing).
+- `make all` — stow + hook every package (and remember them all).
 - `make bootstrap` — full deployment in ONE call, safe on a systemd
   target with no running WM: stow everything (hooks no-op headless),
   verify `wm.requires` binaries, daemon-reload + `enable --now` per

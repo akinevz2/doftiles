@@ -30,23 +30,66 @@ PHONY_LIST := $(sort $(ALL_TARGETS))
 
 .PHONY: $(PHONY_LIST) $(STOW_PKGS) system install sync update push
 
+# --- remembered deployment state -----------------------------------------
+# Bare `make` restows exactly the subset recorded in the state file
+# (one package per line); every stow action records itself. The state
+# is machine-local (XDG state dir) and deliberately NOT in the repo —
+# the stowed set differs per machine (WSL host vs devcontainer).
+STATE_DIR := $(HOME)/.local/state/doftiles
+STATE_FILE := $(STATE_DIR)/stowed
+
+.DEFAULT_GOAL := restow
+
 # --- selective deployment ------------------------------------------------
-# Any package target stows it and runs its post-stow hook (see
-# scripts/deploy-menu.sh — hooks needing a running WM/X are guarded and
-# no-op with a note on headless targets).
+# Any package target stows it, records it as remembered, and runs its
+# post-stow hook (see scripts/deploy-menu.sh — hooks needing a running
+# WM/X are guarded and no-op with a note on headless targets).
 $(STOW_PKGS):
 	$(STOW) -R -t $$HOME $@
+	@mkdir -p $(STATE_DIR); \
+	if ! grep -qxF "$@" $(STATE_FILE) 2>/dev/null; then \
+		echo "$@" >> $(STATE_FILE); \
+	fi
 	@$(SCRIPT) --hook $@
 
 # deploy — selective deployment, TUI-driven when interactive:
 #   make deploy               whiptail checklist (plain menu fallback)
 #   make deploy P="a b"       fine-grained, no TUI, works non-interactive
-# Each selection is stowed and hooked.
+# Each selection is stowed, remembered, and hooked.
 deploy:
 	@for pkg in $$($(SCRIPT) "$(P)"); do \
-		echo "deploy: stowing $$pkg"; \
-		$(STOW) -R -t $$HOME "$$pkg"; \
-		$(SCRIPT) --hook "$$pkg"; \
+		$(MAKE) --no-print-directory $$pkg; \
+	done
+
+# all — stow + hook every package (and remember them all)
+all: $(STOW_PKGS)
+
+# restow — the remembered subset (the default goal of bare `make`)
+restow:
+	@if [ -s $(STATE_FILE) ]; then \
+		for pkg in $$(sort -u $(STATE_FILE)); do \
+			case " $(STOW_PKGS) " in \
+				*" $$pkg "*) $(MAKE) --no-print-directory $$pkg ;; \
+				*) echo "restow: skipping stale entry '$$pkg'" ;; \
+			esac; \
+		done; \
+	else \
+		echo "restow: nothing remembered yet — 'make all' deploys everything,"; \
+		echo "restow: or pick packages with 'make deploy' / 'make deploy P=\"...\"'"; \
+	fi
+
+# forget — drop P="pkg ..." from the remembered set (does not unstow)
+forget:
+	@if [ -z "$(P)" ]; then \
+		echo "forget: usage: make forget P=\"pkg ...\"" >&2; \
+		exit 1; \
+	fi; \
+	for pkg in $(P); do \
+		if [ -f $(STATE_FILE) ] && grep -qxF "$$pkg" $(STATE_FILE); then \
+			grep -vxF "$$pkg" $(STATE_FILE) > $(STATE_FILE).tmp || true; \
+			mv $(STATE_FILE).tmp $(STATE_FILE); \
+			echo "forget: $$pkg"; \
+		fi; \
 	done
 
 # bootstrap — full deployment in ONE call, safe on a systemd target
