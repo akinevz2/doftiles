@@ -66,7 +66,7 @@ herb attr theme.inner_color $BACKGROUND_HEX
 herb attr theme.outer_color $BACKGROUND_HEX
 # herb attr theme.outer_color $BACKGROUND_HEX
 herb attr theme.active.color '#333333'
-herb attr theme.active.outer_color '#eeeeee'
+herb attr theme.active.outer_color '#feef69'
 herb attr theme.active.inner_color '#333333'
 # herb attr theme.active.inner_color $BACKGROUND_HEX
 herb attr theme.normal.color '#333333'
@@ -74,7 +74,7 @@ herb attr theme.normal.outer_color $BACKGROUND_HEX
 herb attr theme.normal.inner_color '#333333'
 
 herb set frame_border_normal_color $BACKGROUND_HEX
-herb set frame_border_active_color '#feef69'
+herb set frame_border_active_color '#eeeeee'
 herb set frame_bg_normal_color $BACKGROUND_HEX
 herb set frame_bg_active_color '#333333'
 herb attr theme.active.title_height 15
