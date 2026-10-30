@@ -55,7 +55,7 @@ APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
 
 # terminal
 keyreg $Mod-Return          spawn $TERMINAL
-keyreg $ModShift-Return     chain . lock . split auto . cycle_frame . spawn $APPLAUNCHER . unlock
+keyreg $ModShift-Return     spawn ~/.local/bin/hc_split-launch $APPLAUNCHER
 
 keyreg $ModCtrl-Return      spawn $APPLAUNCHER
 # shift-t opens a second frame only when the focused one already holds

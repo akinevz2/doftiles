@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# hc_split-launch — ModShift-Return: run the app launcher, then give
+# the launched application its own frame.
+#
+#   hc_split-launch <launcher command...>
+#
+# The launcher runs synchronously (rofi blocks while open); after it
+# exits, the wrapper waits for the launched application's window to
+# attach to the tag that was focused when it was invoked, then:
+#   - the application is focused (jumpto — a fresh client cannot be
+#     relied on to hold focus);
+#   - IF its frame now holds more than one window, the frame is split
+#     along its longest side and the application is shifted into the
+#     new half — reproducing the old split-first end state (app alone
+#     in a fresh frame) without the old binding's flaws: cancelling
+#     the launcher no longer leaves an orphan empty frame, and a
+#     window that lands alone never triggers a split.
+#
+# Split direction: width >= height -> right half empty (split right,
+# shift right); otherwise bottom (split bottom, shift bottom) — the
+# same choice hlwm's `split auto` makes by geometry.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+herb() {
+    herbstclient "$@"
+}
+
+usage() {
+    cat <<'EOF'
+hc_split-launch — run an app launcher, then split the focused frame
+for the launched application (only after it attaches, and only when
+its frame holds more than one window).
+
+Usage: hc_split-launch <launcher command...>
+EOF
+}
+
+[ $# -gt 0 ] || { usage >&2; exit 1; }
+case "${1:-}" in
+    -h|--help) usage; exit 0 ;;
+esac
+
+tag=$(herb attr tags.focus.name)
+before=$(herb list_clients --tag="$tag" 2>/dev/null | sort | tr '\n' ' ')
+
+# The launcher blocks while its rofi is open; the application launches
+# from inside it.
+"$@"
+
+# Wait for the new window (up to ~15 s — the user may browse rofi).
+new=""
+for i in $(seq 1 150); do
+    after=$(herb list_clients --tag="$tag" 2>/dev/null | sort | tr '\n' ' ')
+    for w in $after; do
+        case " $before " in *" $w "*) ;; *) new=$w; break ;; esac
+    done
+    [ -n "$new" ] && break
+    sleep 0.1
+done
+[ -n "$new" ] || exit 0        # nothing launched (cancel) -> no split
+
+herb lock
+trap 'herb unlock' EXIT
+
+# Focus the application so "current frame" is ITS frame.
+herb jumpto "$new"
+sleep 0.2                      # let hlwm settle the attach
+
+wcount=$(herb attr tags.focus.curframe_wcount 2>/dev/null || echo 0)
+if [ "$wcount" -gt 1 ]; then
+    geo=$(herb attr tags.focus.tiling.focused_frame.content_geometry \
+        2>/dev/null || echo "0x0+0+0")
+    w=${geo%%x*}
+    h=$(echo "$geo" | cut -dx -f2 | cut -d+ -f1)
+    if [ "$w" -ge "$h" ]; then
+        herb chain . split right . shift right
+    else
+        herb chain . split bottom . shift bottom
+    fi
+fi
+
+herb unlock
+trap - EXIT

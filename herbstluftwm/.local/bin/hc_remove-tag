@@ -38,13 +38,20 @@ Usage:
   hc_remove-tag              current -> default
   hc_remove-tag <dst>        current -> <dst>   (dst replaces default)
   hc_remove-tag <src> <dst>  <src>   -> <dst>
+  hc_remove-tag -N           current -> the tag at index N-1 (-1 =
+                             the first tag), instead of default
+  hc_remove-tag <src> -N     <src>   -> the tag at index N-1
 
 Options:
+  -N          merge into the tag at INDEX N-1 (1-based tag number,
+              matching the Mod+N workspaces keybinds) instead of
+              "default"; the tag must exist
   -h, --help  show this help and exit
 
 Tag-level operation — no window targeting. "default" is created as the
-LAST tag when missing (no-arg and one-arg forms); errors surface as
-desktop notifications (hc_send-error).
+LAST tag when missing (single-destination forms); the two-argument form
+never invents tags. Errors surface as desktop notifications
+(hc_send-error).
 EOF
         exit 0
         ;;
@@ -55,19 +62,68 @@ DEFAULT_TAG=default
 
 src=""
 dst=""
-case $# in
+index_dst=""
+posargs=()
+while [ $# -gt 0 ]; do
+    case $1 in
+        -h|--help) usage; exit 0 ;;
+        -[0-9]*)
+            if [ -n "$index_dst" ]; then
+                "$SEND_ERROR" "hc_remove-tag" "repeated -N index option"
+                exit 1
+            fi
+            index_dst=$(( ${1#-} - 1 )) ;;
+        -*)
+            "$SEND_ERROR" "hc_remove-tag" "unknown option '$1'"
+            exit 1 ;;
+        *) posargs+=("$1") ;;
+    esac
+    shift
+done
+
+case ${#posargs[@]} in
     0) dst=$DEFAULT_TAG ;;                      # src = current tag
-    1) dst=$1 ;;                                # src = current tag
-    2) src=$1 dst=$2 ;;
-    *) "$SEND_ERROR" "hc_remove-tag" "usage: hc_remove-tag [src] [dst]"
+    1)
+        # one positional: the destination — unless -N already claims
+        # it, then the positional is the SOURCE
+        if [ -n "$index_dst" ]; then
+            src="${posargs[0]}"
+        else
+            dst="${posargs[0]}"
+        fi ;;
+    2)
+        if [ -n "$index_dst" ]; then
+            "$SEND_ERROR" "hc_remove-tag" \
+                "specify either <dst> or -N, not both"
+            exit 1
+        fi
+        src="${posargs[0]}" dst="${posargs[1]}" ;;
+    *) "$SEND_ERROR" "hc_remove-tag" "usage: hc_remove-tag [src] [dst|-N]"
        exit 1 ;;
 esac
+
+# -N: the destination is the tag at the given INDEX (1-based number).
+# It must exist — no tag is ever invented for an index destination.
+if [ -n "$index_dst" ]; then
+    if [ "$index_dst" -lt 0 ]; then
+        "$SEND_ERROR" "hc_remove-tag" "invalid tag number (use -1 .. -$(( $(herb attr tags.count 2>/dev/null || echo 0) )))"
+        exit 1
+    fi
+    cnt=$(herb attr tags.count 2>/dev/null || echo 0)
+    if [ "$index_dst" -ge "$cnt" ]; then
+        "$SEND_ERROR" "hc_remove-tag" \
+            "no tag at number $(( index_dst + 1 )) ($cnt tag(s) exist)"
+        exit 1
+    fi
+    dst=$(herb attr "tags.$index_dst.name")
+fi
 
 current=$(herb attr tags.focus.name)
 [ -n "$src" ] || src=$current
 
 # --- validation ----------------------------------------------------------
-if [ $# -eq 0 ] && [ "$current" = "$DEFAULT_TAG" ]; then
+if [ -z "${posargs[0]:-}" ] && [ "$current" = "$DEFAULT_TAG" ] \
+    && [ -z "$index_dst" ]; then
     "$SEND_ERROR" "hc_remove-tag" \
         "cannot remove '$DEFAULT_TAG': it is the current tag"
     exit 1
@@ -84,7 +140,7 @@ if ! herb attr "tags.by-name.$src.name" >/dev/null 2>&1; then
 fi
 
 if ! herb attr "tags.by-name.$dst.name" >/dev/null 2>&1; then
-    if [ $# -lt 2 ]; then
+    if [ -z "${posargs[0]:-}" ]; then
         herb add "$dst"                        # appended as the last tag
     else
         "$SEND_ERROR" "hc_remove-tag" "destination tag '$dst' not found"
