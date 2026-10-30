@@ -1,5 +1,15 @@
-# herbst_focus — the focus/peek keybinds (mod-s grid, frame
-# cycling). Sourced by the herbst_wm autostart's keys.d loop.
+# herbst_focus — the focus/peek keybinds (mod-s grid, frame cycling).
+# Sourced by the herbstluftwm autostart's keys.d
+# loop; stow-merged from this package.
+
+# ModShift-r: rotate the tree (>3 frames) or cycle frames forward; on
+# a single frame it cycles windows in the opposite direction of
+# ModShift-w.
+keyreg $ModCtrl-r          or , and . compare tags.focus.frame_count lt 3 . chain ! lock ! rotate ! unlock \
+                              , and . compare tags.focus.frame_count gt 1 . cycle_frame \
+                              , cycle +1
+
+keyreg $Mod-e               or . and , compare tags.focus.frame_count gt 1 , cycle_frame -1 . chain ! split explode ! cycle_frame
 
 # cycle; was $Mod-s / $ModShift-s
 # zoom/peek grid — focuses the frame below first; when there is none,
@@ -15,11 +25,3 @@ keyreg $Mod-s               chain : lock \
                                               ! attr clients.focus.pseudotile off \
                                         , pseudotile toggle \
                                   : unlock
-                                            
-                                            
-                                            
-
-# was $ModAlt-Tab → now Alt+Shift+`
-
-keyreg $ModCtrl-r          or , and . compare tags.focus.frame_count lt 3 . chain ! lock ! rotate ! unlock \
-                              , and . compare tags.focus.frame_count gt 1 . cycle_frame \
