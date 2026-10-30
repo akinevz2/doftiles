@@ -4,3 +4,6 @@
 [submodule "herbst_bar/.local/share/polyframes"]
 	path = depends/.local/share/polyframes
 	url = https://github.com/akinevz2/polyframes
+[submodule "depends/.local/share/herbstutil"]
+	path = depends/.local/share/herbstutil
+	url = https://github.com/akinevz2/herbstutil
