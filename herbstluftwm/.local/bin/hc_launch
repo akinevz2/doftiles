@@ -13,9 +13,12 @@
 #
 # The switches install a `rule once` before the spawn, so the window
 # rules apply to exactly this terminal:
-#   --floating     the terminal window floats
+#   --floating     the terminal window floats AND is centered in the
+#                  monitor once it attached and took focus (suppressed
+#                  by --no-distract)
 #   --urgent       the terminal raises the urgent hint (tag marker)
-#   --no-distract  the terminal does NOT take focus on attach
+#   --no-distract  the terminal does NOT take focus on attach and
+#                  keeps its DEFAULT position (no centering)
 # Several switches combine into one rule.
 #
 # Spawned through `herbstclient spawn` (detached, WM-managed) — NOT
@@ -27,12 +30,16 @@ DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 unset WAYLAND_DISPLAY
 
+hc() { herbstclient "$@"; }
+
 rule=()
+floating=0
+nodistract=0
 while [ "${1:-}" = "--floating" ] || [ "${1:-}" = "--urgent" ] || [ "${1:-}" = "--no-distract" ]; do
     case $1 in
-        --floating)   rule+=(floating=on) ;;
-        --urgent)     rule+=(urgent=on) ;;
-        --no-distract) rule+=(focus=off) ;;
+        --floating)    rule+=(floating=on); floating=1 ;;
+        --urgent)      rule+=(urgent=on) ;;
+        --no-distract) rule+=(focus=off); nodistract=1 ;;
     esac
     shift
 done
@@ -52,6 +59,34 @@ USER_CMD="$*"
 QUOTED=$(printf '%q' "$USER_CMD")
 INNER="__rc=0; eval $QUOTED; __rc=\$?; echo; echo \"[exit \$__rc] press any key to close...\"; read -sn1 -r _"
 
-[ ${#rule[@]} -gt 0 ] && herbstclient rule once "${rule[@]}" 2>/dev/null || true
+[ ${#rule[@]} -gt 0 ] && hc rule once "${rule[@]}" 2>/dev/null || true
 
-herbstclient spawn "$TERMINAL" -e bash -ic "$INNER"
+hc spawn "$TERMINAL" -e bash -ic "$INNER"
+
+# --floating centers the window AFTER it attached and took focus.
+# The focus check is deliberate: centering acts on the focused window,
+# so if the new window never took focus (no-distract races, focus
+# steal), skipping is the only safe move — centering blind would move
+# whatever the user is looking at.
+if [ "$floating" = 1 ] && [ "$nodistract" = 0 ]; then
+    (
+        before=$(hc list_clients 2>/dev/null | sort | tr '\n' ' ')
+        new=""
+        for i in $(seq 1 50); do
+            sleep 0.1
+            after=$(hc list_clients 2>/dev/null | sort | tr '\n' ' ')
+            for w in $after; do
+                case " $before " in *" $w "*) ;; *) new=$w; break ;; esac
+            done
+            [ -n "$new" ] && break
+        done
+        [ -n "$new" ] || exit 0
+        for i in $(seq 1 30); do
+            if [ "$(hc attr clients.focus.winid 2>/dev/null)" = "$new" ]; then
+                "$HOME/.local/bin/hc_center" root || true
+                exit 0
+            fi
+            sleep 0.1
+        done
+    ) >/dev/null 2>&1 &
+fi
