@@ -69,7 +69,6 @@ trap 'herb unlock' EXIT
 
 # Focus the application so "current frame" is ITS frame.
 herb jumpto "$new"
-sleep 0.2                      # let hlwm settle the attach
 
 wcount=$(herb attr tags.focus.curframe_wcount 2>/dev/null || echo 0)
 if [ "$wcount" -gt 1 ]; then
@@ -80,7 +79,7 @@ if [ "$wcount" -gt 1 ]; then
     if [ "$w" -ge "$h" ]; then
         herb chain . split right . shift right
     else
-        herb chain . split bottom . shift bottom
+        herb chain . split bottom . shift down
     fi
 fi
 

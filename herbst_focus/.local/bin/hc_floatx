@@ -22,9 +22,13 @@
 #                                     max layout, or use_previous).
 #
 #   floating_focused TRUE (a float holds the layer focus):
-#     populated focused frame  -> DEFER: hand focus to the tiling
-#                                 layer (floating_focused off); the
-#                                 next press re-runs 1–2 above.
+#     populated focused frame, ONE frame on the tag -> the revised
+#                                 sequence: use_previous, hc_tile,
+#                                 un-float the focused client there.
+#     populated focused frame, MULTIPLE frames -> DEFER: hand focus
+#                                 to the tiling layer (floating_focused
+#                                 off); the next press re-runs 1–2
+#                                 above.
 #     empty focused frame      -> UN-FLOAT the focused float into the
 #                                 empty frame.
 #
@@ -141,12 +145,25 @@ unfloat_into_frame_below() {  # $1 = float wid
 
 if [ "$ff" = "true" ]; then
     # Called on a FLOATING window (float session):
-    #   populated focused frame -> DEFER (reintroduced): hand focus to
-    #     the tiling layer; the next press re-runs the
+    #   populated focused frame, ONE frame on the tag -> the revised
+    #     sequence: use_previous (back to the previously viewed tag),
+    #     hc_tile (the tile register on whatever holds focus there),
+    #     then un-float the focused client if it is floating.
+    #   populated focused frame, MULTIPLE frames -> DEFER: hand focus
+    #     to the tiling layer; the next press re-runs the
     #     focus-and-un-float branch.
     #   empty focused frame -> un-float the float into it directly.
     if [ "$frame_cc" != "0" ]; then
-        hc attr tags.focus.floating_focused off 2>/dev/null || true
+        if [ "$frame_count" = "1" ]; then
+            herb use_previous
+            "$HOME/.local/bin/hc_tile" 2>/dev/null || true
+            wfocus=$(hc attr clients.focus.winid 2>/dev/null || true)
+            if [ -n "$wfocus" ]; then
+                hc attr "clients.$wfocus.floating" false 2>/dev/null || true
+            fi
+        else
+            hc attr tags.focus.floating_focused off 2>/dev/null || true
+        fi
         exit 0
     fi
     wfocus=$(hc attr clients.focus.winid 2>/dev/null || true)
