@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 
 unset WAYLAND_DISPLAY
 source ${HOME}/.exports
