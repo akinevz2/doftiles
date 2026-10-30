@@ -44,9 +44,19 @@ list_commands() {
 }
 
 # --- the palette ---------------------------------------------------------
+# Keymap (rofi 2.0, per rofi-keys(5)):
+#   Return              accept entry (or typed text) -> silent run
+#   Shift-Return        kb-custom-1                  -> hc_launch --floating
+#   Ctrl-Shift-Return   kb-custom-2                  -> hc_launch + --help
+#   Ctrl-Return, Tab    kb-mode-complete             -> complete the
+#                       selection into the input WITHOUT submitting
+#                       (append arguments, then Return/Shift-Return)
+# The defaults occupying those keys (kb-accept-custom on Ctrl+Return,
+# kb-accept-custom-alt on Ctrl+Shift+Return, kb-element-next on Tab)
+# are unbound first; arrows still move the selection.
 # pipefail is disabled for THIS pipeline: its meaningful exit is rofi's
-# (0 accept / 10 custom / 1 cancel) — the enumeration side may die with
-# SIGPIPE when rofi stops reading early, and that must not count.
+# (0 accept / 10,11 custom / 1 cancel) — the enumeration side may die
+# with SIGPIPE when rofi stops reading early, and that must not count.
 rc=0
 # -no-auto-select: launcher.rasi sets auto-select true (fine for the
 # app launcher) — the palette must NOT fire when a filter happens to
@@ -55,7 +65,12 @@ sel=$(set +o pipefail; list_commands | rofi -dmenu -i -p command \
         -theme "$HOME/.config/rofi/launcher.rasi" \
         -no-auto-select \
         -kb-accept-alt "" \
-        -kb-custom-1 "Shift+Return") || rc=$?
+        -kb-accept-custom "" \
+        -kb-accept-custom-alt "" \
+        -kb-element-next "" \
+        -kb-custom-1 "Shift+Return" \
+        -kb-custom-2 "Control+Shift+Return" \
+        -kb-mode-complete "Control+l,Control+Return,Tab") || rc=$?
 
 [ -n "${sel:-}" ] || exit 0
 
@@ -63,6 +78,9 @@ case $rc in
     10)  # Shift-Return: run in the temporary terminal — floated, so
          # the palette's command output never disturbs the layout
         exec hc_launch --floating "$sel"
+        ;;
+    11)  # Ctrl-Shift-Return: same, with --help appended
+        exec hc_launch --floating "$sel --help"
         ;;
     0)   # Return: run silently, detached, output discarded
         printf 'hc_command: %s\n' "$sel" >> "$LOG" 2>/dev/null || true

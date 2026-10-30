@@ -23,6 +23,12 @@
 #
 # Spawned through `herbstclient spawn` (detached, WM-managed) — NOT
 # through `hc spawn` rules machinery: that is for graphical apps.
+#
+# The spawn + centering sequence runs under a hlwm lock: the window
+# then appears at its final (centered) position in ONE repaint instead
+# of attaching at the default float position and jumping. The EXIT
+# trap guarantees the unlock on every path — a leaked lock freezes
+# the WM (the reload_theme lesson).
 
 set -euo pipefail
 
@@ -61,6 +67,13 @@ INNER="__rc=0; eval $QUOTED; __rc=\$?; echo; echo \"[exit \$__rc] press any key 
 
 [ ${#rule[@]} -gt 0 ] && hc rule once "${rule[@]}" 2>/dev/null || true
 
+# The `before` snapshot MUST precede the spawn — the window can attach
+# within the first poll tick.
+before=$(hc list_clients 2>/dev/null | sort | tr '\n' ' ')
+
+hc lock
+trap 'hc unlock' EXIT
+
 hc spawn "$TERMINAL" -e bash -ic "$INNER"
 
 # --floating centers the window AFTER it attached and took focus.
@@ -69,24 +82,25 @@ hc spawn "$TERMINAL" -e bash -ic "$INNER"
 # steal), skipping is the only safe move — centering blind would move
 # whatever the user is looking at.
 if [ "$floating" = 1 ] && [ "$nodistract" = 0 ]; then
-    (
-        before=$(hc list_clients 2>/dev/null | sort | tr '\n' ' ')
-        new=""
-        for i in $(seq 1 50); do
-            sleep 0.1
-            after=$(hc list_clients 2>/dev/null | sort | tr '\n' ' ')
-            for w in $after; do
-                case " $before " in *" $w "*) ;; *) new=$w; break ;; esac
-            done
-            [ -n "$new" ] && break
+    new=""
+    for i in $(seq 1 50); do
+        sleep 0.1
+        after=$(hc list_clients 2>/dev/null | sort | tr '\n' ' ')
+        for w in $after; do
+            case " $before " in *" $w "*) ;; *) new=$w; break ;; esac
         done
-        [ -n "$new" ] || exit 0
+        [ -n "$new" ] && break
+    done
+    if [ -n "$new" ]; then
         for i in $(seq 1 30); do
             if [ "$(hc attr clients.focus.winid 2>/dev/null)" = "$new" ]; then
                 "$HOME/.local/bin/hc_center" root || true
-                exit 0
+                break
             fi
             sleep 0.1
         done
-    ) >/dev/null 2>&1 &
+    fi
 fi
+
+hc unlock
+trap - EXIT
