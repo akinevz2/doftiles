@@ -1,0 +1,8 @@
+#!/bin/sh
+# hc_hidden — SHIM. The minimized-windows picker moved into the
+# polyframes project (~/development/personal/polyframes, compiled
+# Bun/bunli binary managed there); this shim keeps the palette uniform:
+# hc_command lists every hc_* executable on PATH.
+#
+# Usage: hc_hidden [args...]   (args pass through to polyframes hidden)
+exec "$HOME/.local/bin/polyframes" hidden "$@"
