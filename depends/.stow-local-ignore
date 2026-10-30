@@ -1,4 +1,0 @@
-# Per-package stow ignore: the Makefile is repo-side deployment
-# tooling (run as `make -C ~/dots/depends ...`), NOT a dotfile —
-# stowing it would collide with shell's ~/Makefile.
-Makefile

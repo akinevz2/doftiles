@@ -1,20 +1,29 @@
-# depends — deployment and dependency management for doftiles.
+# doftiles deployment Makefile — the repo-side copy lives at
+# <repo>/depends/.local/share/doftiles and is stowed to
+# ~/.local/share/doftiles (the same files through the stow link).
+# Every path anchors to the REAL location of this file, so the recipes
+# work identically from either side.
 #
 # Owns the deployable dependencies (currently polyframes) and the safe
 # repo update flow. The install method of each deployable is tracked
-# in ~/.config/doftiles.conf (stowed from this package) so `update`
-# and `uninstall` know how the artifact was deployed.
+# in ~/.config/doftiles.conf so `update` and `uninstall` know how the
+# artifact was deployed.
 #
 # polyframes deployment invariant (either recipe ends here):
 #   ~/.local/bin/polyframes exists and [module/polyframes] execs it.
 
 SHELL := /bin/bash
 
-POLYFRAMES_SUBMODULE := .local/share/polyframes
-POLYFRAMES_REPO      ?= https://github.com/akinevz2/polyframes
-POLYFRAMES_NPM       ?= github:akinevz2/polyframes
-POLYFRAMES_BIN       ?= $(HOME)/.local/bin/polyframes
-CONF                 := $(HOME)/.config/doftiles.conf
+SELF   := $(lastword $(MAKEFILE_LIST))
+ROOT   := $(patsubst %/,%,$(dir $(realpath $(SELF))))
+DOTS   := $(abspath $(ROOT)/../../../..)
+SUBMOD := $(DOTS)/depends/.local/share/polyframes
+SUBREL := depends/.local/share/polyframes
+
+POLYFRAMES_REPO ?= https://github.com/akinevz2/polyframes
+POLYFRAMES_NPM  ?= github:akinevz2/polyframes
+POLYFRAMES_BIN  ?= $(HOME)/.local/bin/polyframes
+CONF            := $(HOME)/.config/doftiles.conf
 
 # --- conf helpers -------------------------------------------------------
 # The conf is a flat KEY=VALUE file (sh-sourceable). It lives in the
@@ -41,13 +50,13 @@ conf-set:
 # records — `git status` shows the submodule as modified; commit the
 # bump when you want the new pin.
 polyframes-sync:
-	git submodule update --init -- $(POLYFRAMES_SUBMODULE)
-	git -C $(POLYFRAMES_SUBMODULE) checkout -q -B main origin/main
-	git -C $(POLYFRAMES_SUBMODULE) pull --ff-only
+	git -C $(DOTS) submodule update --init -- $(SUBREL)
+	git -C $(SUBMOD) checkout -q -B main origin/main
+	git -C $(SUBMOD) pull --ff-only
 
 deploy-fromsource: polyframes-sync
-	cd $(POLYFRAMES_SUBMODULE) && bun install
-	$(MAKE) -C $(POLYFRAMES_SUBMODULE) install
+	cd $(SUBMOD) && bun install
+	$(MAKE) -C $(SUBMOD) install
 	@$(MAKE) --no-print-directory conf-set VAR=POLYFRAMES_METHOD VAL=source
 
 # --- polyframes: install from npm ---------------------------------------
@@ -57,26 +66,36 @@ deploy-fromnpm:
 	npm install --global $(POLYFRAMES_NPM)
 	@$(MAKE) --no-print-directory conf-set VAR=POLYFRAMES_METHOD VAL=npm
 
-# --- update -------------------------------------------------------------
+# --- deploy --------------------------------------------------------------
+# Dispatch on the recorded install method; no record (or "none")
+# defaults to building from the submodule checkout.
+deploy:
+	@. $(CONF) 2>/dev/null; \
+	case "$${POLYFRAMES_METHOD:-none}" in \
+		npm) $(MAKE) --no-print-directory deploy-fromnpm ;; \
+		*)   $(MAKE) --no-print-directory deploy-fromsource ;; \
+	esac
+
+# --- update --------------------------------------------------------------
 # 1. the dots repo: fast-forward, falling back to a rebase with
 #    autostash (local changes ride along, conflicts stop for manual
 #    resolution — nothing is ever silently discarded);
 # 2. submodules: sync to the commits recorded by the superproject;
 # 3. the polyframes artifact: refresh per the recorded install method.
 update:
-	@git fetch origin; \
-	if git merge --ff-only origin/main 2>/dev/null; then \
+	@git -C $(DOTS) fetch origin; \
+	if git -C $(DOTS) merge --ff-only origin/main 2>/dev/null; then \
 		echo "update: fast-forwarded to origin/main"; \
-	elif git pull --rebase --autostash origin main; then \
+	elif git -C $(DOTS) pull --rebase --autostash origin main; then \
 		echo "update: rebased onto origin/main"; \
 	fi
-	@git submodule update --init --recursive
+	@git -C $(DOTS) submodule update --init --recursive
 	@. $(CONF) 2>/dev/null; \
 	case "$${POLYFRAMES_METHOD:-none}" in \
 		source) \
 			$(MAKE) --no-print-directory polyframes-sync && \
-			cd $(POLYFRAMES_SUBMODULE) && bun install && \
-			$(MAKE) -C $(POLYFRAMES_SUBMODULE) install ;; \
+			cd $(SUBMOD) && bun install && \
+			$(MAKE) -C $(SUBMOD) install ;; \
 		npm) \
 			npm install --global $(POLYFRAMES_NPM) ;; \
 		*) \
@@ -98,15 +117,5 @@ uninstall:
 			echo "uninstall: nothing recorded in $(CONF)" ;; \
 	esac; \
 	$(MAKE) --no-print-directory conf-set VAR=POLYFRAMES_METHOD VAL=none
-
-# --- deploy --------------------------------------------------------------
-# Dispatch on the recorded install method; no record (or "none")
-# defaults to building from the submodule checkout.
-deploy:
-	@. $(CONF) 2>/dev/null; \
-	case "$${POLYFRAMES_METHOD:-none}" in \
-		npm) $(MAKE) --no-print-directory deploy-fromnpm ;; \
-		*)   $(MAKE) --no-print-directory deploy-fromsource ;; \
-	esac
 
 .PHONY: conf-get conf-set deploy polyframes-sync deploy-fromsource deploy-fromnpm update uninstall

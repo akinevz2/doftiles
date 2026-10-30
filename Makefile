@@ -107,7 +107,7 @@ bootstrap: stow
 install: bootstrap
 
 depends-deploy:
-	@$(MAKE) --no-print-directory -C depends deploy
+	@$(MAKE) --no-print-directory -C $(DEPLOY_MK) deploy
 
 deps: wm
 	@if ! ls -al *.packages *.requires *.order; then \
@@ -132,8 +132,13 @@ sync: push
 # update — delegated to depends (the dependency/deployment manager),
 # which owns the safe pull (-ff, fallback --rebase --autostash) plus the
 # submodule and per-method artifact refreshes.
+# The deployment Makefile: deployed at ~/.local/share/doftiles (stow
+# link into the repo), with the repo-side copy as fallback for fresh
+# clones that have not stowed depends yet.
+DEPLOY_MK := $(if $(wildcard $(HOME)/.local/share/doftiles/Makefile),$(HOME)/.local/share/doftiles,depends/.local/share/doftiles)
+
 update:
-	@$(MAKE) --no-print-directory -C depends update
+	@$(MAKE) --no-print-directory -C $(DEPLOY_MK) update
 
 # push — push commits if the worktree is clean; otherwise stage everything
 # and launch $EDITOR with the current directory plus each modified file.

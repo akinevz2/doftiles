@@ -47,10 +47,12 @@ scripts), `.local/bin/{polyctl,ewmh_labels}`,
 `.local/share/polybar/Makefile` (bar control: theme/reload/up/down) |
 | `depends` | deployment + dependency management: `.local/bin/on.deploy`,
 `.local/bin/install/ubuntu.deploy` (moved from herbstluftwm), the
-polyframes submodule at `.local/share/polyframes`, `Makefile`
-(`deploy-fromsource`, `deploy-fromnpm`, `update`, `uninstall`,
-conf-get/conf-set — repo-side only, ignored via the package's
-`.stow-local-ignore`), `.config/doftiles.conf` (install-method state) |
+polyframes submodule at `.local/share/polyframes`,
+`.local/share/doftiles/Makefile` (`deploy-fromsource`,
+`deploy-fromnpm`, `update`, `uninstall`, conf-get/conf-set — stowed to
+`~/.local/share/doftiles`, runnable from either side; every path
+anchors to the real file location), `.config/doftiles.conf`
+(install-method state) |
 | `herbst_web` | `.config/systemd/user/`: xvfb/x11vnc/novnc units |
 | `agents` | `.config/opencode`, `.config/poolside`, `.local/bin`,
 `.local/share` — OpenCode config (the `opencode-screencast` submodule
@@ -62,10 +64,7 @@ STAYS here: `opencode.json(c)` loads the plugin via the relative path
 hooks, firefox wrapper, check-wsl, check-msi-dirs, load-credentials,
 dekineify), `.local/share/applications/` |
 
-Package-root files ARE stowed unless ignored: `depends` carries a
-per-package `.stow-local-ignore` (stow supports these per package)
-excluding its `Makefile` — it is repo-side tooling, and stowing it
-would collide with `shell`'s `~/Makefile`. Repo-level files —
+Repo-level files —
 `analysis.md`, `polywins.md`, `Makefile`, `README.md`, `AGENTS.md`,
 `wm.packages`, `wm.requires`, `service.order` — are **not** stowed
 (never put dotfiles at repo root — they won't be linked).
@@ -136,11 +135,11 @@ annotation), `service.order` (unit start order).
 - `make update` — delegates to `depends/Makefile`: fetch + fast-forward
   (fallback `git pull --rebase --autostash`), submodule sync, then
   refresh the polyframes artifact per the recorded install method.
-- `make -C ~/dots/depends deploy-fromsource` — submodule checkout on
+- `make -C ~/.local/share/doftiles deploy-fromsource` — submodule checkout on
   `main` at the remote tip (`polyframes-sync`) + `bun install` +
   build + install; records `POLYFRAMES_METHOD=source`. This advances
   the submodule past the recorded commit — commit the gitlink bump.
-- `make -C ~/dots/depends deploy-fromnpm` — `npm install --global
+- `make -C ~/.local/share/doftiles deploy-fromnpm` — `npm install --global
   github:akinevz2/polyframes`; records `POLYFRAMES_METHOD=npm`.
 - `make -C ~/dots/depends uninstall` — removes the deployed artifact
   per the recorded method and resets the conf.
@@ -290,7 +289,7 @@ the relevant unit.
 18. **polyframes deployment lives in `depends`** (2026-10): the
     polybar module is a standalone Bun/bunli binary. The git
     submodule checkout is `dots/depends/.local/share/polyframes`
-    (stowed to `~/.local/share/polyframes`); `make -C ~/dots/depends
+    (stowed to `~/.local/share/polyframes`); `make -C ~/.local/share/doftiles
     deploy-fromsource` (or `deploy-fromnpm`) builds/installs
     `~/.local/bin/polyframes` and records the method in
     `~/.config/doftiles.conf`. `[module/polyframes]` in `config.ini`
