@@ -3,7 +3,7 @@
 # loop; stow-merged from this package.
 
 # was $ModAlt-Tab → now Alt+Shift+`
-keyreg $Mod-c       or \
+keyreg $ModCtrl-c   or \
                     . and \
                         , compare tags.focus.tiling.root.split_type = vertical \
                         , compare tags.focus.floating_focused = 0 \
@@ -11,6 +11,9 @@ keyreg $Mod-c       or \
                     . chain \
                         , cycle_frame \
                         , jumpto urgent
+
+# hc_command — the rofi command palette over the helper scripts
+keyreg $Mod-c       spawn ~/.local/bin/hc_command
 
 keyreg $Mod-w       chain : lock : or \
                                 , and \
