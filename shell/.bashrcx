@@ -151,3 +151,11 @@ _show_motd() {
 }
 # Only show MOTD in interactive shells
 case $- in *i*) _show_motd ;; esac
+
+get() {
+    # If a directory is passed as the first argument, change into it first
+    if [ $# -gt 0 ] && [ -d "$1" ]; then
+        cd -- "$1" || return 1
+    fi
+    source "$HOME/.local/bin/got" "$@"
+}

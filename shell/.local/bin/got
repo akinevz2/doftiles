@@ -1,0 +1,50 @@
+#!/bin/sh
+#!/usr/bin/env bash
+# got - quickly view a file or directory
+#
+# Usage:
+#   get                  ls -al --color=auto in the current directory
+#   get <dir>            cd into <dir>, ls it there
+#   get <dir> <names...> ls the dir, then locate each <name> beneath it
+#   get <file> [files..] open all of them in $EDITOR ($VIEW window hook)
+
+EDITOR_BIN="${EDITOR:-vi}"
+
+main() {
+    if [ $# -eq 0 ]; then
+        ls -al --color=auto
+        return
+    fi
+
+    case "$1" in
+        -h|--help|-*)
+            sed -n '2,10p' "$0"
+            return 0 ;;
+    esac
+
+    path="$1"
+    first="$(basename "$(realpath "$path")")"; shift
+    current="$(basename "$PWD")"
+    if [ "$first" = "$current" ] || [ -d "$path" ]; then
+        echo "first: $first"
+        echo "current: $current"
+        echo "path: $path"
+        ls -al --color=auto
+
+        # Locate each extra argument beneath the listing directory:
+        # print every directory/file whose basename matches.
+        for name in "$@"; do
+            # -name matches basenames; -print0 keeps odd names safe.
+            find . -name "$name"
+        done
+        return
+    fi
+
+    if [ -f "$path" ]; then
+        "$EDITOR_BIN" "$path" "$@"
+        return
+    fi
+    echo wat
+}
+
+main "$@"
