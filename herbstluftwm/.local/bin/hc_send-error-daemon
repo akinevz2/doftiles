@@ -21,8 +21,12 @@ DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 unset WAYLAND_DISPLAY
 
-ERROR_MATCH=${ERROR_MATCH:-'error|cannot parse|failed'}
-QUIET_MATCH=${QUIET_MATCH:-'autostart is running again|herbstluftwm reloaded'}
+ERROR_MATCH=${ERROR_MATCH:-'error|cannot|failed|is not a valid|no such|not found'}
+# hlwm has no exceptions mechanism: several bindings use a FAILING
+# command as a conditional (e.g. `attr tags.focus.floating_focused off`
+# errors on an empty floating layer = "not in floating mode"). Those
+# signatures are expected noise, not errors.
+QUIET_MATCH=${QUIET_MATCH:-'autostart is running again|herbstluftwm reloaded|cannot focus empty floating layer'}
 DEDUP_SECONDS=${DEDUP_SECONDS:-5}
 
 SEND_ERROR="$HOME/.local/bin/hc_send-error"
