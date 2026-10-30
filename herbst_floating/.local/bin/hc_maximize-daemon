@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # hc_maximize-daemon — per-tag janitor for "<base>-max" tags.
 #
-# Usage: hc_maximize-daemon <max-tag>
+# Usage: hc_maximize-daemon [--debug] <max-tag> [--dismiss-now]
+#
+# `--debug` lists every lock dir with its pid and liveness — a quick
+# answer to "which max tags currently have a janitor watching them"
+# and "is there a stale lock blocking a respawn" — and exits without
+# touching the WM.
 #
 # Spawned (detached) by hc_maximize after a client is moved onto its
 # dedicated "<base>-max" tag. At most one instance per tag runs —
@@ -39,7 +44,31 @@ DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 unset WAYLAND_DISPLAY
 
-TAG=${1:?usage: hc_maximize-daemon <max-tag>}
+# --- --debug: list all instances of this daemon -------------------------
+# The lock dirs ARE the instance registry: one per live (or stale)
+# daemon, named after the tag it watches. Print pid + liveness per
+# lock and exit — no tag argument, no WM interaction.
+if [ "${1:-}" = "--debug" ]; then
+    prefix="${TMPDIR:-/tmp}/hc_maximize-daemon.lock."
+    found=0
+    for lock in "$prefix"*; do
+        [ -d "$lock" ] || continue
+        found=1
+        tag=${lock#"$prefix"}
+        pid=$(cat "$lock/pid" 2>/dev/null || true)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            printf '%-24s pid %-8s running  (started %s)\n' \
+                "$tag" "$pid" "$(ps -o lstart= -p "$pid" 2>/dev/null || echo '?')"
+        else
+            printf '%-24s pid %-8s STALE    (owner dead, lock left behind)\n' \
+                "$tag" "${pid:-?}"
+        fi
+    done
+    [ "$found" = 1 ] || echo "no instances (no lock dirs under ${TMPDIR:-/tmp})"
+    exit 0
+fi
+
+TAG=${1:?usage: hc_maximize-daemon [--debug] <max-tag>}
 case "$TAG" in
     *-max) ;;                                  # proceed
     *) echo "not a max tag: $TAG" >&2; exit 1 ;;
