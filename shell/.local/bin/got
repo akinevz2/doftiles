@@ -23,8 +23,8 @@ main() {
     esac
 
     path="$1"
-    first="$(basename "$(realpath "$path")")"; shift
-    current="$(basename "$PWD")"
+    first="$(realpath "$(basename "$path")")"; shift
+    current="$(realpath "$(basename "$PWD")")"
     if [ "$first" = "$current" ] || [ -d "$path" ]; then
         ls -al --color=auto
 

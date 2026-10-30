@@ -153,9 +153,22 @@ _show_motd() {
 case $- in *i*) _show_motd ;; esac
 
 get() {
-    # If a directory is passed as the first argument, change into it first
-    if [ $# -gt 0 ] && [ -d "$1" ]; then
-        cd -- "$1" || return 1
+    # If a directory is passed as the first argument, change into it
+    # first; "-" means the previous directory (cd -) — shifted off so
+    # got lists the restored directory instead of reading "-" as a
+    # help flag.
+    if [ $# -gt 0 ]; then
+        case $1 in
+            -)
+                cd - || return 1
+                shift
+                ;;
+            *)
+                if [ -d "$1" ]; then
+                    cd -- "$1" || return 1
+                fi
+                ;;
+        esac
     fi
     source "$HOME/.local/bin/got" "$@"
 }

@@ -212,5 +212,5 @@ if [ "$STATUS" = "reload" ]; then
     echo "Attribute my_autostart_loaded exists: $(herbstclient get_attr my_autostart_loaded 2>/dev/null || echo 'not found')"
 
     # Send notification via notify-send
-    notify-send -a "herbstluftwm" -u normal -t 2000 "herbstluftwm reloaded" "autostart completed"
+    notify-send -a "herbstluftwm" -u normal -t 2000"herbstluftwm reloaded" "autostart completed"
 fi
