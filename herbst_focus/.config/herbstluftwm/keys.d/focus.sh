@@ -17,7 +17,7 @@ keyreg $Mod-e               or . and , compare tags.focus.frame_count gt 1 , cyc
 keyreg $Mod-s               chain : lock \
                                   :  or , and . compare tags.focus.urgent_count gt 0 . jumpto urgent \
                                         , focus --level=frame down \
-                                        , and . attr tags.focus.floating_focused on \
+                                        , and . compare tags.focus.floating_focused = true \
                                               . attr clients.focus.floating off \
                                               . attr clients.focus.pseudotile off \
                                         , and ! compare tags.focus.curframe_wcount gt 1 \
