@@ -13,6 +13,24 @@ export DISPLAY
 
 hc() { herbstclient "$@"; }
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_frameout — print a client's geometry as hlwm expects it for
+floating_geometry (WxH+X+Y), preferring the live floating geometry
+over the tiled content geometry.
+
+Usage: hc_frameout [<winid>]   (default: the focused client)
+
+Options:
+  -h, --help  show this help and exit
+
+Query/report tool.
+EOF
+        exit 0
+        ;;
+esac
+
 winid=${1:-}
 if [ -z "$winid" ]; then
     winid=$(hc attr clients.focus.winid)

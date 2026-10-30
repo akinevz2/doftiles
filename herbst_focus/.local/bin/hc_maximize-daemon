@@ -44,6 +44,22 @@ DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 unset WAYLAND_DISPLAY
 
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+    cat <<'EOF'
+hc_maximize-daemon — per-tag janitor for "<base>-max" tags (daemon).
+
+Usage: hc_maximize-daemon [--debug] <max-tag> [--dismiss-now]
+
+  --debug        list every lock dir (tag, pid, liveness) and exit
+  <max-tag>      the "<base>-max" tag to watch (required)
+  --dismiss-now  run the dismissal once (restore + merge) and exit
+
+Long-running: spawned detached by hc_maximize / hc_unmaximize; at most
+one instance per tag (mkdir lock). Not a window-scoped tool.
+EOF
+    exit 0
+fi
+
 # --- --debug: list all instances of this daemon -------------------------
 # The lock dirs ARE the instance registry: one per live (or stale)
 # daemon, named after the tag it watches. Print pid + liveness per

@@ -4,6 +4,24 @@
 # Usage: hlwm_launch "command to run"
 # Example: hlwm_launch "watch ollama ps"
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hlwm_launch — spawn a command in a floated terminal that stays open
+until the command exits and the user confirms (herbstclient spawn).
+
+Usage: hlwm_launch "<command>"
+
+Options:
+  -h, --help  show this help and exit
+
+Takes a command string — not a window-scoped tool. TERMINAL overrides
+the terminal (default: alacritty).
+EOF
+        exit 0
+        ;;
+esac
+
 if ! command -v "${1%% *}" || [ -z "$1" ] ; then
     echo "Usage: hlwm_launch \"<command>\""
     echo "AGENT NOTE: do not attempt to call this command again until the user gives the corrected command"

@@ -19,6 +19,24 @@ export DISPLAY
 
 herb() { herbstclient "$@"; }
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_deco_margins — print a client's decoration outline margins as four
+space-separated numbers "L T R B" (content rect vs decoration outline).
+
+Usage: hc_deco_margins <wid>
+
+Options:
+  -h, --help  show this help and exit
+
+Query tool: the wid argument is required. Measure while the client is
+floating so the margins reflect the floating theme (see header below).
+EOF
+        exit 0
+        ;;
+esac
+
 # geom_whxyneg <geom> -> "W H X Y" (sign-normalized integers)
 geom_whxyneg() {
     [[ $1 =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]] || return 1

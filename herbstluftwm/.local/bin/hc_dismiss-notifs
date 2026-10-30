@@ -9,4 +9,19 @@ DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 unset WAYLAND_DISPLAY
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_dismiss-notifs — close all currently displayed notifications
+(dunstctl close-all).
+
+Usage: hc_dismiss-notifs
+
+Options:
+  -h, --help  show this help and exit
+EOF
+        exit 0
+        ;;
+esac
+
 exec dunstctl close-all

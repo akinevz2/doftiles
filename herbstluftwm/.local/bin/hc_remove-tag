@@ -29,6 +29,27 @@ herb() {
     herbstclient "$@"
 }
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_remove-tag — merge a tag away into a destination and land there.
+
+Usage:
+  hc_remove-tag              current -> default
+  hc_remove-tag <dst>        current -> <dst>   (dst replaces default)
+  hc_remove-tag <src> <dst>  <src>   -> <dst>
+
+Options:
+  -h, --help  show this help and exit
+
+Tag-level operation — no window targeting. "default" is created as the
+LAST tag when missing (no-arg and one-arg forms); errors surface as
+desktop notifications (hc_send-error).
+EOF
+        exit 0
+        ;;
+esac
+
 SEND_ERROR="$HOME/.local/bin/hc_send-error"
 DEFAULT_TAG=default
 

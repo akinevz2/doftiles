@@ -12,6 +12,26 @@ set -euo pipefail
 DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_get-frame-path — print the frame object path under
+tags.focus.tiling.root for a given (possibly partial) frame index.
+
+Usage: hc_get-frame-path [PARTIAL_INDEX]
+  hc_get-frame-path        -> tags.focus.tiling.root
+  hc_get-frame-path 1      -> tags.focus.tiling.root.1
+  hc_get-frame-path 1.0    -> tags.focus.tiling.root.1.0
+
+Options:
+  -h, --help  show this help and exit
+
+Query tool.
+EOF
+        exit 0
+        ;;
+esac
+
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 idx=${1:-}
 path="tags.focus.tiling.root"

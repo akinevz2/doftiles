@@ -12,6 +12,26 @@ set -euo pipefail
 DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_get-clients — print every client on the currently focused tag in
+WM order, one tab-separated row per line:
+
+  winid <TAB> class <TAB> minimized <TAB> title <TAB> floating_effectively <TAB> frame
+
+Usage: hc_get-clients
+
+Options:
+  -h, --help  show this help and exit
+
+Query tool: windows without a parent_frame report frame "-1" (see the
+header below).
+EOF
+        exit 0
+        ;;
+esac
+
 tag=$(herbstclient attr tags.focus.name)
 
 herbstclient list_clients --tag="$tag" |

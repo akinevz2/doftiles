@@ -28,6 +28,21 @@ herb() {
     herbstclient "$@"
 }
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_clean_max-tag — merge away every unpopulated "<...>-max" tag.
+
+Usage: hc_clean_max-tag [<max-tag> ...]
+
+With no arguments it sweeps all tags ending in "-max"; with arguments
+it only touches the named tags. Tag-level operation — no window
+targeting (see the header below for the merge/ordering semantics).
+EOF
+        exit 0
+        ;;
+esac
+
 # --- candidate tags -----------------------------------------------------
 if [ $# -gt 0 ]; then
     candidates="$*"

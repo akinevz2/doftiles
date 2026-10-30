@@ -1,4 +1,28 @@
 #!/bin/bash
+# hlwm_cwds_dump — dump every tag's clients with their shell working
+# directories (via herbstutil + /proc cwd reads). Query/report tool.
+#
+# Usage: hlwm_cwds_dump
+#
+# Options:
+#   -h, --help  show this help and exit
+
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hlwm_cwds_dump — dump each tag's clients with their shell working
+directories (herbstutil parse of the WM tree + /proc cwd reads).
+
+Usage: hlwm_cwds_dump
+
+Options:
+  -h, --help  show this help and exit
+
+Query/report tool; requires the herbstutil npm package.
+EOF
+        exit 0
+        ;;
+esac
 
 if ! command -v herbstutil; then
     echo "herbstutil isn't installed"

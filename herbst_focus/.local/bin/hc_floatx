@@ -45,6 +45,24 @@ unset WAYLAND_DISPLAY
 
 hc() { herbstclient "$@"; }
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_floatx — Mod-x: the layer-focus toggle / yanker (full state machine
+in the header below).
+
+Usage: hc_floatx
+
+Options:
+  -h, --help  show this help and exit
+
+Keybind state machine: always operates on the current focus state —
+no window arguments and no -c/-f targeting.
+EOF
+        exit 0
+        ;;
+esac
+
 hc lock
 trap 'hc unlock' EXIT
 

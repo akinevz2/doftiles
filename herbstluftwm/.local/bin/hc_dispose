@@ -1,3 +1,22 @@
 #!/bin/bash
 # Disposes (closes) the current herbstluftwm client
+
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_dispose — close the focused client (hlwm close_or_remove: closes
+the focused window, or removes its frame when it was the last one).
+
+Usage: hc_dispose
+
+Options:
+  -h, --help  show this help and exit
+
+Operates on the focused window only — close_or_remove takes no window
+argument, so no -c/-f targeting is offered.
+EOF
+        exit 0
+        ;;
+esac
+
 herbstclient close_or_remove

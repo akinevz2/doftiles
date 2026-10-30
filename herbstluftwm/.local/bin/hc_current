@@ -11,6 +11,24 @@ set -euo pipefail
 DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_current — print an attribute of the focused client.
+
+Usage: hc_current [ATTRIBUTE]   (default: winid)
+
+Options:
+  -h, --help  show this help and exit
+
+Query tool: prints clients.focus.<ATTRIBUTE> verbatim, e.g.
+  hc_current winid               -> 0x500003
+  hc_current floating_geometry   -> 800x600+5+5
+EOF
+        exit 0
+        ;;
+esac
+
 attr=${1:-winid}
 
 value=$(herbstclient attr "clients.focus.$attr") || {

@@ -1,11 +1,80 @@
 #!/bin/sh
+# hc_show — bring a window back into view, three cases:
+#   minimized        -> bring it (un-minimizes) and float it
+#   floating         -> un-float it (re-tiles, clears pseudotile)
+#   otherwise        -> jumpto (focus it where it is)
+#
+# Usage: hc_show [-c|-f] [<winid>]
+#   no argument -> the focused window
+#   -c          -> the selected client of the current tiling frame
+#   -f          -> the focused floating window (floating layer focused)
+#   an explicit winid argument wins over -c/-f
+
 hc() { herbstclient "$@"; }
 
-winid="$1"
-if [ -z "$winid" ]; then
-	echo "Usage: $0 <winid>" >&2
-	exit 1
+usage() {
+	cat <<EOF
+hc_show — bring a window back into view: minimized -> bring + float,
+floating -> un-float, otherwise -> jumpto (focus it).
+
+Usage: hc_show [-c|-f] [<winid>]
+
+Options:
+  -c          target the selected client of the current tiling frame
+  -f          target the focused floating window
+  -h, --help  show this help and exit
+
+With no arguments the focused window is used; an explicit winid wins.
+EOF
+}
+
+wid=""
+cf=""
+while [ $# -gt 0 ]; do
+	case $1 in
+		-h|--help)
+			usage
+			exit 0
+			;;
+		-c|-f)
+			[ -z "$cf" ] || { echo "hc_show: -c and -f are mutually exclusive" >&2; exit 1; }
+			cf=$1
+			;;
+		-*)
+			echo "hc_show: unknown option '$1'" >&2
+			exit 1
+			;;
+		*)
+			wid=$1
+			;;
+	esac
+	shift
+done
+
+if [ -z "$wid" ] && [ -n "$cf" ]; then
+	if [ "$cf" = -c ]; then
+		cc=$(hc attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
+		wid=""
+		case $cc in
+			[1-9]|[1-9][0-9]*)
+				sel=$(hc attr tags.focus.tiling.focused_frame.selection 2>/dev/null || true)
+				wid=$(hc attr "tags.focus.tiling.focused_frame.client_${sel}.winid" 2>/dev/null || true)
+				;;
+		esac
+		[ -n "$wid" ] || { echo "hc_show: no client in the current tiling frame" >&2; exit 1; }
+	else
+		ff=$(hc attr tags.focus.floating_focused 2>/dev/null || echo false)
+		wid=$(hc attr clients.focus.winid 2>/dev/null || true)
+		if [ "$ff" != "true" ] || [ -z "$wid" ]; then
+			echo "hc_show: no focused floating window" >&2
+			exit 1
+		fi
+	fi
+elif [ -z "$wid" ]; then
+	wid=$(hc attr clients.focus.winid 2>/dev/null || true)
 fi
+
+[ -n "$wid" ] || { echo "hc_show: no focused window" >&2; exit 1; }
 
 status=$(hc attr clients."$winid")
 if [ -z "$status" ]; then

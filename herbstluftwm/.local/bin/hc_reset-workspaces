@@ -31,6 +31,23 @@ herb() {
     herbstclient "$@"
 }
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_reset-workspaces — reset the tag layout to a clean two-tag state
+(archive + default; exact steps in the header below).
+
+Usage: hc_reset-workspaces
+
+Options:
+  -h, --help  show this help and exit
+
+Tag-level operation — no window targeting. Requires herbstutil and jq.
+EOF
+        exit 0
+        ;;
+esac
+
 command -v herbstutil >/dev/null 2>&1 || {
     echo "hc_reset-workspaces: herbstutil is not installed" >&2
     exit 1

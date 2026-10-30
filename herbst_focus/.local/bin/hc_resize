@@ -20,6 +20,11 @@ case $# in
         exec "$HOME/.local/bin/polyframes" resize
         ;;
     1)
+        # --help/-h pass through untouched (bunli provides native help);
+        # every other single arg is a dx nudge.
+        if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+            exec "$HOME/.local/bin/polyframes" resize --help
+        fi
         exec "$HOME/.local/bin/polyframes" resize --dx="$1"
         ;;
     2)

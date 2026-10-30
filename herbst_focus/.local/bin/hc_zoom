@@ -21,6 +21,25 @@ herb() {
     herbstclient "$@"
 }
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_zoom — three-state toggle for the focused window: tiled -> float
+(stretched to the frame) -> maximized onto a <tag>-max tag -> restore
+(see the header below).
+
+Usage: hc_zoom
+
+Options:
+  -h, --help  show this help and exit
+
+Keybind state machine: always operates on the focused window — no
+window arguments and no -c/-f targeting.
+EOF
+        exit 0
+        ;;
+esac
+
 hc_float() {
     herb attr clients."$1".floating on
 }

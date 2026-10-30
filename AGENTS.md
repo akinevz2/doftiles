@@ -41,7 +41,8 @@ the window-title subsection of the theme; `reload_theme` sources every
 `hc_focus`, `hc_floatx`, `hc_zoom`, the maximize family
 (`hc_maximize`, `hc_maximize-daemon`, `hc_unmaximize`,
 `hc_clean_max-tag`), `hc_center`/`hc_resize`/`hc_tile`/`hc_fit_to`
-shims, hide/reveal/show, `hc_full_focus`, `hc_peek`, `hc_bounce` |
+shims, minimize/reveal/show (`hc_minimize`, `hc_reveal`, `hc_show`),
+`hc_full_focus`, `hc_peek`, `hc_bounce` |
 | `polybar` | `.config/polybar/` (config.ini + polybar.sh + polywins.sh
 scripts), `.local/bin/{polyctl,ewmh_labels}`,
 `.local/share/polybar/Makefile` (bar control: theme/reload/up/down) |

@@ -4,6 +4,23 @@
 # Output: 827 434 18 462
 # The output can be parsed by `read -r w h x y`.
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc-filter-geom — parse a herbstluftwm geometry (WxH+X+Y) from stdin
+and print four space-separated numbers: W H X Y.
+
+Usage: echo "827x434+18+462" | hc-filter-geom
+
+Options:
+  -h, --help  show this help and exit
+
+Query tool: reads stdin, writes the parsed numbers to stdout.
+EOF
+        exit 0
+        ;;
+esac
+
 set -euo pipefail
 
 # Read geometry from stdin, trimming any trailing whitespace/newlines

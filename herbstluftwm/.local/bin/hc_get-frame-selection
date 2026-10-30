@@ -23,6 +23,25 @@ set -euo pipefail
 DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_get-frame-selection — print the winid of the frame's currently
+selected (visible) client; PARTIAL_INDEX is the flat frame index as
+reported by clients.<wid>.parent_frame.index.
+
+Usage: hc_get-frame-selection [PARTIAL_INDEX]
+
+Options:
+  -h, --help  show this help and exit
+
+Query tool: exits 1 with no output when the frame holds no clients
+(index semantics in the header below).
+EOF
+        exit 0
+        ;;
+esac
+
 idx=${1:-}
 if [ -n "$idx" ]; then
     # Argument is used verbatim as an object path segment:

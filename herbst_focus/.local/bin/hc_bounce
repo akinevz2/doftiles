@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # hc_bounce — keep a floating window fully on-screen.
 #
-# Usage: hc_bounce [<winid>]          (default: the focused window)
+# Usage: hc_bounce [-c|-f] [<winid>]
+#   no argument -> the focused window; -c -> the selected client of
+#   the current tiling frame; -f -> the focused float; an explicit
+#   winid argument wins over -c/-f.
 #
 # For the given (floating) client, against monitors.focus.geometry:
 #   a) SHIFT: if any part of its decoration outline is off-screen,
@@ -23,13 +26,73 @@ unset WAYLAND_DISPLAY
 
 herb() { herbstclient "$@"; }
 
+usage() {
+    cat <<'EOF'
+hc_bounce — keep a floating window fully on-screen: shift it back the
+minimal distance and shrink it when larger than the monitor (decoration
+included; tiled windows are left alone).
+
+Usage: hc_bounce [-c|-f] [<winid>]
+
+Options:
+  -c          target the selected client of the current tiling frame
+  -f          target the focused floating window
+  -h, --help  show this help and exit
+
+With no arguments the focused window is used; an explicit winid wins.
+EOF
+}
+
+# --- target resolution ----------------------------------------------------
+# No argument -> the focused client; -c -> the selected client of the
+# current tiling frame; -f -> the focused float (only while the floating
+# layer is focused). -c and -f are mutually exclusive; an explicit wid
+# argument wins over both.
+wid=""
+cf=""
+while [ $# -gt 0 ]; do
+    case $1 in
+        -h|--help) usage; exit 0 ;;
+        -c|-f)
+            [ -z "$cf" ] || { echo "hc_bounce: -c and -f are mutually exclusive" >&2; exit 1; }
+            cf=$1
+            ;;
+        -*) echo "hc_bounce: unknown option '$1'" >&2; exit 1 ;;
+        *) wid=$1 ;;
+    esac
+    shift
+done
+
+if [ -z "$wid" ] && [ -n "$cf" ]; then
+    if [ "$cf" = -c ]; then
+        cc=$(herb attr tags.focus.tiling.focused_frame.client_count 2>/dev/null || echo 0)
+        wid=""
+        case $cc in
+            [1-9]|[1-9][0-9]*)
+                sel=$(herb attr tags.focus.tiling.focused_frame.selection 2>/dev/null || true)
+                wid=$(herb attr "tags.focus.tiling.focused_frame.client_${sel}.winid" 2>/dev/null || true)
+                ;;
+        esac
+        [ -n "$wid" ] || { echo "hc_bounce: no client in the current tiling frame" >&2; exit 1; }
+    else
+        ff=$(herb attr tags.focus.floating_focused 2>/dev/null || echo false)
+        wid=$(herb attr clients.focus.winid 2>/dev/null || true)
+        if [ "$ff" != "true" ] || [ -z "$wid" ]; then
+            echo "hc_bounce: no focused floating window" >&2
+            exit 1
+        fi
+    fi
+elif [ -z "$wid" ]; then
+    wid=$(herb attr clients.focus.winid 2>/dev/null || true)
+fi
+
 # geom_whxyneg <geom> -> "W H X Y" (sign-normalized integers)
 geom_whxyneg() {
     [[ $1 =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]] || return 1
     echo "$(( BASH_REMATCH[1] )) $(( BASH_REMATCH[2] )) $(( BASH_REMATCH[3] )) $(( BASH_REMATCH[4] ))"
 }
 
-WID=${1:-$(herb attr clients.focus.winid 2>/dev/null)}
+WID=$wid
 [ -n "$WID" ] || exit 0
 
 # Tiled windows are kept inside their frames by the WM — bounce only

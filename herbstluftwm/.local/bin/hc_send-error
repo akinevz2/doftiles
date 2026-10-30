@@ -11,6 +11,22 @@ DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 unset WAYLAND_DISPLAY
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_send-error — desktop error notification (notify-send wrapper).
+
+Usage: hc_send-error <summary> [body]
+
+Options:
+  -h, --help  show this help and exit
+
+Sends a critical-severity notification attributed to "herbstluftwm".
+EOF
+        exit 0
+        ;;
+esac
+
 if [ -z "${1:-}" ]; then
     echo "usage: hc_send-error <summary> [body]" >&2
     exit 1

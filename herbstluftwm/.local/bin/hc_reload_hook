@@ -13,6 +13,23 @@
 #
 # This allows distinguishing between a fresh WM start and a reload.
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_reload_hook — distinguish a fresh herbstluftwm start from a reload.
+
+Usage: STATUS=$(hc_reload_hook)   # prints "fresh" or "reload"
+
+Options:
+  -h, --help  show this help and exit
+
+First run creates the my_autostart_loaded marker attribute and prints
+"fresh"; later runs print "reload".
+EOF
+        exit 0
+        ;;
+esac
+
 herb() {
     herbstclient "$@"
 }

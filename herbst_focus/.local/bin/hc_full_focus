@@ -13,6 +13,25 @@ export DISPLAY
 
 hc() { herbstclient "$@"; }
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_full_focus — Mod-Shift-f "full focus": un-float, or leave
+fullscreen + float, or fullscreen the focused window (priority order
+in the header below).
+
+Usage: hc_full_focus
+
+Options:
+  -h, --help  show this help and exit
+
+Keybind helper: always operates on the focused window — no window
+arguments and no -c/-f targeting.
+EOF
+        exit 0
+        ;;
+esac
+
 eff=$(hc attr clients.focus.floating_effectively 2>/dev/null || echo 0)
 
 if [ "$eff" = "1" ]; then

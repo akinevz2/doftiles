@@ -21,6 +21,25 @@ DISPLAY=${DISPLAY:-localhost:0.0}
 export DISPLAY
 unset WAYLAND_DISPLAY
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_send-error-daemon — surface herbstluftwm errors as desktop
+notifications: follows the herbst unit's journal and notifies on error
+lines via hc_send-error (long-running daemon; see the header below).
+
+Usage: hc_send-error-daemon
+
+Options:
+  -h, --help  show this help and exit
+
+Tunables (environment): ERROR_MATCH, QUIET_MATCH, DEDUP_SECONDS.
+Spawn it detached (e.g. from the autostart) or as a user unit.
+EOF
+        exit 0
+        ;;
+esac
+
 ERROR_MATCH=${ERROR_MATCH:-'error|cannot|failed|is not a valid|no such|not found'}
 # hlwm has no exceptions mechanism: several bindings use a FAILING
 # command as a conditional (e.g. `attr tags.focus.floating_focused off`

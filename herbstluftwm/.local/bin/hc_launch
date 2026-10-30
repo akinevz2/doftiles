@@ -38,6 +38,29 @@ unset WAYLAND_DISPLAY
 
 hc() { herbstclient "$@"; }
 
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_launch — run a command string inside a spawned $TERMINAL (default:
+alacritty, overridden by the TERMINAL environment variable). The
+command runs under an interactive bash; when it exits, the shell
+reports the status and waits for one key press, then the terminal
+closes.
+
+Usage: hc_launch [--floating] [--urgent] [--no-distract] "<command>"
+
+Options:
+  --floating     float AND center the terminal once it attaches
+  --urgent       raise the urgent hint (tag marker)
+  --no-distract  no focus steal, default position (no centering)
+  -h, --help     show this help and exit
+
+Takes a command string — not a window-scoped tool.
+EOF
+        exit 0
+        ;;
+esac
+
 rule=()
 floating=0
 nodistract=0

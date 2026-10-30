@@ -1,3 +1,23 @@
 #!/bin/bash
-# Collapse/Cycle previous window (scroll down)
+# hc_collapse — cycle to the PREVIOUS window (scroll down), skipping
+# invisible ones. Companion of hc_reveal. Not window-scoped: it cycles
+# the tag's window stack, so it takes no target options.
+
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_collapse — cycle to the PREVIOUS window (scroll down), skipping
+invisible ones.
+
+Usage: hc_collapse
+
+Options:
+  -h, --help  show this help and exit
+
+Not window-scoped: cycles the tag's window stack (herbstclient cycle).
+EOF
+        exit 0
+        ;;
+esac
+
 herbstclient cycle all --skip-invisible -1
