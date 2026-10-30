@@ -25,19 +25,22 @@ unset WAYLAND_DISPLAY
 LOG=${POLYFRAMES_LOG:-/tmp/polyframes.log}
 
 # --- enumerate PATH executables with the declared prefixes --------------
+# ONE find pass over all PATH dirs (-L: the .local/bin entries are
+# symlinks into the dots repo) — the old per-file basename loop forked
+# thousands of times and was the reason the palette took ages to open.
 list_commands() {
-    local pat dir base b
-    pat="^($(IFS='|'; echo "${PREFIXES[*]}"))"
-    for dir in ${PATH//:/ }; do
-        [ -d "$dir" ] || continue
-        for base in "$dir"/*; do
-            [ -x "$base" ] || continue
-            b=$(basename "$base")
-            # if (not &&) — a failed [[ ]] must not poison the pipeline
-            # status under pipefail
-            if [[ "$b" =~ $pat ]]; then printf '%s\n' "$b"; fi
-        done
-    done | sort -u
+    local expr=() first=1 p
+    for p in "${PREFIXES[@]}"; do
+        if [ "$first" = 1 ]; then
+            expr=( \( -name "$p*" )
+            first=0
+        else
+            expr+=( -o -name "$p*" )
+        fi
+    done
+    expr+=( \) )
+    find -L ${PATH//:/ } -maxdepth 1 -type f -executable \
+        "${expr[@]}" -printf '%f\n' 2>/dev/null | sort -u
 }
 
 # --- the palette ---------------------------------------------------------
