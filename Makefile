@@ -177,9 +177,13 @@ forget:
 # the service stack (units needing X stay enabled-but-failed until X
 # exists), deploy the depends artifact, then report status.
 bootstrap: stow
-	@$(MAKE) --no-print-directory add-packages
+	@echo "bootstrap: ensuring polyframes artifact (palette/launchers/bar exec it directly)"
+	@$(MAKE) --no-print-directory polyframes-ensure || \
+		echo "bootstrap: polyframes deploy FAILED — launchers/bar will degrade; install bun (arch: pacman -S bun) or npm, then run 'make polyframes-ensure'" >&2
+	@echo "bootstrap: verifying required binaries (continues on missing ones)"
+	@$(MAKE) --no-print-directory add-packages || \
+		echo "bootstrap: missing packages listed below — install them and re-run when ready" >&2
 	@$(MAKE) --no-print-directory reload-systemd
-	@$(MAKE) --no-print-directory depends-deploy
 	@$(MAKE) --no-print-directory status
 	@echo "bootstrap: complete — units enabled; the WM stack comes up when X is available"
 
@@ -187,6 +191,12 @@ install: bootstrap
 
 depends-deploy:
 	@$(MAKE) --no-print-directory -C $(DEPLOY_MK) deploy
+
+# polyframes-ensure — the bootstrap hook: deploy only when missing
+# (idempotent). Delegated to the deployed depends Makefile so the same
+# file powers repo-side fall-back runs and installed copies.
+polyframes-ensure:
+	@$(MAKE) --no-print-directory -C $(DEPLOY_MK) ensure
 
 deps: wm
 	@if ! ls -al *.packages *.requires *.order; then \

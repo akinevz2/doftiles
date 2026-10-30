@@ -1,6 +1,6 @@
 [submodule "llms/.config/opencode/opencode-screencast"]
 	path = agents/.config/opencode/opencode-screencast
-	url = git@github.com:akinevz2/opencode-screencast.git
+	url = https://github.com/akinevz2/opencode-screencast.git
 [submodule "herbst_bar/.local/share/polyframes"]
 	path = depends/.local/share/polyframes
 	url = https://github.com/akinevz2/polyframes

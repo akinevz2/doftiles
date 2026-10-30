@@ -46,15 +46,23 @@ conf-set:
 # polyframes-sync — ensure the submodule checkout exists, put it on its
 # main branch at the remote tip (the recorded commit is a detached
 # checkout; the deployable should track the branch), and fast-forward.
+# The submodule URL is https (see .gitmodules) — no git username or SSH
+# key is ever needed to clone it; `sync` rewrites any stale recorded
+# URL (e.g. from before the repo switched to https) back to .gitmodules.
 # NOTE: this advances the checkout past the commit the superproject
 # records — `git status` shows the submodule as modified; commit the
 # bump when you want the new pin.
 polyframes-sync:
+	git -C $(DOTS) submodule sync -- $(SUBREL)
 	git -C $(DOTS) submodule update --init -- $(SUBREL)
 	git -C $(SUBMOD) checkout -q -B main origin/main
 	git -C $(SUBMOD) pull --ff-only
 
 deploy-fromsource: polyframes-sync
+	@command -v bun >/dev/null 2>&1 || { \
+		echo "deploy-fromsource: bun not found — install it (arch: pacman -S bun)" >&2; \
+		echo "  or deploy via npm instead: make -C $(HOME)/.local/share/doftiles deploy-fromnpm" >&2; \
+		exit 1; }
 	cd $(SUBMOD) && bun install
 	$(MAKE) -C $(SUBMOD) install
 	@$(MAKE) --no-print-directory conf-set VAR=POLYFRAMES_METHOD VAL=source
@@ -63,6 +71,9 @@ deploy-fromsource: polyframes-sync
 # Requires the package to be published; pre-publish the git URL installs
 # the source tree (the bin entry runs through bun).
 deploy-fromnpm:
+	@command -v npm >/dev/null 2>&1 || { \
+		echo "deploy-fromnpm: npm not found — install it (arch: pacman -S npm)" >&2; \
+		exit 1; }
 	npm install --global $(POLYFRAMES_NPM)
 	@$(MAKE) --no-print-directory conf-set VAR=POLYFRAMES_METHOD VAL=npm
 
@@ -75,6 +86,18 @@ deploy:
 		npm) $(MAKE) --no-print-directory deploy-fromnpm ;; \
 		*)   $(MAKE) --no-print-directory deploy-fromsource ;; \
 	esac
+
+# --- ensure ----------------------------------------------------------------
+# Idempotent entry point for `make install`/bootstrap: deploy ONLY when
+# the artifact is missing, so re-running bootstrap never rebuilds a
+# working polyframes. `deploy` remains the force-redeploy handle.
+ensure:
+	@if [ -x "$(POLYFRAMES_BIN)" ]; then \
+		method=$$($(MAKE) --no-print-directory conf-get VAR=POLYFRAMES_METHOD); \
+		echo "ensure: $(POLYFRAMES_BIN) already deployed (method=$${method:-unset}) — skipping"; \
+	else \
+		$(MAKE) --no-print-directory deploy; \
+	fi
 
 # --- update --------------------------------------------------------------
 # 1. the dots repo: fast-forward, falling back to a rebase with
