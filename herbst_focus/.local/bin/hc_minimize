@@ -25,7 +25,9 @@ Options:
   -f          target the focused floating window
   -h, --help  show this help and exit
 
-With no arguments the focused window is used; an explicit winid wins.
+With no arguments the focused window is used; if NO client is focused
+(empty frame) the empty focused frame is removed instead. An explicit
+winid wins.
 EOF
 }
 
@@ -75,6 +77,12 @@ elif [ -z "$wid" ]; then
 	wid=$(hc attr clients.focus.winid 2>/dev/null || true)
 fi
 
-[ -n "$wid" ] || { echo "hc_minimize: no focused window" >&2; exit 1; }
+[ -n "$wid" ] || {
+	# Nothing focused: the focused frame is an empty frame — remove it
+	# instead (close_or_remove on an empty frame = frame removal, the
+	# same idiom the mod-q chain uses).
+	hc close_or_remove
+	exit 0
+}
 
-hc set_attr "clients.$winid.minimized" true
+hc set_attr "clients.$wid.minimized" true
