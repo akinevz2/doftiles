@@ -94,6 +94,7 @@ help:
 	@echo ""
 	@echo "Inspection:"
 	@echo "  make status       binaries, packages, services, git state"
+	@echo "  make provision    platform services per deploy.profile (on-deploy)"
 	@echo "  make update       safe pull (-ff / --rebase) + submodule/npm refresh"
 	@echo "  make push, sync   commit/push flow (see AGENTS.md)"
 	@echo ""
