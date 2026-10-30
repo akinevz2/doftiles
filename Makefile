@@ -5,6 +5,7 @@
 SHELL  := /bin/bash
 STOW   := stow
 MAKE   := make
+SCRIPT := scripts/deploy-menu.sh
 
 SERVICES_FILE := service.order
 WM_PACKAGES := wm.packages
@@ -15,6 +16,11 @@ SERVICE_ORDER := $(shell grep -vi '^#' $(SERVICES_FILE))
 WM_PACKAGES := $(shell grep -vi '^#' $(WM_PACKAGES))
 WM_BINARIES := $(shell head -1 $(WM_BINARIES) | grep -vi '^#')
 
+# Every top-level directory with .config/.local content is a stow
+# package; system-* packages stow to / instead (add-packages-system
+# handles those), helper dirs (scripts/) are not packages at all.
+STOW_PKGS := $(foreach d,$(filter-out system-%,$(patsubst %/,%,$(wildcard */))),$(if $(wildcard $(d)/.config $(d)/.local),$(d)))
+
 # (not named MAKEFILES — that variable is special to make: a sub-make
 # inheriting it re-reads those files and every target ends up defined
 # twice, spamming "overriding recipe" warnings)
@@ -22,9 +28,43 @@ MF_FILES := $(wildcard Makefile*)
 ALL_TARGETS := $(foreach mf,$(MF_FILES),$(shell grep -hE '^[a-zA-Z_-]+:' $(mf) | sed 's/://'))
 PHONY_LIST := $(sort $(ALL_TARGETS))
 
-.PHONY: $(PHONY_LIST) system depends install sync update push
+.PHONY: $(PHONY_LIST) $(STOW_PKGS) system install sync update push
 
-install: stow system 
+# --- selective deployment ------------------------------------------------
+# Any package target stows it and runs its post-stow hook (see
+# scripts/deploy-menu.sh — hooks needing a running WM/X are guarded and
+# no-op with a note on headless targets).
+$(STOW_PKGS):
+	$(STOW) -R -t $$HOME $@
+	@$(SCRIPT) --hook $@
+
+# deploy — selective deployment, TUI-driven when interactive:
+#   make deploy               whiptail checklist (plain menu fallback)
+#   make deploy P="a b"       fine-grained, no TUI, works non-interactive
+# Each selection is stowed and hooked.
+deploy:
+	@for pkg in $$($(SCRIPT) "$(P)"); do \
+		echo "deploy: stowing $$pkg"; \
+		$(STOW) -R -t $$HOME "$$pkg"; \
+		$(SCRIPT) --hook "$$pkg"; \
+	done
+
+# bootstrap — full deployment in ONE call, safe on a systemd target
+# with no running window manager: stow everything (hooks no-op
+# headless), verify required binaries, daemon-reload + enable --now
+# the service stack (units needing X stay enabled-but-failed until X
+# exists), deploy the depends artifact, then report status.
+bootstrap: stow
+	@$(MAKE) --no-print-directory add-packages
+	@$(MAKE) --no-print-directory reload-systemd
+	@$(MAKE) --no-print-directory depends-deploy
+	@$(MAKE) --no-print-directory status
+	@echo "bootstrap: complete — units enabled; the WM stack comes up when X is available"
+
+install: bootstrap
+
+depends-deploy:
+	@$(MAKE) --no-print-directory -C depends deploy
 
 deps: wm
 	@if ! ls -al *.packages *.requires *.order; then \
@@ -35,63 +75,17 @@ deps: wm
 # bash metapackage
 bash: shell agents
 
-# wm:
+# wm — the stack from the manifest (wm.packages)
+wm: $(WM_PACKAGES)
+
+stow: wm
+
+# status — systemd user-unit reports
 status: services-available services-installed
-
-shell:
-	$(STOW) -R -t $$HOME shell
-	@chmod +x shell/.local/bin/install/bashrc
-	~/.local/bin/install/bashrc
-
-	~/.local/bin/load-credentials
-
-agents:
-	$(STOW) -R -t $$HOME agents
-
-
-wm: herbstluftwm herbst_theme herbst_focus herbst_titles polybar depends
-
-herbstluftwm: dunst
-
-herbstluftwm:
-	$(STOW) -R -t $$HOME herbstluftwm
-	@herbstclient reload
-
-
-
-dunst:
-	$(STOW) -R -t $$HOME dunst
-
-herbst_theme:
-	$(STOW) -R -t $$HOME herbst_theme
-
-herbst_focus:
-	$(STOW) -R -t $$HOME herbst_focus
-
-herbst_titles:
-	$(STOW) -R -t $$HOME herbst_titles
-
-polybar:
-	$(STOW) -R -t $$HOME polybar
-
-depends:
-	$(STOW) -R -t $$HOME depends
-
-stow-wm: status  
-	@for pkg in $(WM_PACKAGES); do \
-		echo "stowing $$pkg"; \
-		$(STOW) -R -t $$HOME "$$pkg"; \
-	done
-
-stow: bash wm
 
 # sync — perform update followed by push only if update succeeded.
 sync: push
 
-# update — safely pull the latest changes from origin. Prefers a fast-forward
-# merge; falls back to a normal merge. If real conflicts occur, launch $EDITOR
-# with each conflicting file. If the merge is blocked by local uncommitted
-# changes, stage everything and launch $EDITOR with the files to be committed.
 # update — delegated to depends (the dependency/deployment manager),
 # which owns the safe pull (-ff, fallback --rebase --autostash) plus the
 # submodule and per-method artifact refreshes.
@@ -122,12 +116,14 @@ push: update
 	fi; \
 	modified=$$(git diff --staged --name-only); \
 	exec $$EDITOR "$$PWD" $$modified
- 
+
 # packages:
 SYSTEM_PACKAGES := $(shell ls -d system-* 2>/dev/null)
 
-add-packages: shell
-	@~/.local/bin/on.deploy 
+# add-packages — verify required binaries; the on.deploy walk (which
+# prompts per missing binary) runs only on an interactive terminal.
+add-packages:
+	@if [ -t 0 ]; then ~/.local/bin/on.deploy || true; fi
 	@missing=""; \
 	for bin in $(WM_BINARIES); do \
 		command -v "$$bin" >/dev/null 2>&1 || missing="$$missing $$bin"; \
@@ -138,9 +134,15 @@ add-packages: shell
 		exit 1; \
 	fi
 
-add-packages-system: services-start
+# add-packages-system — stow system-* packages to /. Interactive only
+# (sudo needs a terminal); YES=1 bypasses the confirmation.
+add-packages-system:
 	@if [ -z "$(SYSTEM_PACKAGES)" ]; then \
 		echo "packages: no system-* packages found; skipping"; \
+		exit 0; \
+	fi; \
+	if [ ! -t 0 ] && [ -z "$$YES" ]; then \
+		echo "packages: non-interactive — system packages skipped (sudo needs a terminal)"; \
 		exit 0; \
 	fi; \
 	echo "packages: packages to be installed:"; \
@@ -150,10 +152,14 @@ add-packages-system: services-start
 	echo ""; \
 	echo "Pending updates to /"; \
 	for pkg in $(SYSTEM_PACKAGES); do \
-		stow -n -v -R -t/ "$$pkg" 2>&1 | grep -E "^(UN)?LINK:" | awk -F' ' '{sub(/:/, "", $$1); print "/" $$2 " " $$1}'; \
+		stow -n -v -R -t/ "$$pkg" 2>&1 | grep -E "^(UN)?LINK:" | sed 's/^\(UN\{0,1\}\)LINK: \([^ ]*\) .*/\/\2 \1LINK/'; \
 		echo ""; \
 	done; \
-	read -p "Continue with system installation? [y/N] " confirm; \
+	if [ -n "$$YES" ]; then \
+		confirm=y; \
+	else \
+		read -r -p "Continue with system installation? [y/N] " confirm; \
+	fi; \
 	if echo "$$confirm" | grep -iq "^y"; then \
 		sudo stow -R -t / $(SYSTEM_PACKAGES); \
 		echo "packages: stow completed"; \
@@ -165,7 +171,7 @@ add-packages-system: services-start
 services-available:
 	@echo ""
 	@echo "Available service files: "
-	@for package in $(shell find . -name "*.service" | awk -F'[\\.]?/' '{print ($$1  != "" ? $$1 : $$2) "/" $$NF}'); do \
+	@for package in $(shell find . -name "*.service" | cut -sd/ -f2-); do \
 		echo -n "$$package: "; \
 		systemctl --user is-active "$$(basename $$package)" --no-pager | sed 's/^\(active\)/\x1b[32m\1\x1b[0m/'; \
 	done
@@ -195,58 +201,24 @@ reload-systemd:
 		systemctl --user enable --now "$$service" || echo "services-check: failed to enable and start $$service"; \
 	done && echo "Enabled services: $(SERVICE_ORDER)"
 
+# services-start / services-stop / restart — confirm on an interactive
+# terminal; non-interactive runs require YES=1 (nothing ever hangs on
+# stdin).
 services-start: reload-systemd
-	@echo ""
-	@for service in $(SERVICE_ORDER); do \
-		echo "preparing start for $$service"; \
-	done
-	@systemctl --user daemon-reload 2>/dev/null || \
-		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
-	@if [ -z "$(SERVICE_ORDER)" ]; then \
-		echo ""; \
-		echo -e "\033[31mERROR: Service order defined by $(SERVICES_FILE) file is empty.\033[0m"; \
-		exit 1; \
-	fi
-	@echo -n "Continue with starting wm? [y/N] "
-	@read -r line; \
-	if [ "$$line" != "y" ] && [ "$$line" != "Y" ]; then \
-		echo "services: cancelled"; \
-		echo ""; \
-		exit 0; \
-	fi; \
-	for service in $(SERVICE_ORDER); do \
-		systemctl --user start "$$service" || systemctl --user status "$$service"; \
-	done; \
-	echo "services: started"
+	@$(MAKE) --no-print-directory service-action ACTION=start VERB=starting
 
 services-stop: reload-systemd
-	@echo ""
-	@for service in $(SERVICE_ORDER); do \
-		echo "preparing stop for $$service"; \
-	done
-	@systemctl --user daemon-reload 2>/dev/null || \
-		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
-	@if [ -z "$(SERVICE_ORDER)" ]; then \
-		echo ""; \
-		echo -e "\033[31mERROR: Service order defined by $(SERVICES_FILE) file is empty.\033[0m"; \
-		exit 1; \
-	fi
-	@echo -n "Continue with stopping wm? [y/N] "
-	@read -r line; \
-	if [ "$$line" != "y" ] && [ "$$line" != "Y" ]; then \
-		echo "services: cancelled"; \
-		echo ""; \
-		exit 0; \
-	fi; \
-	for service in $(SERVICE_ORDER); do \
-		systemctl --user stop "$$service" || systemctl --user status "$$service"; \
-	done; \
-	echo "services: stopped"
+	@$(MAKE) --no-print-directory service-action ACTION=stop VERB=stopping
 
 restart: reload-systemd
+	@$(MAKE) --no-print-directory service-action ACTION=restart VERB=restarting
+
+# service-action — the shared start/stop/restart body (one shell, so
+# the confirmation read and the unit loop stay together).
+service-action:
 	@echo ""
 	@for service in $(SERVICE_ORDER); do \
-		echo "preparing restart for $$service"; \
+		echo "preparing $(VERB) for $$service"; \
 	done
 	@systemctl --user daemon-reload 2>/dev/null || \
 		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
@@ -255,18 +227,23 @@ restart: reload-systemd
 		echo -e "\033[31mERROR: Service order defined by $(SERVICES_FILE) file is empty.\033[0m"; \
 		exit 1; \
 	fi
-	@echo -n "Continue with restarting wm? [y/N] "
-	@read -r line; \
+	@if [ -n "$$YES" ]; then \
+		line=y; \
+	elif [ -t 0 ]; then \
+		read -r -p "Continue with $(VERB) wm? [y/N] " line; \
+	else \
+		echo "services: non-interactive without YES=1 — aborting" >&2; \
+		exit 1; \
+	fi; \
 	if [ "$$line" != "y" ] && [ "$$line" != "Y" ]; then \
 		echo "services: cancelled"; \
 		echo ""; \
 		exit 0; \
 	fi; \
 	for service in $(SERVICE_ORDER); do \
-		systemctl --user restart "$$service" || systemctl --user status "$$service"; \
+		systemctl --user $(ACTION) "$$service" || systemctl --user status "$$service"; \
 	done; \
-	echo "services: restarted"
-
+	echo "services: $(ACTION) complete"
 
 system: status add-packages-system add-packages
 	@echo -e "system: \033[1;33mfresh\033[0m"

@@ -27,19 +27,26 @@ conf-get:
 conf-set:
 	@touch $(CONF); \
 	if grep -q "^$(VAR)=" $(CONF); then \
-		sed -i 's/^$(VAR)=.*/$(VAR)=$(VAL)/' $(CONF); \
+		sed -i --follow-symlinks 's/^$(VAR)=.*/$(VAR)=$(VAL)/' $(CONF); \
 	else \
 		echo "$(VAR)=$(VAL)" >> $(CONF); \
 	fi; \
 	echo "$(VAR)=$(VAL)"
 
 # --- polyframes: build from the git submodule checkout ------------------
-# Conditional clone: initializes the submodule from the URL recorded in
-# .gitmodules only when the checkout is missing; otherwise refreshes it.
-deploy-fromsource:
-	@test -d $(POLYFRAMES_SUBMODULE)/.git || \
-	    git submodule update --init -- $(POLYFRAMES_SUBMODULE)
+# polyframes-sync — ensure the submodule checkout exists, put it on its
+# main branch at the remote tip (the recorded commit is a detached
+# checkout; the deployable should track the branch), and fast-forward.
+# NOTE: this advances the checkout past the commit the superproject
+# records — `git status` shows the submodule as modified; commit the
+# bump when you want the new pin.
+polyframes-sync:
+	git submodule update --init -- $(POLYFRAMES_SUBMODULE)
+	git -C $(POLYFRAMES_SUBMODULE) checkout -q -B main origin/main
 	git -C $(POLYFRAMES_SUBMODULE) pull --ff-only
+
+deploy-fromsource: polyframes-sync
+	cd $(POLYFRAMES_SUBMODULE) && bun install
 	$(MAKE) -C $(POLYFRAMES_SUBMODULE) install
 	@$(MAKE) --no-print-directory conf-set VAR=POLYFRAMES_METHOD VAL=source
 
@@ -67,7 +74,8 @@ update:
 	@. $(CONF) 2>/dev/null; \
 	case "$${POLYFRAMES_METHOD:-none}" in \
 		source) \
-			git -C $(POLYFRAMES_SUBMODULE) pull --ff-only && \
+			$(MAKE) --no-print-directory polyframes-sync && \
+			cd $(POLYFRAMES_SUBMODULE) && bun install && \
 			$(MAKE) -C $(POLYFRAMES_SUBMODULE) install ;; \
 		npm) \
 			npm install --global $(POLYFRAMES_NPM) ;; \
@@ -91,4 +99,14 @@ uninstall:
 	esac; \
 	$(MAKE) --no-print-directory conf-set VAR=POLYFRAMES_METHOD VAL=none
 
-.PHONY: conf-get conf-set deploy-fromsource deploy-fromnpm update uninstall
+# --- deploy --------------------------------------------------------------
+# Dispatch on the recorded install method; no record (or "none")
+# defaults to building from the submodule checkout.
+deploy:
+	@. $(CONF) 2>/dev/null; \
+	case "$${POLYFRAMES_METHOD:-none}" in \
+		npm) $(MAKE) --no-print-directory deploy-fromnpm ;; \
+		*)   $(MAKE) --no-print-directory deploy-fromsource ;; \
+	esac
+
+.PHONY: conf-get conf-set deploy polyframes-sync deploy-fromsource deploy-fromnpm update uninstall

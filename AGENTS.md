@@ -94,42 +94,56 @@ list), `wm.requires` (required binaries — the Makefile reads only its
 **first line**; the second line `ubuntu` is a target-distro
 annotation), `service.order` (unit start order).
 
-- `make bash` — metapackage: stow + post-stow hooks for `shell` and
-  `agents`.
-- `make wm` — stow the whole WM stack (`herbstluftwm`, `herbst_theme`,
-  `herbst_focus`, `herbst_titles`, `polybar`, `depends`); the
-  `herbstluftwm` sub-target runs `herbstclient reload` after stowing.
-  `make stow-wm` loops over `wm.packages` instead.
-- `make install` — `stow` (`bash` + `wm`) then `system`.
+- ANY package target (`make polybar`, `make shell`, ...) stows the
+  package and runs its post-stow hook. Hooks live in
+  `scripts/deploy-menu.sh` (repo-side, not stowed) and are GUARDED:
+  hooks needing a running WM/X no-op with a note on headless targets
+  (`herbstluftwm` -> herbstclient reload; `herbst_theme` ->
+  reload_theme -f; `polybar` -> polyctl reload; `shell` -> bashrc hook
+  + load-credentials).
+- `make deploy` — selective deployment, TUI-driven when interactive:
+  a whiptail checklist (preselecting currently-stowed packages; plain
+  numbered menu when whiptail is missing). Fine-grained and
+  non-interactive: `make deploy P="shell herbst_theme"`.
+- `make bootstrap` — full deployment in ONE call, safe on a systemd
+  target with no running WM: stow everything (hooks no-op headless),
+  verify `wm.requires` binaries, daemon-reload + `enable --now` per
+  `service.order` (units needing X stay enabled-but-failed until X
+  exists), deploy the depends artifact (per the conf method, default
+  source), status report. `make install` is an alias.
+- `make wm` — stow the stack from `wm.packages`; `make stow` is the
+  same thing; `make bash` = `shell` + `agents` only.
 - `make deps` — manifest existence check, then `make sync`.
-- `make add-packages` — runs `on.deploy`, then verifies every binary in
-  `wm.requires`, failing fast listing missing ones (map binary → apt
-  package with `~/.local/bin/install/ubuntu.deploy <binary>`).
+- `make add-packages` — verifies every binary in `wm.requires`,
+  failing fast listing missing ones; the `on.deploy` walk (which
+  prompts per missing binary) runs only on an interactive terminal.
 - `make add-packages-system` — previews, then after confirmation
-  `sudo stow -t /` any `system-*` packages; runs the service stack via
-  `services-start`.
+  `sudo stow -t /` any `system-*` packages; interactive only (sudo
+  needs a terminal); `YES=1` bypasses the confirmation.
 - `make status`, `services-available`, `services-installed` — report
   systemd user-unit state.
 - `make reload-systemd`, `services-start`, `services-stop`,
-  `restart` — daemon-reload, then start/stop/restart units in
-  `service.order` order (start/stop/restart prompt for confirmation).
+  `restart` — daemon-reload, then enable/start/stop/restart units in
+  `service.order` order. Confirmations: interactive terminal prompts;
+  non-interactive runs REQUIRE `YES=1` (nothing hangs on stdin).
+  start/stop/restart share one `service-action` body.
 - `make update` — delegates to `depends/Makefile`: fetch + fast-forward
-  (fallback `git pull --rebase --autostash`), submodule sync to the
-  recorded commits, then refresh the polyframes artifact per the
-  install method recorded in `~/.config/doftiles.conf`.
-- `make -C ~/dots/depends deploy-fromsource` — conditional clone of the
-  polyframes submodule + build + install; records
-  `POLYFRAMES_METHOD=source` in the conf.
+  (fallback `git pull --rebase --autostash`), submodule sync, then
+  refresh the polyframes artifact per the recorded install method.
+- `make -C ~/dots/depends deploy-fromsource` — submodule checkout on
+  `main` at the remote tip (`polyframes-sync`) + `bun install` +
+  build + install; records `POLYFRAMES_METHOD=source`. This advances
+  the submodule past the recorded commit — commit the gitlink bump.
 - `make -C ~/dots/depends deploy-fromnpm` — `npm install --global
   github:akinevz2/polyframes`; records `POLYFRAMES_METHOD=npm`.
 - `make -C ~/dots/depends uninstall` — removes the deployed artifact
   per the recorded method and resets the conf.
-- `make push`, `make sync` — push commits if clean; `sync` = update +
-  push.
 
 `~/.config/doftiles.conf` (stowed from `depends`) tracks the install
 method per deployable (`POLYFRAMES_METHOD=source|npm|none`) — it lives
-in the repo, so method changes show up as tracked diffs.
+in the repo, so method changes show up as tracked diffs. conf-set
+writes through the stow link (`sed --follow-symlinks` — plain
+`sed -i` would replace the symlink with a regular file).
 
 After changing anything in `services/`, restow and run
 `systemctl --user daemon-reload` (or `make reload-systemd`), then restart
@@ -138,7 +152,9 @@ the relevant unit.
 ## Services / WM runtime model
 
 - `herbst.service` starts herbstluftwm; `ExecStartPre` polls
-  `xset -display localhost:0.0 q` until the X server is reachable.
+  `xset -display localhost:0.0 q` until the X server is reachable,
+  bounded at 30s (a headless `enable --now` fails cleanly instead of
+  hanging the start job).
 - `compton.service` is `After=`/`BindsTo=` herbst — it starts with the WM
   and is killed when the WM stops (intentional).
 - The WM session runs inside VcXsrv on Windows (WSL2); the autostart script

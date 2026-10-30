@@ -9,7 +9,7 @@ Environment=DISPLAY=localhost:0.0
 # rofi 2.0 autodetect; force the whole WM session onto X11/VcXsrv.
 Environment=XDG_SESSION_TYPE=x11
 UnsetEnvironment=WAYLAND_DISPLAY
-ExecStartPre=/bin/bash -c 'until xset -display localhost:0.0 q >/dev/null 2>&1; do sleep 1; done'
+ExecStartPre=/bin/bash -c 'i=0; until xset -display localhost:0.0 q >/dev/null 2>&1; do i=$$((i+1)); if [ "$$i" -ge 30 ]; then echo "herbst.service: X server not reachable after 30s" >&2; exit 1; fi; sleep 1; done'
 ExecStart=/usr/bin/herbstluftwm
 Restart=on-failure
 RestartSec=3
