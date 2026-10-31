@@ -24,7 +24,7 @@ Primary consumer environments:
 
 | Package | Contents |
 | ----------- | ---------- |
-| `herbstluftwm` | THE single herbst stack package (2026-10 re-merge: herbst_focus, herbst_theme, herbst_titles and herbst_web folded back in). The WM bootstrap (autostart + keys.d sourcing loop), the keybind fragments (`keys.d/{nav,focus,floating}.sh`), the theme (`theme`, `theme.d/titles.theme`, `reload_theme`, `winbarctl`), ALL the float machinery + focus helpers (`hc_focus`, `hc_floatx`, `hc_zoom`, the maximize family, `hc_center`/`hc_resize`/`hc_tile`/`hc_fit_to` shims, minimize/reveal/show, `hc_bounce`, `hc_peek`, `hc_full_focus`), the generic `hc_*` tools + `hlwm_*` scripts, `rofi_hc_context`, `.config/{alacritty,compton,rofi}` and all systemd user units (`herbst`, `compton`, `dunst`, `hc_send-error-daemon`, `xvfb`, `x11vnc`, `novnc`). |
+| `herbstluftwm` | THE single herbst stack package (2026-10 re-merge: herbst_focus, herbst_theme, herbst_titles and herbst_web folded back in, then the last `keys.d/{nav,focus,floating}.sh` fragments folded into the master autostart — no fragment sourcing loop remains). The WM bootstrap (autostart only), the theme (`theme`, `theme.d/titles.theme`, `reload_theme`, `winbarctl`), ALL the float machinery + focus helpers (`hc_focus`, `hc_floatx`, `hc_zoom`, the maximize family, `hc_center`/`hc_resize`/`hc_tile`/`hc_fit_to` shims, minimize/reveal/show, `hc_bounce`, `hc_peek`, `hc_full_focus`), the generic `hc_*` tools + `hlwm_*` scripts, `rofi_hc_context`, `.config/{alacritty,compton,rofi}` and all systemd user units (`herbst`, `compton`, `dunst`, `hc_send-error-daemon`, `xvfb`, `x11vnc`, `novnc`). |
 | `polybar` | `.config/polybar/` (config.ini + polybar.sh + polywins.sh
 scripts), `.local/bin/{polyctl,ewmh_labels}`,
 `.local/share/polybar/Makefile` (bar control: theme/reload/up/down) |
@@ -160,6 +160,19 @@ the relevant unit.
 - `service.order` currently enables `herbst compton dunst`; `xvfb`, `x11vnc`
   and `novnc` units exist for headless/VNC setups and are commented out in
   the order file.
+- **xrdp layer on the nested profile** (2026-10): the `xrdp` FEATURE in
+  `deploy.profile` provisions a system-level xrdp whose Xvnc
+  module attaches to the running x11vnc framebuffer (`localhost:5900`) —
+  an RDP client lands in the same shared Xvfb session noVNC serves, no
+  per-connection session spawn. on-deploy installs the `xrdp` package,
+  patches the distro's `/etc/xrdp/xrdp.ini` in place (Xvnc module port
+  pinned to 5900, RDP listen port moved to **3390** — 3389 stays free
+  for Windows' own RDP / netsh portproxy, Xvnc promoted to the first
+  module slot, backup at
+  `xrdp.ini.on-deploy.bak`) and `enable --now`es the unit (restart only
+  when it was already active). xrdp is a SYSTEM service — it is NOT in
+  `service.order` (user units only) and no dots unit exists for it; the
+  config is provisioner-managed, not stowed (no `system-xrdp` package).
 
 ## Quirks and conventions established in this session
 
@@ -219,6 +232,13 @@ the relevant unit.
    `xdg-mime default firefox.desktop x-scheme-handler/http x-scheme-handler/https text/html`.
    Note `xdg-settings set default-web-browser` refuses to run while
    `$BROWSER` is exported — use `xdg-mime` directly.
+   **The wrapper is deployed conditionally**: the `shell` post-stow hook
+   (`scripts/deploy-menu.sh`) keeps the `~/.local/bin/firefox` link only
+   while `/mnt/c/Program Files/Mozilla Firefox/firefox.exe` exists. On
+   hosts without the exe (or without working interop) the stow link is
+   pruned and the unqualified `BROWSER=firefox` resolves to a real Linux
+   firefox if one is installed. The exact-duplicate `firefox-wrapper.sh`
+   was removed — `firefox` is the single wrapper name.
 8. **polybar warnings (known)**: `tray-position`/`tray-padding` in
    `polybar/.config/polybar/config.ini` are deprecated in favor of the
    dedicated tray module (polybar ≥ 3.6). Harmless for now.
@@ -312,6 +332,18 @@ the relevant unit.
     so commands with flags go through `--cmd '<string>'` (shell-form)
     or a wrapper FILE, never raw dash tokens. `scripts/live.guard.sh`
     (repo) uses this for its xmessage confirmation dialog.
+21. **`make deploy` runs the profile TUI first** (2026-10): on an
+    interactive terminal, `scripts/deploy-menu.sh --profile` walks
+    through distro target (wm.requires last line — pacman vs apt
+    branches in on-deploy's provisioners), session model, features,
+    units (universe = repo `*.service` files) and env lines, writes
+    `deploy.profile`, then `make provision` runs before any stowing.
+    Bypasses: `P="a b"` non-interactive, `PROFILE=skip`. The value
+    sets mirror on-deploy's `src/lib/profile.ts` — keep them in sync.
+    `depends/.local/bin/install/manjaro.deploy` is the pacman
+    counterpart of `ubuntu.deploy` for the requirement walk
+    (pacman -Fs resolution; needs `sudo pacman -Fy` on first run) —
+    never tested on real pacman yet (no pacman on the WSL host).
 
 ## Quick verification workflow
 

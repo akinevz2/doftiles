@@ -53,10 +53,28 @@ $(STOW_PKGS):
 	@$(SCRIPT) --hook $@
 
 # deploy — selective deployment, TUI-driven when interactive:
-#   make deploy               whiptail checklist (plain menu fallback)
+#   make deploy               profile TUI first, then a whiptail
+#                             checklist (plain menu fallback)
 #   make deploy P="a b"       fine-grained, no TUI, works non-interactive
-# Each selection is stowed, remembered, and hooked.
+#   make deploy PROFILE=skip  bypass the deploy.profile TUI
+# The profile TUI (scripts/deploy-menu.sh --profile) selects and
+# configures deploy.profile (session model, features, units, env),
+# writes it, and runs provision (make provision) — guarded: skipped
+# non-interactive without PROFILE=, and provision itself is skipped
+# when on-deploy is not installed. Each package selection is then
+# stowed, remembered, and hooked.
 deploy:
+	@if [ ! -t 0 ] || [ "$(PROFILE)" = "skip" ]; then \
+		echo "deploy: profile TUI skipped"; \
+	else \
+		$(SCRIPT) --profile || exit 1; \
+		if [ -x "$$HOME/.local/bin/on-deploy" ]; then \
+			$(MAKE) --no-print-directory provision || \
+				echo "deploy: provision FAILED — profile saved; run 'make provision' to retry" >&2; \
+		else \
+			echo "deploy: on-deploy not installed — provision skipped (run 'make on-deploy-ensure')"; \
+		fi; \
+	fi
 	@for pkg in $$($(SCRIPT) "$(P)"); do \
 		$(MAKE) --no-print-directory $$pkg; \
 	done
@@ -79,38 +97,59 @@ restow:
 	fi
 
 # help — the overview (also what bare `make` shows before the first
-# deployment).
+# deployment). Favor descriptive entries over a strict column budget —
+# long entries wrap onto continuation lines, packages print one per
+# line (greppable, not folded across a wrap width).
 help:
-	@echo "doftiles — stow-based dotfiles deployment"
+	@echo "doftiles — stow-based dotfiles"
 	@echo ""
 	@echo "Deployment:"
-	@echo "  make              restow the remembered subset (help if never deployed)"
-	@echo "  make all          stow + hook every package"
-	@echo "  make deploy       selective: whiptail TUI (interactive) or P=\"a b\""
-	@echo "  make <package>    stow + hook one package (e.g. make polybar)"
-	@echo "  make bootstrap    full single-call deployment (headless-safe)"
-	@echo "  make bun-toolchain  install bun via npm; make bun-trust = trust global packages"
-	@echo "  make on-deploy-ensure  build+install the on-deploy binary (wire-in of bootstrap)"
-	@echo "  make credentials   set git name/email from ~/.my-credentials (bootstrap final step)"
-	@echo "  make session-link  print the pressable noVNC URL when the nested stack runs"
-	@echo "  make clean        unstow every package (system binaries untouched)"
-	@echo "  make forget P=... drop packages from the remembered set"
+	@echo "  make            restow the remembered packages (the"
+	@echo "                  recorded stowed set; the default goal)"
+	@echo "  make all        stow + hook every package"
+	@echo "  make deploy     selective deploy: an interactive run"
+	@echo "                  first walks the deploy.profile TUI"
+	@echo "                  (distro target, session model, features,"
+	@echo "                  units, env) and runs provision BEFORE any"
+	@echo "                  package is stowed; then a whiptail"
+	@echo "                  checklist picks the packages."
+	@echo "                  P=\"a b\" is the fine-grained non-interactive"
+	@echo "                  form; PROFILE=skip bypasses the profile TUI"
+	@echo "  make <package>  stow + remember + post-stow hook one pkg"
+	@echo "  make bootstrap  full one-call deploy: stow everything,"
+	@echo "                  verify wm.requires, enable services per"
+	@echo "                  service.order, credentials last"
+	@echo "  make bun-toolchain   install bun via npm"
+	@echo "  make bun-trust       trust bun's global postinstalls"
+	@echo "  make on-deploy-ensure  build + install on-deploy"
+	@echo "  make herbctl-ensure    build + install herbctl"
+	@echo "                  (both: FORCE=1 forces a rebuild)"
+	@echo "  make credentials  git name/email setup (gated final step)"
+	@echo "  make session-link  print the noVNC session URL"
+	@echo "  make clean      unstow every package (system-* packages"
+	@echo "                  and deployed binaries are NOT touched)"
+	@echo "  make forget P=..  drop packages from the remembered set"
+	@echo "                  (without unstowing them)"
 	@echo ""
 	@echo "Inspection:"
-	@echo "  make status       binaries, packages, services, git state"
-	@echo "  make provision    platform services per deploy.profile (on-deploy)"
-	@echo "  make update       safe pull (-ff / --rebase) + submodule/npm refresh"
+	@echo "  make status     packages / services / git state"
+	@echo "  make provision  platform provisioning via on-deploy, per"
+	@echo "                  deploy.profile (xserver, xinitrc, greeter,"
+	@echo "                  nested stack, xrdp)"
+	@echo "  make update     safe pull + submodule sync/refresh"
 	@echo "  make push, sync   commit/push flow (see AGENTS.md)"
 	@echo ""
-	@echo "Services (order from service.order; YES=1 bypasses prompts):"
+	@echo "Services (YES=1 skips prompts; non-interactive requires it):"
 	@echo "  make services-start | services-stop | restart"
-	@echo "  make reload-systemd  daemon-reload + enable --now"
+	@echo "  make reload-systemd  daemon-reload, enable --now all"
 	@echo ""
-	@echo "Dependencies (depends package; state in ~/.config/doftiles.conf):"
-	@echo "  make -C ~/.local/share/doftiles deploy-fromsource | deploy-fromnpm"
+	@echo "Dependencies (install method state: doftiles.conf):"
+	@echo "  make -C ~/.local/share/doftiles deploy-fromsource"
+	@echo "  make -C ~/.local/share/doftiles deploy-fromnpm"
 	@echo "  make -C ~/.local/share/doftiles uninstall"
 	@echo ""
-	@echo "Packages: $(STOW_PKGS)"
+	@echo "Packages (one per line):"
+	@for pkg in $(STOW_PKGS); do echo "  $$pkg"; done
 
 # clean — undeploy every package from $HOME. System-* packages (stowed
 # to /) and deployed binaries (e.g. ~/.local/bin/polyframes) are NOT
@@ -135,21 +174,21 @@ status:
 	@echo "== binaries (wm.requires) =="
 	@for bin in $(WM_BINARIES); do \
 		if command -v "$$bin" >/dev/null 2>&1; then st=installed; else st=MISSING; fi; \
-		printf '  %-24s %s\n' "$$bin" "$$st"; \
+		printf '  %-14s %s\n' "$$bin" "$$st"; \
 	done
 	@echo "== packages =="
 	@for pkg in $(STOW_PKGS); do \
 		if $(SCRIPT) --stowed "$$pkg" 2>/dev/null; then st=stowed; else st="not stowed"; fi; \
-		printf '  %-24s %s\n' "$$pkg" "$$st"; \
+		printf '  %-14s %s\n' "$$pkg" "$$st"; \
 	done
-	@echo "== services (available in the repo) =="
+	@echo "== services (repo units) =="
 	@for f in $$(find . -name '*.service' -not -path './.git/*' | sort); do \
-		unit=$$(basename $$f); \
-		act=$$(systemctl --user is-active $$unit 2>/dev/null); \
+		unit=$$(basename $$f .service); \
+		act=$$(systemctl --user is-active "$$unit.service" 2>/dev/null); \
 		[ -n "$$act" ] || act=unknown; \
-		ena=$$(systemctl --user is-enabled $$unit 2>/dev/null); \
+		ena=$$(systemctl --user is-enabled "$$unit.service" 2>/dev/null); \
 		[ -n "$$ena" ] || ena=unknown; \
-		printf '  %-24s %-10s %s\n' "$$unit" "$$act" "$$ena"; \
+		printf '  %-21s %-9s %s\n' "$$unit" "$$act" "$$ena"; \
 	done
 	@echo "== git =="
 	@branch=$$(git branch --show-current); \
@@ -157,16 +196,16 @@ status:
 	if [ "$$up" != "none" ]; then \
 		ahead=$$(git rev-list --count '@{u}..HEAD'); \
 		behind=$$(git rev-list --count 'HEAD..@{u}'); \
-		echo "  branch $$branch (ahead $$ahead, behind $$behind of $$up)"; \
+		printf '  %-14s %s <- %s (+%s -%s)\n' branch "$$branch" "$$up" "$$ahead" "$$behind"; \
 	else \
-		echo "  branch $$branch (no upstream)"; \
+		printf '  %-14s %s (no upstream)\n' branch "$$branch"; \
 	fi; \
 	dirty=$$(git status --short | wc -l); \
 	if [ "$$dirty" -eq 0 ]; then \
-		echo "  worktree clean"; \
+		printf '  %-14s clean\n' worktree; \
 	else \
-		echo "  worktree dirty ($$dirty entries):"; \
-		git status --short | head -10 | sed 's/^/    /'; \
+		printf '  %-14s dirty (%s entries)\n' worktree "$$dirty"; \
+		git status --short | head -20 | sed 's/^/  /'; \
 	fi
 
 # forget — drop P="pkg ..." from the remembered set (does not unstow)
@@ -268,6 +307,8 @@ bootstrap: bun-toolchain submodules bun-trust stow
 	@echo "bootstrap: ensuring the on-deploy binary (the package walk + provision exec it)"
 	@$(MAKE) --no-print-directory on-deploy-ensure || \
 		echo "bootstrap: on-deploy deploy FAILED — the package walk will be skipped; run 'make on-deploy-ensure' after fixing" >&2
+	@$(MAKE) --no-print-directory herbctl-ensure || \
+		echo "bootstrap: herbctl deploy FAILED — the WM get-* keybinds need it; run 'make herbctl-ensure' after fixing" >&2
 	@echo "bootstrap: verifying required binaries (continues on missing ones)"
 	@$(MAKE) --no-print-directory add-packages || \
 		echo "bootstrap: missing packages listed below — install them and re-run when ready" >&2
@@ -296,6 +337,14 @@ session-link:
 		echo ""; \
 		echo "session-link: noVNC session is up — press to open the browser session:"; \
 		echo "  http://$${listen:-localhost:6080}/vnc.html?autoconnect=1"; \
+	fi; \
+	if systemctl is-active xrdp >/dev/null 2>&1; then \
+		rdpport=$$(grep -oE '^[[:space:]]*port[[:space:]]*=[[:space:]]*[0-9]+' \
+			/etc/xrdp/xrdp.ini 2>/dev/null | head -1 | sed 's/.*=//'); \
+		rdpport=$${rdpport:-3389}; \
+		echo ""; \
+		echo "session-link: RDP surface is up — connect to this host:$${rdpport}"; \
+		echo "  (xrdp Xvnc module -> the shared x11vnc framebuffer, same session as noVNC)"; \
 	fi
 
 install: bootstrap
@@ -318,6 +367,9 @@ polyframes-ensure:
 ONDEPLOY_SUBMOD := $(CURDIR)/depends/.local/share/on-deploy
 ONDEPLOY_BIN    := $(HOME)/.local/bin/on-deploy
 
+HERBCTL_SUBMOD  := $(CURDIR)/depends/.local/share/herbctl
+HERBCTL_BIN     := $(HOME)/.local/bin/herbctl
+
 on-deploy-ensure:
 	@if [ -x "$(ONDEPLOY_BIN)" ]; then \
 		echo "on-deploy: $(ONDEPLOY_BIN) deployed already — skipping"; \
@@ -339,6 +391,34 @@ on-deploy-ensure:
 	mkdir -p "$(HOME)/.local/bin"; \
 	install -m 755 "$(ONDEPLOY_SUBMOD)/dist/on-deploy" "$(ONDEPLOY_BIN)"; \
 	echo "on-deploy: installed $(ONDEPLOY_BIN)"
+
+# herbctl-ensure — the WM keybind state machines (autostart's get-*
+# binds exec ~/.local/bin/herbctl). Same pattern as on-deploy-ensure:
+# build + install from the submodule checkout ONLY when missing;
+# FORCE=1 rebuilds (the freshness flow is `make update` + FORCE=1).
+# The herbstluftwm post-stow hook runs this, so make all/wm/herbstluftwm
+# all land the binary.
+herbctl-ensure:
+	@if [ -z "$(FORCE)" ] && [ -x "$(HERBCTL_BIN)" ]; then \
+		echo "herbctl: $(HERBCTL_BIN) deployed already — skipping (FORCE=1 rebuilds)"; \
+		exit 0; \
+	fi; \
+	if [ ! -f "$(HERBCTL_SUBMOD)/src/index.ts" ]; then \
+		echo "herbctl: submodule checkout missing — run 'make submodules' first" >&2; \
+		exit 1; \
+	fi; \
+	if ! command -v bun >/dev/null 2>&1; then \
+		echo "herbctl: bun not found — install it (arch: pacman -S bun)" >&2; \
+		echo "  or install the CLI through npm instead: npm install --global github:akinevz2/herbctl" >&2; \
+		exit 1; \
+	fi; \
+	cd "$(HERBCTL_SUBMOD)" && bun install; \
+	cd "$(HERBCTL_SUBMOD)" && bun x bunli build --targets linux-x64 --minify; \
+	mv -f "$(HERBCTL_SUBMOD)/dist/index" "$(HERBCTL_SUBMOD)/dist/herbctl"; \
+	rm -f "$(HERBCTL_SUBMOD)/dist/index.map"; \
+	mkdir -p "$(HOME)/.local/bin"; \
+	install -m 755 "$(HERBCTL_SUBMOD)/dist/herbctl" "$(HERBCTL_BIN)"; \
+	echo "herbctl: installed $(HERBCTL_BIN)"
 
 deps: wm
 	@if ! ls -al *.packages *.requires *.order; then \

@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# manjaro.deploy — pacman counterpart of ubuntu.deploy for the on-deploy
+# requirement walk. Contract (see on-deploy's lib/deployScript.ts):
+#
+#   manjaro.deploy <binary>          -> print the providing package name
+#   manjaro.deploy install <binary>  -> print the pacman install COMMAND
+#
+# Resolution uses pacman's file database (pacman -Fy + -Fs): file DBs
+# are not synced by default, so the first run refreshes them.
+# `pacman -Fs usr/bin/<binary>` prints package rows (not indented, e.g.
+# "core/dunst 1.9.0-2 [installed]") followed by indented file rows.
+# [installed] rows are skipped — the walk only asks when the binary is
+# MISSING. Candidates are ranked: an exact package-name match for the
+# binary wins (dunst -> dunst), then a package whose name contains it
+# (herbstclient -> herbstluftwm), then the first hit in repo order
+# (core/extra before AUR helpers listed in pacman.conf).
+
+set -u
+MODE="${1:-}"
+BINARY_NAME="${2:-}"
+
+if [ -z "$BINARY_NAME" ]; then
+    echo "$(basename "$0"): returns the package providing a binary"
+    echo "pass 'install' to print the platform install command"
+    echo "Usage: manjaro.deploy [install] <binary_name>"
+    exit 1
+fi
+
+if ! command -v pacman >/dev/null 2>&1; then
+    echo "Error: pacman not found — is this actually a Manjaro/Arch system?" >&2
+    exit 1
+fi
+
+# the files DB must be fresh for -Fs to see current package layouts
+sudo pacman -Fy >/dev/null 2>&1 || \
+    echo "manjaro.deploy: pacman -Fy failed — using a possibly stale file DB" >&2
+
+rows=$(pacman -Fs "usr/bin/$BINARY_NAME" 2>/dev/null)
+if [ -z "$rows" ]; then
+    echo "Error: no package in the pacman file database provides '$BINARY_NAME'" >&2
+    echo "       (run 'sudo pacman -Fy' and check the binary name)" >&2
+    exit 1
+fi
+
+# package rows only: non-indented, drop [installed], keep "repo/name"
+pkgs=$(printf '%s\n' "$rows" \
+    | grep -v '^[[:space:]]' \
+    | grep -v '\[installed\]' \
+    | cut -d' ' -f1 \
+    | sed 's|.*/||' \
+    | uniq)
+
+best=""
+for pkg in $pkgs; do
+    [ "$pkg" = "$BINARY_NAME" ] && { best=$pkg; break; }
+done
+if [ -z "$best" ]; then
+    for pkg in $pkgs; do
+        case "$pkg" in *"$BINARY_NAME"*) best=$pkg; break ;; esac
+    done
+fi
+[ -z "$best" ] && best=$(printf '%s\n' "$pkgs" | head -1)
+
+if [ "$MODE" = "install" ]; then
+    echo "sudo pacman -S --needed ${best}"
+    exit 0
+fi
+echo "${best}"

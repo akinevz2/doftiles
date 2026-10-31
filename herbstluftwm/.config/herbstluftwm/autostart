@@ -19,6 +19,11 @@ Mod=Mod1            # Alt — primary mod inside Xephyr
 ModShift=Mod1-Shift
 ModCtrl=Mod1-Control
 
+### SIZES ###
+# resizestep: frame resizes (RESIZING below + the nav corner binds);
+# nudgestep: fine window nudges (--level=all). Defined up here because
+# the merged keybind sections also expand these.
+
 ### REGISTER RELOAD ###
 herb emit_hook reload
 herb set_layout max
@@ -38,12 +43,156 @@ for _nvm_bin in "$HOME"/.config/nvm/versions/node/*/bin; do
     fi
 done
 
-### KEYBIND FRAGMENTS (stow-merged from the keybind packages) ###
-# Each keybind package drops a fragment into keys.d/; stow merges
-# them into one directory and this loop sources every one.
-for _frag in "$HOME"/.config/herbstluftwm/keys.d/*.sh; do
-    [ -e "$_frag" ] && source "$_frag"
-done
+### KEYBINDS — nav / focus / floating ###
+# folded back into this master autostart (2026-10): the keys.d/
+# stow-merge loop is gone; these blocks were keys.d/{nav,focus,floating}.sh
+
+# ==== herbst_nav — navigation keybinds (window/tag focus, cycling, tags) ====
+
+# was $ModAlt-Tab → now Alt+Shift+`
+keyreg $ModCtrl-c   or \
+                    . and \
+                        , compare tags.focus.tiling.root.split_type = vertical \
+                        , compare tags.focus.floating_focused = 0 \
+                        , rotate \
+                    . chain \
+                        , cycle_frame \
+                        , jumpto urgent
+
+# hc_command — the rofi command palette over the helper scripts
+keyreg $Mod-c       spawn ~/.local/bin/hc_command
+
+# hc_dismiss-notifs — sweep the notification stack (errors et al.)
+keyreg $ModCtrl-d   spawn ~/.local/bin/hc_dismiss-notifs
+
+keyreg $Mod-w spawn ~/.local/bin/herbctl get-forward
+
+# ModShift-w: mirror of Mod-w's cycle -1 register — first tries shifting
+# the window up (#window leaves the frame, --level=all); when there is
+# nothing above, with >1 window in the focused frame it cycles -1,
+# otherwise it tries cycle_frame, then falls through to rotating the
+# frame tree.
+keyreg $ModShift-w spawn ~/.local/bin/herbctl get-shuffle
+
+keyreg $ModShift-s spawn ~/.local/bin/herbctl get-skip
+
+keyreg $ModShift-x use_previous
+
+keyreg $ModShift-d spawn ~/.local/bin/herbctl get-dedeck
+
+keyreg $Mod-d spawn ~/.local/bin/herbctl get-deck
+
+keyreg $ModShift-z          spawn ~/.local/bin/herbctl get-nap
+
+# tag switcher
+keyreg $Mod-t               spawn ~/.local/bin/polyframes tags
+
+# FOCUS — hjkl stays within visible clients; arrows traverse all
+# frames/layers (levels exchanged: hjkl was all, arrows was visible;
+# directions unchanged on both sets)
+keyreg $Mod-h                   focus --level=all left
+
+keyreg $Mod-j                   focus --level=all down
+
+keyreg $Mod-k                   focus --level=all up
+
+keyreg $Mod-l                   focus --level=all right
+
+keyreg $Mod-Left                or . focus left . focus --level=all left
+
+keyreg $Mod-Down                or . focus down . focus --level=all down
+
+keyreg $Mod-Up                  or . focus up . focus --level=all up
+
+keyreg $Mod-Right               or . focus right . focus --level=all right
+
+# SHIFT windows — Alt+Ctrl+arrows and Alt+Ctrl+hjkl
+# (hjkl slot freed up by dropping the old focus aliases)
+keyreg $ModCtrl-h               shift --level=all left
+
+keyreg $ModCtrl-j               shift --level=all down
+
+keyreg $ModCtrl-k               shift --level=all up
+
+keyreg $ModCtrl-l               shift --level=all right
+
+keyreg $ModCtrl-Left            or . shift --level=frame left . shift --level=all left
+
+keyreg $ModCtrl-Down            or . shift --level=frame down . shift --level=all down
+
+keyreg $ModCtrl-Up              or . shift --level=frame up . shift --level=all up
+
+keyreg $ModCtrl-Right           or . shift --level=frame right . shift --level=all right
+
+keyreg $Mod-bracketleft     use_index -1 --skip-visible
+
+keyreg $Mod-bracketright    use_index +1 --skip-visible
+
+keyreg $ModCtrl-comma       resize left +$resizestep
+
+keyreg $ModCtrl-period      resize right +$resizestep
+
+keyreg $Mod-comma           cycle_all --skip-invisible -1
+
+keyreg $Mod-period          cycle_all --skip-invisible +1
+
+keyreg $ModShift-comma      shift left
+
+keyreg $ModShift-period     shift right
+
+# ==== herbst_focus — the focus/peek keybinds (mod-s grid, frame cycling) ====
+
+# ModShift-r: rotate the tree (>3 frames) or cycle frames forward; on
+# a single frame it cycles windows in the opposite direction of
+# ModShift-w.
+keyreg $ModCtrl-r spawn ~/.local/bin/herbctl get-rotate
+
+keyreg $Mod-e spawn ~/.local/bin/herbctl get-explore
+
+# cycle; was $Mod-s / $ModShift-s
+# zoom/peek grid — focuses the frame below first; when there is none,
+# falls back to the window cycle / pseudotile toggle
+# The floating branch: `attr tags.focus.floating_focused true` focuses
+# the floating layer AND doubles as the "are there (non-minimized)
+# floats" conditional — it fails on an empty floating layer, falling
+# through to the alternatives (the failure is quieted in the
+# hc_send-error-daemon's QUIET_MATCH).
+keyreg $Mod-s spawn ~/.local/bin/herbctl get-south
+
+# ==== herbst_floating — the float registers (mod-f / mod-x / mod-ctrl-f) ====
+
+# Mod-q: a focused float is ONLY un-floated (the closing branches run
+# only when the focused window is not floating); tiling windows get
+# closed, with a lone-window frame removed afterwards.
+keyreg $Mod-q spawn ~/.local/bin/herbctl get-quiet
+
+# peek floats; when the floating layer is empty (or every float is
+# hidden), offer the hidden windows via rofi; rofi_hidden exits
+# non-zero when nothing is hidden, so fall back to the previous tag.
+# Wrapped in sh -c because "spawn" itself is always truthy — the or
+# chain has to see the script's exit code.
+keyreg $Mod-g               spawn ~/.local/bin/polyframes hidden
+
+# tile helper: (re)tiles the focused frame's clients (polyframes tile)
+keyreg $ModCtrl-t           spawn ~/.local/bin/polyframes tile
+
+# quick float toggle for the focused window: floated windows are
+# centered inside their focused frame (visual float indicator);
+# pressing again re-unfloats — no focus chasing (hc_focus)
+keyreg $Mod-f               spawn ~/.local/bin/hc_focus
+
+# zoom: 3-state toggle for the focused window — float the focused
+# window if tiled (a), maximize onto a <tag>-max tag if floating (b),
+# restore via hc_unmaximize if maximized (c) (hc_zoom)
+keyreg $ModCtrl-f          spawn ~/.local/bin/hc_zoom
+
+keyreg $ModShift-f spawn ~/.local/bin/herbctl get-hush
+
+# tidying tool: pulls the focused client out of its frame (float +
+# center on screen, focus back to tiling); with a float on the tag,
+# an empty focused frame "drops" the float back in, a frame holding
+# clients just toggles focus to the floating layer (hc_floatx)
+keyreg $Mod-x               spawn ~/.local/bin/hc_floatx
 
 
 # LAUNCHERS
@@ -144,10 +293,6 @@ herb mousebind $Mod-Button5 call cycle -1
 
 
 # RESIZING
-resizestep=0.25
-nudgestep=0.083
-
-
 
 keyreg $ModShift-h          resize left +$nudgestep --level=all
 keyreg $ModShift-j          resize down +$nudgestep --level=all
