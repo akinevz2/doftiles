@@ -59,7 +59,7 @@ $(STOW_PKGS):
 #   make deploy PROFILE=skip  bypass the deploy.profile TUI
 # The profile TUI (scripts/deploy-menu.sh --profile) selects and
 # configures deploy.profile (deployment model, features, units, env),
-# writes it, and runs apply (make provision) — guarded: skipped
+# writes it, and runs the deploy target apply — guarded: skipped
 # non-interactive without PROFILE=, and apply itself is skipped
 # when on-deploy is not installed. Each package selection is then
 # stowed, remembered, and hooked.
@@ -69,8 +69,8 @@ deploy:
 	else \
 		$(SCRIPT) --profile || exit 1; \
 		if [ -x "$$HOME/.local/bin/on-deploy" ]; then \
-			$(MAKE) --no-print-directory provision || \
-				echo "deploy: apply FAILED — profile saved; retry: make provision" >&2; \
+			"$$HOME/.local/bin/on-deploy" apply || \
+				echo "deploy: apply FAILED — profile saved" >&2; \
 		else \
 			echo "deploy: on-deploy missing — apply skipped (make bootstrap)"; \
 		fi; \
@@ -125,8 +125,8 @@ help:
 	@echo "  make install      all + each package's dependency Makefile"
 	@echo "  make deploy       profile TUI + whiptail package picker"
 	@echo "  make <package>    stow + remember + hook one package"
-	@echo "  make bootstrap    fresh-system full deploy (toolchain,"
-	@echo "                    stow, services, credentials)"
+	@echo "  make bootstrap    fresh-system full deploy (config wizard,"
+	@echo "                    binaries, stow, apply; services, credentials)"
 	@echo "  make credentials  git name/email from ~/.my-credentials"
 	@echo "  make submodules   init/update the dependency subrepos"
 	@echo ""
@@ -137,7 +137,7 @@ help:
 	@echo ""
 	@echo "Inspection:"
 	@echo "  make status       binaries / packages / services / git"
-	@echo "  make provision    platform apply (on-deploy apply)"
+	@echo "  make deploy       profile TUI + package picker + target apply"
 	@echo "  make session-link print the noVNC/RDP session URL"
 	@echo "  make update       safe pull + submodule sync/refresh"
 	@echo "  make push, sync   commit/push flow"
@@ -163,13 +163,6 @@ clean:
 	@echo "clean: all packages unstowed; system binaries untouched"
 
 # status — binaries, packages, services, git state.
-# provision — platform apply via on-deploy (deploy.profile): env,
-# the WSL verify-only bypass, unit enables. Package groups (xserver,
-# nested, xrdp, greeter, xinitrc) live in the package Makefiles —
-# run via `on-deploy packages <rule>`. See on-deploy's README.
-provision:
-	@cd $(CURDIR) && ~/.local/bin/on-deploy apply
-
 status:
 	@echo "== binaries (wm.requires) =="
 	@for bin in $(WM_BINARIES); do \
@@ -301,18 +294,33 @@ bootstrap: submodules
 	else \
 		echo "bootstrap: on-deploy missing — toolchain skipped" >&2; \
 	fi
-	@echo "bootstrap: stow all"
-	@$(MAKE) --no-print-directory stow
-	@echo "bootstrap: polyframes artifact"
-	@if [ -x "$(HOME)/.local/bin/on-deploy" ]; then \
-		"$(HOME)/.local/bin/on-deploy" deps || \
+	@if [ -t 0 ] && [ -x "$(HOME)/.local/bin/on-deploy" ]; then \
+		echo "bootstrap: configuration wizard"; \
+		if "$(HOME)/.local/bin/on-deploy" configure; then \
+			wizard_done=1; \
+		else \
+			echo "bootstrap: wizard FAILED — falling back to defaults" >&2; \
+		fi; \
 	else \
-		echo "bootstrap: on-deploy missing — polyframes deploy skipped" >&2; \
+		echo "bootstrap: non-interactive — wizard skipped (defaults)"; \
+	fi; \
+	if [ "$$wizard_done" != 1 ]; then \
+		echo "bootstrap: stow all"; \
+		$(MAKE) --no-print-directory stow; \
+		echo "bootstrap: deps"; \
+		if [ -x "$(HOME)/.local/bin/on-deploy" ]; then \
+			"$(HOME)/.local/bin/on-deploy" deps || \
+				echo "bootstrap: deps FAILED" >&2; \
+		fi; \
+		echo "bootstrap: apply"; \
+		if [ -x "$(HOME)/.local/bin/on-deploy" ]; then \
+			"$(HOME)/.local/bin/on-deploy" apply || \
+				echo "bootstrap: apply FAILED" >&2; \
+		fi; \
+		echo "bootstrap: verify binaries"; \
+		$(MAKE) --no-print-directory add-packages || \
+			echo "bootstrap: missing packages listed above — install them and re-run when ready" >&2; \
 	fi
-	@echo "bootstrap: stow all"
-	@echo "bootstrap: verify binaries"
-	@$(MAKE) --no-print-directory add-packages || \
-		echo "bootstrap: missing packages listed below — install them and re-run when ready" >&2
 	@$(MAKE) --no-print-directory services-check
 	@$(MAKE) --no-print-directory status
 	@$(MAKE) --no-print-directory credentials
@@ -353,7 +361,7 @@ session-link:
 # dependencies get installed. Packages without that Makefile only get
 # stowed. The dependency Makefiles DEFER to on-deploy for the actual
 # binary management (the standard rule set there: install, start, stop,
-# uninstall, status, disable, enable). Full one-call provisioning
+# uninstall, status, disable, enable). Full one-call deployment
 # (toolchain bootstrap + services + profile) stays in `make bootstrap`.
 install: all
 	@for pkg in $(WM_PACKAGES); do \
@@ -368,7 +376,7 @@ install: all
 
 # on-deploy binary variables — _bootstrap-on-deploy (above) builds it
 # from the submodule checkout ONLY when missing (idempotent).
-# `make add-packages` (the on.deploy walk), `make provision` and the
+# `make add-packages` (the on.deploy walk), `make deploy` and the
 # `on-deploy toolchain` assurances all exec ~/.local/bin/on-deploy.
 ONDEPLOY_SUBMOD := $(CURDIR)/depends/.local/share/on-deploy
 ONDEPLOY_BIN    := $(HOME)/.local/bin/on-deploy
