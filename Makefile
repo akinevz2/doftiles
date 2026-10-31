@@ -84,17 +84,33 @@ all: $(WM_PACKAGES)
 
 # restow — the remembered subset (the default goal of bare `make`);
 # if nothing has ever been deployed, show the overview instead.
+# restow — the default goal: synchronise the stowed set to the one
+# specified in wm.packages — unstow everything stowed that is NOT in
+# the active set, then stow exactly the needed set (and run each
+# package's post-stow hook). The remembered state file ends up
+# holding precisely the wm.packages set.
 restow:
 	@if [ -s $(STATE_FILE) ]; then \
-		for pkg in $$(sort -u $(STATE_FILE)); do \
-			case " $(STOW_PKGS) " in \
-				*" $$pkg "*) $(MAKE) --no-print-directory $$pkg ;; \
-				*) echo "restow: skipping stale entry '$$pkg'" ;; \
-			esac; \
-		done; \
+		current=$$(sort -u $(STATE_FILE)); \
 	else \
-		$(MAKE) --no-print-directory help; \
-	fi
+		current=; \
+	fi; \
+	for pkg in $$current; do \
+		case " $(WM_PACKAGES) " in \
+			*" $$pkg "*) ;; \
+			*) echo "restow: unstow $$pkg"; \
+				$(STOW) -D -t $$HOME "$$pkg" 2>/dev/null || true ;; \
+		esac; \
+	done; \
+	: > $(STATE_FILE).tmp; \
+	for pkg in $(WM_PACKAGES); do \
+		echo "restow: stow $$pkg"; \
+		$(STOW) -R -t $$HOME "$$pkg" || exit 1; \
+		echo "$$pkg" >> $(STATE_FILE).tmp; \
+		$(SCRIPT) --hook $$pkg; \
+	done; \
+	mv $(STATE_FILE).tmp $(STATE_FILE); \
+	echo "restow: stowed set = $(WM_PACKAGES)"
 
 # help — the overview (also what bare `make` shows before the first
 # deployment). Favor descriptive entries over a strict column budget —
@@ -104,8 +120,8 @@ help:
 	@echo "doftiles — stow-based dotfiles"
 	@echo ""
 	@echo "Deployment:"
-	@echo "  make            restow the remembered packages (the"
-	@echo "                  recorded stowed set; the default goal)"
+	@echo "  make            sync the stowed set to wm.packages (unstow"
+	@echo "                  the rest, stow the active set; default goal)"
 	@echo "  make all        stow + hook every package"
 	@echo "  make deploy     selective deploy: an interactive run"
 	@echo "                  first walks the deploy.profile TUI"
