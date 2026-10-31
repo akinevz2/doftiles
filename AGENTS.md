@@ -83,8 +83,11 @@ annotation), `service.order` (unit start order).
   `scripts/deploy-menu.sh` (repo-side, not stowed) and are GUARDED:
   hooks needing a running WM/X no-op with a note on headless targets
   (`herbstluftwm` -> herbstclient reload; `herbst_theme` ->
-  reload_theme -f; `polybar` -> polyctl reload; `shell` -> bashrc hook
-  + load-credentials).
+  reload_theme -f; `polybar` -> polyctl reload; `shell` -> bashrc
+  hook only — the load-credentials call was MOVED out of the hook
+  into the gated `make credentials` step, the last stage of
+  bootstrap, which prints a name/email reminder when
+  ~/.my-credentials is missing instead of hard-erroring mid-deploy).
 - `make deploy` — selective deployment, TUI-driven when interactive:
   a whiptail checklist (preselecting currently-stowed packages; plain
   numbered menu when whiptail is missing). Fine-grained and
@@ -97,10 +100,15 @@ annotation), `service.order` (unit start order).
 - `make all` — stow + hook every package (and remember them all).
 - `make bootstrap` — full deployment in ONE call, safe on a systemd
   target with no running WM: stow everything (hooks no-op headless),
+  ensure the on-deploy binary (`on-deploy-ensure` — builds the
+  `depends/.local/share/on-deploy` submodule with bunli into
+  ~/.local/bin/on-deploy, so the add-packages walk resolves),
   verify `wm.requires` binaries, daemon-reload + `enable --now` per
   `service.order` (units needing X stay enabled-but-failed until X
   exists), deploy the depends artifact (per the conf method, default
-  source), status report. `make install` is an alias.
+  source), status report, then install git credentials
+  (`credentials` — reminder + skip when ~/.my-credentials is
+  missing). `make install` is an alias.
 - `make wm` — stow the stack from `wm.packages`; `make stow` is the
   same thing; `make bash` = `shell` + `agents` only.
 - `make deps` — manifest existence check, then `make sync`.

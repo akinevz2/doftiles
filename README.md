@@ -128,11 +128,15 @@ across the `dots` and `development` repos.
     the distributed `~/.bashrc` instead of overwriting it.
   - `.local/bin/install/ubuntu.deploy` — resolves (or installs) the apt package providing
     a given binary.
-  - `.local/bin/on.deploy` — preflight guard invoked by `make add-packages`.
+  - `.local/bin/on.deploy` — preflight guard invoked by `make add-packages`
+    (deprecated two-line shim: delegates to `~/.local/bin/on-deploy`, built
+    from the submodule by `make on-deploy-ensure` during bootstrap).
   - `.local/bin/check-wsl`, `firefox` wrapper + `firefox.desktop` + `mimeapps.list` —
     WSL detection and browser/link plumbing.
-- **git** — `load-credentials` (post-stow hook: sets global git identity from
-  `~/.my-credentials` and generates the sourced credentials env), `dekineify` (adapt the
+- **git** — `load-credentials` (not a post-stow hook anymore: `make credentials`
+  — the gated final step of `make bootstrap` — sets global git identity from
+  `~/.my-credentials`, or prints a reminder with the exact setup command when
+  the file is missing), `dekineify` (adapt the
   repo for a new user/branch), home Makefile (see above).
 - **llms** — `bootstrap-sonarqube.sh` (fresh instance → admin password → API token →
   gitignored env file), `sonarqube-mcp-manager` (compose stack lifecycle),

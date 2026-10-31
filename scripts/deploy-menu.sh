@@ -32,7 +32,10 @@ hook() {
         shell)
             chmod +x shell/.local/bin/install/bashrc 2>/dev/null || true
             "$HOME/.local/bin/install/bashrc" || true
-            "$HOME/.local/bin/load-credentials" || true
+            # credentials MOVED OUT: load-credentials used to fire here
+            # (mid-deploy) and error on machines without ~/.my-credentials.
+            # It now runs as the gated final step of `make bootstrap`
+            # (Makefile target: credentials).
             ;;
         herbstluftwm)
             if herbstclient version >/dev/null 2>&1; then

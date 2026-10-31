@@ -89,6 +89,10 @@ help:
 	@echo "  make deploy       selective: whiptail TUI (interactive) or P=\"a b\""
 	@echo "  make <package>    stow + hook one package (e.g. make polybar)"
 	@echo "  make bootstrap    full single-call deployment (headless-safe)"
+	@echo "  make bun-toolchain  install bun via npm; make bun-trust = trust global packages"
+	@echo "  make on-deploy-ensure  build+install the on-deploy binary (wire-in of bootstrap)"
+	@echo "  make credentials   set git name/email from ~/.my-credentials (bootstrap final step)"
+	@echo "  make session-link  print the pressable noVNC URL when the nested stack runs"
 	@echo "  make clean        unstow every package (system binaries untouched)"
 	@echo "  make forget P=... drop packages from the remembered set"
 	@echo ""
@@ -190,16 +194,109 @@ forget:
 submodules:
 	git submodule update --init --recursive --remote
 
-bootstrap: submodules stow
+# bun-toolchain — the bun/npm toolchain gate, run BEFORE the dependency
+# checkout (bootstrap prerequisite #1): on machines without bun but
+# with node/npm, bun is installed THROUGH npm (npm i -g bun), so the
+# dependency checkout and every later bun step can rely on it.
+bun-toolchain:
+	@if ! command -v bun >/dev/null 2>&1; then \
+		if ! command -v npm >/dev/null 2>&1; then \
+			echo "bun-toolchain: neither bun nor npm found — install node/npm first (arch: pacman -S npm)" >&2; \
+			exit 1; \
+		fi; \
+		echo "bun-toolchain: bun missing — installing through npm"; \
+		npm install --global bun; \
+	fi; \
+	echo "bun-toolchain: bun $$(bun --version) ready"
+
+# bun-trust — trust the lifecycle scripts (postinstall) of the globally
+# bun-installed packages; bun's default policy keeps them blocked (e.g.
+# herbstutil's `bunli generate` — AGENTS.md quirk 17), so guards
+# starting with @ never run until this passes. Runs AFTER the
+# submodule checkout: the postinstall scripts may need binaries that
+# only exist there (bunli ships in polyframes' node_modules/.bin).
+# Package situation classes, all fail-soft (never fails bootstrap):
+#   - untrusted (lifecycle blocked)  -> trust attempt, report result
+#   - trusted already / no scripts   -> note, no attempt (bun pm trust
+#     would exit 1 — "already trusted or no scripts")
+#   - not installed globally         -> same note path
+BUN_TRUST_PKGS := polyframes herbctl herbstutil @opencode/cli bun
+
+bun-trust:
+	@if [ -d "$(CURDIR)/depends/.local/share/polyframes/node_modules/.bin" ]; then \
+		PATH="$(CURDIR)/depends/.local/share/polyframes/node_modules/.bin:$$PATH"; export PATH; \
+	fi; \
+	untrusted=$$(bun pm untrusted -g 2>/dev/null || true); \
+	for pkg in $(BUN_TRUST_PKGS); do \
+		if printf '%s\n' "$$untrusted" | grep -qF "./node_modules/$$pkg"; then \
+			if bun pm trust -g "$$pkg" >/dev/null 2>&1; then \
+				echo "bun-trust: trusted $$pkg (postinstall scripts ran)"; \
+			else \
+				echo "bun-trust: $$pkg postinstall FAILED — scripts still blocked; re-run 'make bun-trust' after fixing" >&2; \
+			fi; \
+		else \
+			echo "bun-trust: $$pkg — trusted already or no blocked scripts"; \
+		fi; \
+	done
+
+# credentials — install git user.name/user.email from ~/.my-credentials.
+# MOVED here from the shell post-stow hook (deploy-menu.sh): mid-deploy
+# it used to hard-error on machines that never created the file. It now
+# runs as the LAST bootstrap step, and a missing file is a REMINDER, not
+# a failure — the first run finishes cleanly and is shown how to finish:
+# line 1 = full name (three words), line 2 = email.
+CREDENTIALS_BIN := $(if $(wildcard $(HOME)/.local/bin/load-credentials),$(HOME)/.local/bin/load-credentials,$(CURDIR)/shell/.local/bin/load-credentials)
+
+credentials:
+	@if [ -f "$(HOME)/.my-credentials" ]; then \
+		if "$(CREDENTIALS_BIN)"; then \
+			echo "credentials: git user.name/user.email configured"; \
+		else \
+			echo "credentials: load-credentials FAILED — fix $(HOME)/.my-credentials and re-run 'make credentials'" >&2; \
+		fi; \
+	else \
+		echo "credentials: reminder — $(HOME)/.my-credentials is not set up; git user.name/user.email were NOT installed"; \
+		echo "  to finish git config, write your name/email for git, one per line (name, then email):"; \
+		echo "    printf 'First Middle Last\nyou@example.com\n' > $(HOME)/.my-credentials"; \
+		echo "  then re-run 'make credentials'"; \
+	fi
+
+bootstrap: bun-toolchain submodules bun-trust stow
 	@echo "bootstrap: ensuring polyframes artifact (palette/launchers/bar exec it directly)"
 	@$(MAKE) --no-print-directory polyframes-ensure || \
 		echo "bootstrap: polyframes deploy FAILED — launchers/bar will degrade; install bun (arch: pacman -S bun) or npm, then run 'make polyframes-ensure'" >&2
+	@echo "bootstrap: ensuring the on-deploy binary (the package walk + provision exec it)"
+	@$(MAKE) --no-print-directory on-deploy-ensure || \
+		echo "bootstrap: on-deploy deploy FAILED — the package walk will be skipped; run 'make on-deploy-ensure' after fixing" >&2
 	@echo "bootstrap: verifying required binaries (continues on missing ones)"
 	@$(MAKE) --no-print-directory add-packages || \
 		echo "bootstrap: missing packages listed below — install them and re-run when ready" >&2
 	@$(MAKE) --no-print-directory reload-systemd
 	@$(MAKE) --no-print-directory status
+	@$(MAKE) --no-print-directory credentials
 	@echo "bootstrap: complete — units enabled; the WM stack comes up when X is available"
+	@$(MAKE) --no-print-directory session-link
+
+# session-link — the nested-profile browser surface: AFTER install,
+# print the noVNC URL the user can press (terminals hyperlink plain
+# URLs; clicking opens the browser AT the WM session instead of
+# hunting for the port). Prints ONLY when novnc.service is actually
+# running — the wsl-systemd primary profile stays quiet. The
+# listener hails from the live stowed unit, so the URL is the bound
+# truth; a 0.0.0.0/:: bind is rewritten to a browser-usable host.
+session-link:
+	@if [ -f "$$HOME/.config/systemd/user/novnc.service" ] && \
+		systemctl --user is-active novnc.service >/dev/null 2>&1; then \
+		listen=$$(grep -oE -- '--listen[[:space:]]+[[:graph:]]+' \
+			"$$HOME/.config/systemd/user/novnc.service" | head -1); \
+		listen=$${listen#* }; \
+		case "$$listen" in \
+			0.0.0.0:*|'::'*) listen="localhost:$${listen#*:}" ;; \
+		esac; \
+		echo ""; \
+		echo "session-link: noVNC session is up — press to open the browser session:"; \
+		echo "  http://$${listen:-localhost:6080}/vnc.html?autoconnect=1"; \
+	fi
 
 install: bootstrap
 
@@ -211,6 +308,37 @@ depends-deploy:
 # file powers repo-side fall-back runs and installed copies.
 polyframes-ensure:
 	@$(MAKE) --no-print-directory -C $(DEPLOY_MK) ensure
+
+# on-deploy-ensure — the bootstrap hook for the on-deploy binary:
+# build + install it from the submodule checkout ONLY when missing
+# (idempotent, like polyframes-ensure). `make add-packages` (the
+# on.deploy walk) and `make provision` both exec ~/.local/bin/on-deploy,
+# but nothing used to install it, so a fresh bootstrap failed with
+# "no such file or directory" instead of resolving akinevz2/on-deploy.
+ONDEPLOY_SUBMOD := $(CURDIR)/depends/.local/share/on-deploy
+ONDEPLOY_BIN    := $(HOME)/.local/bin/on-deploy
+
+on-deploy-ensure:
+	@if [ -x "$(ONDEPLOY_BIN)" ]; then \
+		echo "on-deploy: $(ONDEPLOY_BIN) deployed already — skipping"; \
+		exit 0; \
+	fi; \
+	if [ ! -f "$(ONDEPLOY_SUBMOD)/src/index.ts" ]; then \
+		echo "on-deploy: submodule checkout missing — run 'make submodules' first" >&2; \
+		exit 1; \
+	fi; \
+	if ! command -v bun >/dev/null 2>&1; then \
+		echo "on-deploy: bun not found — install it (arch: pacman -S bun)" >&2; \
+		echo "  or install the CLI through npm instead: npm install --global github:akinevz2/on-deploy" >&2; \
+		exit 1; \
+	fi; \
+	cd "$(ONDEPLOY_SUBMOD)" && bun install; \
+	cd "$(ONDEPLOY_SUBMOD)" && bun x bunli build --targets linux-x64 --minify; \
+	mv -f "$(ONDEPLOY_SUBMOD)/dist/index" "$(ONDEPLOY_SUBMOD)/dist/on-deploy"; \
+	rm -f "$(ONDEPLOY_SUBMOD)/dist/index.map"; \
+	mkdir -p "$(HOME)/.local/bin"; \
+	install -m 755 "$(ONDEPLOY_SUBMOD)/dist/on-deploy" "$(ONDEPLOY_BIN)"; \
+	echo "on-deploy: installed $(ONDEPLOY_BIN)"
 
 deps: wm
 	@if ! ls -al *.packages *.requires *.order; then \
@@ -271,9 +399,17 @@ push: update
 SYSTEM_PACKAGES := $(shell ls -d system-* 2>/dev/null)
 
 # add-packages — verify required binaries; the on-deploy walk (which
-# prompts per missing binary) runs only on an interactive terminal.
+# prompts per missing binary) runs only on an interactive terminal,
+# and only when the binary exists — otherwise the caller is pointed
+# at 'make on-deploy-ensure'.
 add-packages:
-	@if [ -t 0 ]; then ~/.local/bin/on.deploy || true; fi
+	@if [ -t 0 ]; then \
+		if [ -x "$$HOME/.local/bin/on.deploy" ]; then \
+			"$$HOME/.local/bin/on.deploy" || true; \
+		else \
+			echo "packages: on-deploy not deployed — the interactive package walk was skipped (run 'make on-deploy-ensure')" >&2; \
+		fi; \
+	fi
 	@missing=""; \
 	for bin in $(WM_BINARIES); do \
 		command -v "$$bin" >/dev/null 2>&1 || missing="$$missing $$bin"; \
