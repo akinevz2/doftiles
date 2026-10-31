@@ -1,5 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "compaction": {
+    "auto": true,
+    "buffer": 6000,
+    "keep": { "tokens": 8000 }
+  },
   "plugins": ["./opencode-screencast"],
   "formatter": true,
   "lsp": true,
@@ -105,8 +110,8 @@
         "glm-4.7-flash": {
           "name": "GLM 4.7 Flash",
           "limit": {
-            "context": 32768,
-            "output": 4096
+            "context": 65536,
+            "output": 8192
           },
           "modalities": {
             "input": ["text"],
@@ -130,6 +135,11 @@
       "sonarqube": {
         "type": "local",
         "command": ["/home/kine/.local/bin/sonarqube-mcp-wrapper"],
+        "enabled": true
+      },
+      "notion": {
+        "type": "local",
+        "command": ["/home/kine/.local/bin/notion-mcp-wrapper"],
         "enabled": true
       }
     }
