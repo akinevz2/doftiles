@@ -100,15 +100,17 @@ annotation), `service.order` (unit start order).
 - `make all` — stow + hook every package (and remember them all).
 - `make bootstrap` — full deployment in ONE call, safe on a systemd
   target with no running WM: stow everything (hooks no-op headless),
-  ensure the on-deploy binary (`on-deploy-ensure` — builds the
-  `depends/.local/share/on-deploy` submodule with bunli into
-  ~/.local/bin/on-deploy, so the add-packages walk resolves),
-  verify `wm.requires` binaries, daemon-reload + `enable --now` per
-  `service.order` (units needing X stay enabled-but-failed until X
-  exists), deploy the depends artifact (per the conf method, default
-  source), status report, then install git credentials
-  (`credentials` — reminder + skip when ~/.my-credentials is
-  missing). `make install` is an alias.
+  run the toolchain assurances (`on-deploy toolchain` — bun via npm
+  when missing, bun postinstall trust, herbctl binary; the former
+  bun-toolchain/bun-trust/on-deploy-ensure/herbctl-ensure recipes are
+  steps inside it now, with `_bootstrap-on-deploy` building the
+  on-deploy binary itself when missing so the add-packages walk
+  resolves), verify `wm.requires` binaries, daemon-reload +
+  `enable --now` per `service.order` (units needing X stay
+  enabled-but-failed until X exists), deploy the depends artifact (per
+  the conf method, default source), status report, then install git
+  credentials (`credentials` — reminder + skip when
+  ~/.my-credentials is missing). `make install` is an alias.
 - `make wm` — stow the stack from `wm.packages`; `make stow` is the
   same thing; `make bash` = `shell` + `agents` only.
 - `make deps` — manifest existence check, then `make sync`.

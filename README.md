@@ -130,7 +130,8 @@ across the `dots` and `development` repos.
     a given binary.
   - `.local/bin/on.deploy` — preflight guard invoked by `make add-packages`
     (deprecated two-line shim: delegates to `~/.local/bin/on-deploy`, built
-    from the submodule by `make on-deploy-ensure` during bootstrap).
+    by the bootstrap's `_bootstrap-on-deploy` step — the toolchain
+    assurances moved into `on-deploy toolchain`).
   - `.local/bin/check-wsl`, `firefox` wrapper + `firefox.desktop` + `mimeapps.list` —
     WSL detection and browser/link plumbing.
 - **git** — `load-credentials` (not a post-stow hook anymore: `make credentials`

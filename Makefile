@@ -72,7 +72,7 @@ deploy:
 			$(MAKE) --no-print-directory provision || \
 				echo "deploy: provision FAILED — profile saved; run 'make provision' to retry" >&2; \
 		else \
-			echo "deploy: on-deploy not installed — provision skipped (run 'make on-deploy-ensure')"; \
+			echo "deploy: on-deploy not installed — provision skipped (run 'make install')"; \
 		fi; \
 	fi
 	@for pkg in $$($(SCRIPT) "$(P)"); do \
@@ -116,14 +116,15 @@ help:
 	@echo "                  P=\"a b\" is the fine-grained non-interactive"
 	@echo "                  form; PROFILE=skip bypasses the profile TUI"
 	@echo "  make <package>  stow + remember + post-stow hook one pkg"
-	@echo "  make bootstrap  full one-call deploy: stow everything,"
-	@echo "                  verify wm.requires, enable services per"
-	@echo "                  service.order, credentials last"
-	@echo "  make bun-toolchain   install bun via npm"
-	@echo "  make bun-trust       trust bun's global postinstalls"
-	@echo "  make on-deploy-ensure  build + install on-deploy"
-	@echo "  make herbctl-ensure    build + install herbctl"
-	@echo "                  (both: FORCE=1 forces a rebuild)"
+	@echo "  make bootstrap  full one-call deploy: ensures the toolchain"
+	@echo "                  assurances (bun via npm if missing, bun"
+	@echo "                  postinstall trust, the on-deploy + herbctl"
+	@echo "                  binaries — formerly the bun-toolchain/"
+	@echo "                  bun-trust/on-deploy-ensure/herbctl-ensure"
+	@echo "                  recipes, now steps of on-deploy toolchain),"
+	@echo "                  then stow everything, verify wm.requires,"
+	@echo "                  enable services per service.order,"
+	@echo "                  credentials last"
 	@echo "  make credentials  git name/email setup (gated final step)"
 	@echo "  make session-link  print the noVNC session URL"
 	@echo "  make clean      unstow every package (system-* packages"
@@ -233,50 +234,40 @@ forget:
 submodules:
 	git submodule update --init --recursive --remote
 
-# bun-toolchain — the bun/npm toolchain gate, run BEFORE the dependency
-# checkout (bootstrap prerequisite #1): on machines without bun but
-# with node/npm, bun is installed THROUGH npm (npm i -g bun), so the
-# dependency checkout and every later bun step can rely on it.
-bun-toolchain:
-	@if ! command -v bun >/dev/null 2>&1; then \
+# bun toolchain + trust + the *-ensure binaries USED to be four
+# separate recipes (bun-toolchain, bun-trust, on-deploy-ensure,
+# herbctl-ensure). They are not user choices — they are ASSURANCES the
+# user gets when calling `make install`, so they live inside
+# on-deploy (`on-deploy toolchain`) and the bootstrap just execs it.
+#
+# _bootstrap-on-deploy is the one exception that must stay here: it
+# builds the on-deploy binary itself when missing (the toolchain
+# command cannot run before its own binary exists), including the
+# bun-through-npm fallback. Everything after that delegates to it.
+_bootstrap-on-deploy:
+	@if [ -x "$(ONDEPLOY_BIN)" ]; then \
+		echo "on-deploy: $(ONDEPLOY_BIN) deployed already — skipping"; \
+		exit 0; \
+	fi; \
+	if [ ! -f "$(ONDEPLOY_SUBMOD)/src/index.ts" ]; then \
+		echo "on-deploy: submodule checkout missing — run 'make submodules' first" >&2; \
+		exit 1; \
+	fi; \
+	if ! command -v bun >/dev/null 2>&1; then \
 		if ! command -v npm >/dev/null 2>&1; then \
-			echo "bun-toolchain: neither bun nor npm found — install node/npm first (arch: pacman -S npm)" >&2; \
+			echo "on-deploy: neither bun nor npm found — install node/npm first (arch: pacman -S npm)" >&2; \
 			exit 1; \
 		fi; \
-		echo "bun-toolchain: bun missing — installing through npm"; \
+		echo "on-deploy: bun missing — installing through npm"; \
 		npm install --global bun; \
 	fi; \
-	echo "bun-toolchain: bun $$(bun --version) ready"
-
-# bun-trust — trust the lifecycle scripts (postinstall) of the globally
-# bun-installed packages; bun's default policy keeps them blocked (e.g.
-# herbstutil's `bunli generate` — AGENTS.md quirk 17), so guards
-# starting with @ never run until this passes. Runs AFTER the
-# submodule checkout: the postinstall scripts may need binaries that
-# only exist there (bunli ships in polyframes' node_modules/.bin).
-# Package situation classes, all fail-soft (never fails bootstrap):
-#   - untrusted (lifecycle blocked)  -> trust attempt, report result
-#   - trusted already / no scripts   -> note, no attempt (bun pm trust
-#     would exit 1 — "already trusted or no scripts")
-#   - not installed globally         -> same note path
-BUN_TRUST_PKGS := polyframes herbctl herbstutil @opencode/cli bun
-
-bun-trust:
-	@if [ -d "$(CURDIR)/depends/.local/share/polyframes/node_modules/.bin" ]; then \
-		PATH="$(CURDIR)/depends/.local/share/polyframes/node_modules/.bin:$$PATH"; export PATH; \
-	fi; \
-	untrusted=$$(bun pm untrusted -g 2>/dev/null || true); \
-	for pkg in $(BUN_TRUST_PKGS); do \
-		if printf '%s\n' "$$untrusted" | grep -qF "./node_modules/$$pkg"; then \
-			if bun pm trust -g "$$pkg" >/dev/null 2>&1; then \
-				echo "bun-trust: trusted $$pkg (postinstall scripts ran)"; \
-			else \
-				echo "bun-trust: $$pkg postinstall FAILED — scripts still blocked; re-run 'make bun-trust' after fixing" >&2; \
-			fi; \
-		else \
-			echo "bun-trust: $$pkg — trusted already or no blocked scripts"; \
-		fi; \
-	done
+	cd "$(ONDEPLOY_SUBMOD)" && bun install; \
+	cd "$(ONDEPLOY_SUBMOD)" && bun x bunli build --targets linux-x64 --minify; \
+	mv -f "$(ONDEPLOY_SUBMOD)/dist/index" "$(ONDEPLOY_SUBMOD)/dist/on-deploy"; \
+	rm -f "$(ONDEPLOY_SUBMOD)/dist/index.map"; \
+	mkdir -p "$(HOME)/.local/bin"; \
+	install -m 755 "$(ONDEPLOY_SUBMOD)/dist/on-deploy" "$(ONDEPLOY_BIN)"; \
+	echo "on-deploy: installed $(ONDEPLOY_BIN)"
 
 # credentials — install git user.name/user.email from ~/.my-credentials.
 # MOVED here from the shell post-stow hook (deploy-menu.sh): mid-deploy
@@ -300,15 +291,22 @@ credentials:
 		echo "  then re-run 'make credentials'"; \
 	fi
 
-bootstrap: bun-toolchain submodules bun-trust stow
+bootstrap: submodules
+	@echo "bootstrap: ensuring the on-deploy binary (the toolchain steps + package walk + provision exec it)"
+	@$(MAKE) --no-print-directory _bootstrap-on-deploy || \
+		echo "bootstrap: on-deploy deploy FAILED — the toolchain steps and the package walk will be skipped; install bun (arch: pacman -S bun) or node/npm, then re-run 'make install'" >&2
+	@if [ -x "$(HOME)/.local/bin/on-deploy" ]; then \
+		echo "bootstrap: toolchain assurances (bun, postinstall trust, herbctl)"; \
+		"$(HOME)/.local/bin/on-deploy" toolchain || \
+			echo "bootstrap: toolchain FAILED — bun trust / herbctl may be missing; re-run 'make install'" >&2; \
+	else \
+		echo "bootstrap: on-deploy missing — toolchain assurances skipped" >&2; \
+	fi
+	@echo "bootstrap: stowing every package"
+	@$(MAKE) --no-print-directory stow
 	@echo "bootstrap: ensuring polyframes artifact (palette/launchers/bar exec it directly)"
 	@$(MAKE) --no-print-directory polyframes-ensure || \
 		echo "bootstrap: polyframes deploy FAILED — launchers/bar will degrade; install bun (arch: pacman -S bun) or npm, then run 'make polyframes-ensure'" >&2
-	@echo "bootstrap: ensuring the on-deploy binary (the package walk + provision exec it)"
-	@$(MAKE) --no-print-directory on-deploy-ensure || \
-		echo "bootstrap: on-deploy deploy FAILED — the package walk will be skipped; run 'make on-deploy-ensure' after fixing" >&2
-	@$(MAKE) --no-print-directory herbctl-ensure || \
-		echo "bootstrap: herbctl deploy FAILED — the WM get-* keybinds need it; run 'make herbctl-ensure' after fixing" >&2
 	@echo "bootstrap: verifying required binaries (continues on missing ones)"
 	@$(MAKE) --no-print-directory add-packages || \
 		echo "bootstrap: missing packages listed below — install them and re-run when ready" >&2
@@ -358,67 +356,18 @@ depends-deploy:
 polyframes-ensure:
 	@$(MAKE) --no-print-directory -C $(DEPLOY_MK) ensure
 
-# on-deploy-ensure — the bootstrap hook for the on-deploy binary:
-# build + install it from the submodule checkout ONLY when missing
-# (idempotent, like polyframes-ensure). `make add-packages` (the
-# on.deploy walk) and `make provision` both exec ~/.local/bin/on-deploy,
-# but nothing used to install it, so a fresh bootstrap failed with
-# "no such file or directory" instead of resolving akinevz2/on-deploy.
+# on-deploy binary variables — _bootstrap-on-deploy (above) builds it
+# from the submodule checkout ONLY when missing (idempotent).
+# `make add-packages` (the on.deploy walk), `make provision` and the
+# `on-deploy toolchain` assurances all exec ~/.local/bin/on-deploy.
 ONDEPLOY_SUBMOD := $(CURDIR)/depends/.local/share/on-deploy
 ONDEPLOY_BIN    := $(HOME)/.local/bin/on-deploy
 
-HERBCTL_SUBMOD  := $(CURDIR)/depends/.local/share/herbctl
-HERBCTL_BIN     := $(HOME)/.local/bin/herbctl
 
-on-deploy-ensure:
-	@if [ -x "$(ONDEPLOY_BIN)" ]; then \
-		echo "on-deploy: $(ONDEPLOY_BIN) deployed already — skipping"; \
-		exit 0; \
-	fi; \
-	if [ ! -f "$(ONDEPLOY_SUBMOD)/src/index.ts" ]; then \
-		echo "on-deploy: submodule checkout missing — run 'make submodules' first" >&2; \
-		exit 1; \
-	fi; \
-	if ! command -v bun >/dev/null 2>&1; then \
-		echo "on-deploy: bun not found — install it (arch: pacman -S bun)" >&2; \
-		echo "  or install the CLI through npm instead: npm install --global github:akinevz2/on-deploy" >&2; \
-		exit 1; \
-	fi; \
-	cd "$(ONDEPLOY_SUBMOD)" && bun install; \
-	cd "$(ONDEPLOY_SUBMOD)" && bun x bunli build --targets linux-x64 --minify; \
-	mv -f "$(ONDEPLOY_SUBMOD)/dist/index" "$(ONDEPLOY_SUBMOD)/dist/on-deploy"; \
-	rm -f "$(ONDEPLOY_SUBMOD)/dist/index.map"; \
-	mkdir -p "$(HOME)/.local/bin"; \
-	install -m 755 "$(ONDEPLOY_SUBMOD)/dist/on-deploy" "$(ONDEPLOY_BIN)"; \
-	echo "on-deploy: installed $(ONDEPLOY_BIN)"
-
-# herbctl-ensure — the WM keybind state machines (autostart's get-*
-# binds exec ~/.local/bin/herbctl). Same pattern as on-deploy-ensure:
-# build + install from the submodule checkout ONLY when missing;
-# FORCE=1 rebuilds (the freshness flow is `make update` + FORCE=1).
-# The herbstluftwm post-stow hook runs this, so make all/wm/herbstluftwm
-# all land the binary.
-herbctl-ensure:
-	@if [ -z "$(FORCE)" ] && [ -x "$(HERBCTL_BIN)" ]; then \
-		echo "herbctl: $(HERBCTL_BIN) deployed already — skipping (FORCE=1 rebuilds)"; \
-		exit 0; \
-	fi; \
-	if [ ! -f "$(HERBCTL_SUBMOD)/src/index.ts" ]; then \
-		echo "herbctl: submodule checkout missing — run 'make submodules' first" >&2; \
-		exit 1; \
-	fi; \
-	if ! command -v bun >/dev/null 2>&1; then \
-		echo "herbctl: bun not found — install it (arch: pacman -S bun)" >&2; \
-		echo "  or install the CLI through npm instead: npm install --global github:akinevz2/herbctl" >&2; \
-		exit 1; \
-	fi; \
-	cd "$(HERBCTL_SUBMOD)" && bun install; \
-	cd "$(HERBCTL_SUBMOD)" && bun x bunli build --targets linux-x64 --minify; \
-	mv -f "$(HERBCTL_SUBMOD)/dist/index" "$(HERBCTL_SUBMOD)/dist/herbctl"; \
-	rm -f "$(HERBCTL_SUBMOD)/dist/index.map"; \
-	mkdir -p "$(HOME)/.local/bin"; \
-	install -m 755 "$(HERBCTL_SUBMOD)/dist/herbctl" "$(HERBCTL_BIN)"; \
-	echo "herbctl: installed $(HERBCTL_BIN)"
+# herbctl — built by `on-deploy toolchain` now (was the herbctl-ensure
+# recipe): the WM keybind state machines (autostart's get-* binds exec
+# ~/.local/bin/herbctl). The herbstluftwm post-stow hook calls
+# `on-deploy toolchain`, so make all/wm/herbstluftwm all land it.
 
 deps: wm
 	@if ! ls -al *.packages *.requires *.order; then \
@@ -481,13 +430,13 @@ SYSTEM_PACKAGES := $(shell ls -d system-* 2>/dev/null)
 # add-packages — verify required binaries; the on-deploy walk (which
 # prompts per missing binary) runs only on an interactive terminal,
 # and only when the binary exists — otherwise the caller is pointed
-# at 'make on-deploy-ensure'.
+# at 'make install' (which bootstraps on-deploy itself).
 add-packages:
 	@if [ -t 0 ]; then \
 		if [ -x "$$HOME/.local/bin/on.deploy" ]; then \
 			"$$HOME/.local/bin/on.deploy" || true; \
 		else \
-			echo "packages: on-deploy not deployed — the interactive package walk was skipped (run 'make on-deploy-ensure')" >&2; \
+			echo "packages: on-deploy not deployed — the interactive package walk was skipped (run 'make install')" >&2; \
 		fi; \
 	fi
 	@missing=""; \
