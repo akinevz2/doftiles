@@ -12,3 +12,4 @@ opencode/.config/opencode/opencode.jsonc
 
 # personal identity ships only on personal branches (kine) — never main
 shell/.my-credentials
+**/*.env
