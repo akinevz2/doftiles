@@ -132,11 +132,6 @@
         "command": ["/home/kine/.local/bin/github-mcp-wrapper"],
         "enabled": true
       },
-      "sonarqube": {
-        "type": "local",
-        "command": ["/home/kine/.local/bin/sonarqube-mcp-wrapper"],
-        "enabled": true
-      },
       "notion": {
         "type": "local",
         "command": ["/home/kine/.local/bin/notion-mcp-wrapper"],
