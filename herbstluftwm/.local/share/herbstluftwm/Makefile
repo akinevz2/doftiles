@@ -15,7 +15,7 @@
 # Makefile service.order flow; start/stop/enable/disable here act on
 # THIS package's units only.
 
-UNITS := herbst.service compton.service
+UNITS := herbst.service
 ONDEPLOY ?= $(HOME)/.local/bin/on-deploy
 DOTS     ?= $(HOME)/dots
 PROFILE  := $(DOTS)/deploy.profile
@@ -87,34 +87,14 @@ xinitrc:
 		echo "xinitrc: created $$HOME/.xinitrc"; \
 	fi
 
-# nested — the shared framebuffer stack (Xvfb + x11vnc + noVNC)
+# nested — the shared framebuffer stack is NOT this package's: xvfb,
+# x11vnc and novnc are individual packages (each with its own Makefile,
+# deployable independently); xrdp is its own package too. This rule
+# only chains their install for convenience.
 nested:
-	@if [ "$(PKG)" = pacman ]; then \
-		$(ONDEPLOY) pkg install xorg-server-xvfb x11vnc novnc; \
-	else \
-		$(ONDEPLOY) pkg install xvfb x11vnc novnc; \
-	fi
-
-# xrdp — the RDP layer, USER-LEVEL ONLY: the config ships STATIC in
-# this package (~/.config/xrdp/xrdp.ini, stowed — nothing edits /etc)
-# and the service is the stowed USER unit
-# (~/.config/systemd/user/xrdp.service, port 3390; the Xvnc module
-# attaches to the shared x11vnc framebuffer on :5900). This rule
-# ensures the binary + the presence of the user-level pieces and
-# starts the user unit. If a SYSTEM xrdp is running it would clash on
-# the ports — reported, never touched.
-xrdp:
-	@$(ONDEPLOY) pkg install xrdp
-	@if [ ! -f $$HOME/.config/xrdp/xrdp.ini ]; then \
-		echo "xrdp: ~/.config/xrdp/xrdp.ini missing — stow the herbstluftwm package"; exit 1; fi
-	@if [ ! -f $$HOME/.config/systemd/user/xrdp.service ]; then \
-		echo "xrdp: user unit missing — stow the herbstluftwm package"; exit 1; fi
-	@if systemctl is-active xrdp >/dev/null 2>&1; then \
-		echo "xrdp: WARNING — a SYSTEM xrdp is active (port clash); disable it to use the user service"; \
-	fi
-	@systemctl --user daemon-reload; \
-	systemctl --user enable --now xrdp.service && \
-	echo "xrdp: user service up on :3390 (log: ~/.local/state/xrdp.log)"
+	@for pkg in xvfb x11vnc novnc; do \
+		$(MAKE) --no-print-directory -C $(DOTS)/$$pkg/.local/share/$$pkg install || exit 1; \
+	done
 
 # greeter — a display manager is inherently SYSTEM-level (it owns the
 # console before any user session exists): only the package install +
@@ -129,4 +109,4 @@ greeter:
 	fi; \
 	command -v greetd >/dev/null && echo "greeter: greetd present — system config (/etc/greetd) is NOT managed by dots"
 
-.PHONY: install start stop enable disable uninstall status xserver xinitrc nested xrdp greeter
+.PHONY: install start stop enable disable uninstall status xserver xinitrc nested greeter
