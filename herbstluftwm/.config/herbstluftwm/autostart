@@ -21,8 +21,12 @@ ModCtrl=Mod1-Control
 
 ### SIZES ###
 # resizestep: frame resizes (RESIZING below + the nav corner binds);
-# nudgestep: fine window nudges (--level=all). Defined up here because
-# the merged keybind sections also expand these.
+# nudgestep: fine window resizes. Both are FRACTIONS of the frame/
+# monitor dimension (hlwm resize DIRECTION [FRACTIONDELTA]; for a
+# focused FLOAT the delta is ignored — it grows toward the next edge).
+# resize takes NO --level flag (that's focus/shift only).
+resizestep=0.02
+nudgestep=0.01
 
 ### REGISTER RELOAD ###
 herb emit_hook reload
@@ -42,6 +46,13 @@ for _nvm_bin in "$HOME"/.config/nvm/versions/node/*/bin; do
         herb setenv PATH "$_nvm_bin:$(herbstclient getenv PATH)"
     fi
 done
+# ~/.local/bin must be in the WM spawn env too: hc_command enumerates
+# the PATH helpers through it, and palette selections run via
+# `setsid bash -c` resolving names through PATH. The systemd default
+# PATH lacks it.
+if ! herbstclient getenv PATH | tr ':' '\n' | grep -qxF "$HOME/.local/bin"; then
+    herb setenv PATH "$HOME/.local/bin:$(herbstclient getenv PATH)"
+fi
 
 ### KEYBINDS — nav / focus / floating ###
 # folded back into this master autostart (2026-10): the keys.d/
@@ -50,14 +61,10 @@ done
 # ==== herbst_nav — navigation keybinds (window/tag focus, cycling, tags) ====
 
 # was $ModAlt-Tab → now Alt+Shift+`
-keyreg $ModCtrl-c   or \
-                    . and \
-                        , compare tags.focus.tiling.root.split_type = vertical \
-                        , compare tags.focus.floating_focused = 0 \
-                        , rotate \
-                    . chain \
-                        , cycle_frame \
-                        , jumpto urgent
+# ModCtrl-c: the rotate-tree complement (ModCtrl-r) on REVERSED
+# conditions: rotate BIG trees (>4 frames), cycle small ones
+# backwards (frames when >1, windows on a single frame).
+keyreg $ModCtrl-c spawn ~/.local/bin/herbctl rotate-tree-back
 
 # hc_command — the rofi command palette over the helper scripts
 keyreg $Mod-c       spawn ~/.local/bin/hc_command
@@ -161,9 +168,9 @@ keyreg $Mod-s spawn ~/.local/bin/herbctl get-south
 
 # ==== herbst_floating — the float registers (mod-f / mod-x / mod-ctrl-f) ====
 
-# Mod-q: a focused float is ONLY un-floated (the closing branches run
-# only when the focused window is not floating); tiling windows get
-# closed, with a lone-window frame removed afterwards.
+# Mod-q: close the focused window (floats close like any other — the
+# un-float check was removed), with a lone-window frame removed
+# afterwards.
 keyreg $Mod-q spawn ~/.local/bin/herbctl close-window
 
 # peek floats; when the floating layer is empty (or every float is
@@ -215,17 +222,17 @@ keyreg $ModShift-t          chain , spawn ~/.local/bin/herbctl new-frame , spawn
 keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 , spawn $APPSWITCHER . close_or_remove         # was Mod-Tab
 
 # CLOSE OR QUIT WM
-keyreg $ModShift-q spawn ~/.local/bin/herbctl close-or-remove
+# ModShift-q: close ONLY on the tiling layer (floats untouched); the
+# frame is never removed.
+keyreg $ModShift-q spawn ~/.local/bin/herbctl close-tiling
 keyreg $ModCtrl-q           or . and , attr clients.focus , spawn xkill . close_and_remove
 keyreg $ModShift-r          reload
 
 # WINDOWING
 keyreg $Mod-a spawn ~/.local/bin/herbctl focus-frame-left
 keyreg $ModShift-a           or . and , compare tags.focus.curframe_wcount gt 1 , chain ! split left ! shift left . spawn $APPLAUNCHER           # was Mod-Tab
-# ModShift-b mirrors ModShift-a downwards: with >1 window in the
-# focused frame, split a bottom frame and shift the window down into
-# it.
-keyreg $ModShift-b spawn ~/.local/bin/herbctl split-down
+# ModShift-b: open a split below (unconditional split bottom).
+keyreg $ModShift-b spawn ~/.local/bin/herbctl split-below
 keyreg $ModCtrl-a spawn ~/.local/bin/herbctl shift-left
 keyreg $ModCtrl-e spawn ~/.local/bin/herbctl shift-right
 # split-auto + the tile register (hc_tile is a polyframes spawn,
@@ -252,7 +259,9 @@ keyreg $ModShift-e           chain . split auto . spawn $local/hc_tile
 keyreg $Mod-v spawn ~/.local/bin/herbctl split-right-cycle
 keyreg $Mod-b spawn ~/.local/bin/herbctl focus-frame-down
 keyreg $ModCtrl-v spawn ~/.local/bin/herbctl split-right-focus
-keyreg $ModCtrl-b spawn ~/.local/bin/herbctl split-bottom-focus
+# ModCtrl-b: focus the frame below; when there is none, split below
+# and call hc_tile (the polyframes tile register).
+keyreg $ModCtrl-b spawn ~/.local/bin/herbctl focus-below
 
 
 
@@ -294,14 +303,14 @@ herb mousebind $Mod-Button5 call cycle -1
 
 # RESIZING
 
-keyreg $ModShift-h          resize left +$nudgestep --level=all
-keyreg $ModShift-j          resize down +$nudgestep --level=all
-keyreg $ModShift-k          resize up +$nudgestep --level=all
-keyreg $ModShift-l          resize right +$nudgestep --level=all
-keyreg $ModShift-Left       resize left +$resizestep --level=all
-keyreg $ModShift-Down       resize down +$resizestep --level=all
-keyreg $ModShift-Up         resize up +$resizestep --level=all
-keyreg $ModShift-Right      resize right +$resizestep --level=all
+keyreg $ModShift-h          resize left +$nudgestep
+keyreg $ModShift-j          resize down +$nudgestep
+keyreg $ModShift-k          resize up +$nudgestep
+keyreg $ModShift-l          resize right +$nudgestep
+keyreg $ModShift-Left       resize left +$resizestep
+keyreg $ModShift-Down       resize down +$resizestep
+keyreg $ModShift-Up         resize up +$resizestep
+keyreg $ModShift-Right      resize right +$resizestep
 
 herb set default_direction_external_only 1
 

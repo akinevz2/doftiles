@@ -24,6 +24,9 @@ export DISPLAY
 unset WAYLAND_DISPLAY
 
 LOG=${POLYFRAMES_LOG:-/tmp/polyframes.log}
+# Diagnostic toggle: POLYFRAMES_ROFI_LOG=/path makes the rofi call write
+# its internal [Timings]/[Helpers] log there (rofi -log). Empty = off.
+ROFI_LOG=${POLYFRAMES_ROFI_LOG:-}
 
 # --- usage ----------------------------------------------------------------
 # Ctrl-Shift-Return in the palette appends --help to the selection —
@@ -73,7 +76,12 @@ list_commands() {
         fi
     done
     expr+=( \) )
-    find -L ${PATH//:/ } -maxdepth 1 -type f -executable \
+    # $HOME/.local/bin is ALWAYS scanned (prepended, then the PATH
+    # dirs, deduped): the WM spawn env may lack it (systemd default
+    # PATH), which left the palette permanently empty.
+    local dirs
+    dirs=$(printf '%s\n' "$HOME/.local/bin" ${PATH//:/ } | sort -u | tr '\n' ' ')
+    find -L ${dirs} -maxdepth 1 -type f -executable \
         "${expr[@]}" -printf '%f\n' 2>/dev/null | sort -u
 }
 
@@ -107,6 +115,7 @@ while :; do
     # to parse character string: ""' on every start.
     sel=$(set +o pipefail; list_commands | rofi -dmenu -i -p command \
             -theme "$HOME/.config/rofi/command.rasi" \
+            -no-show-icons \
             -no-auto-select \
             -matching regex \
             -matching-negate-char "$(printf '\001')" \
@@ -118,7 +127,8 @@ while :; do
             -kb-custom-1 "Shift+Return" \
             -kb-custom-2 "Control+Shift+Return" \
             -kb-custom-3 "Tab" \
-            -kb-custom-4 "Control+Return") || rc=$?
+            -kb-custom-4 "Control+Return" \
+            ${ROFI_LOG:+-log "$ROFI_LOG"}) || rc=$?
 
     [ -n "${sel:-}" ] || exit 0
 

@@ -98,8 +98,13 @@ element-text {
 }
 
 element-icon {
+	/* size 0: the palette is command names only — no icon widgets.
+	   This also keeps the inherited global show-icons:true from
+	   dragging every entry through the glycin icon fetcher
+	   (Papirus isn't installed; the fetcher was stalling the
+	   palette open for tens of seconds). */
 	background-color: @transparent;
-	size: 1em;
+	size: 0;
 	text-color: inherit;
 	vertical-align: 0.5;
 }

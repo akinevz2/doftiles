@@ -4,19 +4,21 @@
 #   floating_focused FALSE (tiling layer owns focus):
 #     1. TRY focusing a float (floating_focused on; it fails when no
 #        non-minimized float exists).
-#     2. Success -> UN-FLOAT the float it focused (Mod-x owns manual
-#        un-floats): it re-tiles into the focused frame and gains
-#        focus.
+#     2. Success + populated focused frame -> FOCUS the float
+#        (jumpto): the float KEEPS its floating status.
+#     2b. Success + empty focused frame -> UN-FLOAT the focused float
+#         into the empty frame (unfloat_into_frame_below).
 #     3. Failure -> no floats exist:
-#          populated focused frame  -> YANK: the focused client floats
-#                                     at its current size, centered in
-#                                     the monitor, INTO the float
-#                                     session (floating_focused on).
-#                                     The vacated frame stays (mod-x
-#                                     never closes frames on this or
-#                                     the focus-a-float path — empty
-#                                     frames are only closed in the
-#                                     tidying branch).
+#          populated focused frame  -> YANK (re-added): the focused
+#                                     client floats at its current
+#                                     size, centered in the monitor,
+#                                     INTO the float session
+#                                     (clients.focus.floating on +
+#                                     floating_focused on). The frame
+#                                     stays (mod-x never closes frames
+#                                     on this or the focus-a-float
+#                                     path — empty frames are only
+#                                     closed in the tidying branch).
 #          empty focused frame      -> tidying (frame removal, reveal
 #                                     minimized, polyframes hidden in
 #                                     max layout, or use_previous).
@@ -29,13 +31,18 @@
 #                                 to the tiling layer (floating_focused
 #                                 off); the next press re-runs 1–2
 #                                 above.
-#     empty focused frame      -> UN-FLOAT the focused float into the
-#                                 empty frame.
+#     empty focused frame      -> FOCUS the tiling layer (floating_focused
+#                                 off) — never un-float FROM the floating
+#                                 layer: un-float into an empty frame
+#                                 happens only FROM the tiling layer.
 #
-# Un-float chains intentionally contain NO floating_focused off —
-# hlwm tracks the register on un-float; the defensive write raced
-# with it. Standalone register writes (defer, re-entry failure)
-# remain.
+# Floating-status writes (clients.focus.floating on/off) exist ONLY in
+# the two float-into-empty-frame paths (yank with a populated frame and
+# un-float into an EMPTY frame); every other path is a pure layer-focus
+# (floating_focused) toggle. Un-float chains intentionally contain NO
+# floating_focused off — hlwm tracks the register on un-float; the
+# defensive write raced with it. Standalone register writes (defer,
+# re-entry failure) remain.
 #
 # Performance note: a herbstclient round-trip costs ~40 ms on this
 # setup, so multi-read/multi-write sequences are batched into single
@@ -147,43 +154,47 @@ if [ "$ff" = "true" ]; then
     # Called on a FLOATING window (float session):
     #   populated focused frame, ONE frame on the tag -> the revised
     #     sequence: use_previous (back to the previously viewed tag),
-    #     hc_tile (the tile register on whatever holds focus there),
-    #     then un-float the focused client if it is floating.
+    #     hc_tile (the tile register on whatever holds focus there);
+    #     the focused client's floating status is NOT changed.
     #   populated focused frame, MULTIPLE frames -> DEFER: hand focus
     #     to the tiling layer; the next press re-runs the
     #     focus-and-un-float branch.
-    #   empty focused frame -> un-float the float into it directly.
+    #   empty focused frame -> FOCUS the tiling layer (floating_focused
+    #     off) — never un-float from the floating layer.
     if [ "$frame_cc" != "0" ]; then
         if [ "$frame_count" = "1" ]; then
             herb use_previous
             "$HOME/.local/bin/hc_tile" 2>/dev/null || true
-            wfocus=$(hc attr clients.focus.winid 2>/dev/null || true)
-            if [ -n "$wfocus" ]; then
-                hc attr "clients.$wfocus.floating" false 2>/dev/null || true
-            fi
+            # NO floating write here: the focused window's floating
+            # status must not change.
         else
             hc attr tags.focus.floating_focused off 2>/dev/null || true
         fi
         exit 0
     fi
-    wfocus=$(hc attr clients.focus.winid 2>/dev/null || true)
-    if [ -n "$wfocus" ]; then
-        unfloat_into_frame_below "$wfocus"
-        exit 0
-    fi
+    # Empty frame: hand focus to the tiling layer; un-float into an
+    # empty frame only ever happens FROM the tiling layer (the
+    # floating_focused-false branch below), never from here.
     hc attr tags.focus.floating_focused off 2>/dev/null || true
     exit 0
 fi
 
 # floating_focused FALSE: try focusing a float FIRST.
 if hc attr tags.focus.floating_focused on 2>/dev/null; then
-    # Success: the switched-to float is un-floated (manual un-float is
-    # Mod-x's register). The PRE-SCANNED first_float is PRIMARY —
-    # clients.focus settles late after the switch.
+    # Success on the layer-focus attempt. The PRE-SCANNED first_float
+    # is PRIMARY — clients.focus settles late after the switch.
     wfocus=$first_float
     [ -n "$wfocus" ] || wfocus=$(hc attr clients.focus.winid 2>/dev/null || true)
     if [ -n "$wfocus" ]; then
-        unfloat_wid "$wfocus"
+        if [ "$frame_cc" != "0" ]; then
+            # Populated frame: focus the switched-to float WITHOUT
+            # un-floating it — the window's floating status must not
+            # change (pure layer-focus toggle).
+            hc jumpto "$wfocus" 2>/dev/null || true
+        else
+            # Empty frame: un-float the float into it.
+            unfloat_into_frame_below "$wfocus"
+        fi
         exit 0
     fi
     hc attr tags.focus.floating_focused off 2>/dev/null || true
@@ -192,10 +203,10 @@ fi
 
 # Re-entry failed: no non-minimized float exists.
 if [ "$frame_cc" -gt 0 ]; then
-    # YANK: float the focused client, center it in the monitor's
-    # geometry at its current size, INTO the float session. The (now
-    # possibly empty) frame is deliberately LEFT ALONE — mod-x only
-    # closes empty frames in the no-floats-to-focus tidying branch
+    # YANK (re-added): float the focused client, center it in the
+    # monitor's geometry at its current size, INTO the float session.
+    # The (now possibly empty) frame is deliberately LEFT ALONE — mod-x
+    # only closes empty frames in the no-floats-to-focus tidying branch
     # below, never when floating a window or focusing the float layer.
     hc attr clients.focus.floating on 2>/dev/null || true
     "$HOME/.local/bin/hc_center" root || true
