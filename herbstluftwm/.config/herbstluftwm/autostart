@@ -72,9 +72,9 @@ keyreg $Mod-w spawn ~/.local/bin/herbctl get-forward
 # nothing above, with >1 window in the focused frame it cycles -1,
 # otherwise it tries cycle_frame, then falls through to rotating the
 # frame tree.
-keyreg $ModShift-w spawn ~/.local/bin/herbctl get-shuffle
+keyreg $ModShift-w spawn ~/.local/bin/herbctl shift-up
 
-keyreg $ModShift-s spawn ~/.local/bin/herbctl get-skip
+keyreg $ModShift-s spawn ~/.local/bin/herbctl shift-down
 
 keyreg $ModShift-x use_previous
 
@@ -82,7 +82,7 @@ keyreg $ModShift-d spawn ~/.local/bin/herbctl get-dedeck
 
 keyreg $Mod-d spawn ~/.local/bin/herbctl get-deck
 
-keyreg $ModShift-z          spawn ~/.local/bin/herbctl get-nap
+keyreg $ModShift-z          spawn ~/.local/bin/herbctl minimize-toggle
 
 # tag switcher
 keyreg $Mod-t               spawn ~/.local/bin/polyframes tags
@@ -145,9 +145,9 @@ keyreg $ModShift-period     shift right
 # ModShift-r: rotate the tree (>3 frames) or cycle frames forward; on
 # a single frame it cycles windows in the opposite direction of
 # ModShift-w.
-keyreg $ModCtrl-r spawn ~/.local/bin/herbctl get-rotate
+keyreg $ModCtrl-r spawn ~/.local/bin/herbctl rotate-tree
 
-keyreg $Mod-e spawn ~/.local/bin/herbctl get-explore
+keyreg $Mod-e spawn ~/.local/bin/herbctl explode-frame
 
 # cycle; was $Mod-s / $ModShift-s
 # zoom/peek grid — focuses the frame below first; when there is none,
@@ -164,7 +164,7 @@ keyreg $Mod-s spawn ~/.local/bin/herbctl get-south
 # Mod-q: a focused float is ONLY un-floated (the closing branches run
 # only when the focused window is not floating); tiling windows get
 # closed, with a lone-window frame removed afterwards.
-keyreg $Mod-q spawn ~/.local/bin/herbctl get-quiet
+keyreg $Mod-q spawn ~/.local/bin/herbctl close-window
 
 # peek floats; when the floating layer is empty (or every float is
 # hidden), offer the hidden windows via rofi; rofi_hidden exits
@@ -186,7 +186,7 @@ keyreg $Mod-f               spawn ~/.local/bin/hc_focus
 # restore via hc_unmaximize if maximized (c) (hc_zoom)
 keyreg $ModCtrl-f          spawn ~/.local/bin/hc_zoom
 
-keyreg $ModShift-f spawn ~/.local/bin/herbctl get-hush
+keyreg $ModShift-f spawn ~/.local/bin/herbctl fullscreen-toggle
 
 # tidying tool: pulls the focused client out of its frame (float +
 # center on screen, focus back to tiling); with a float on the tag,
@@ -209,25 +209,25 @@ keyreg $ModShift-Return     spawn ~/.local/bin/hc_split-launch $APPLAUNCHER
 keyreg $ModCtrl-Return      spawn $APPLAUNCHER
 # shift-t opens a second frame only when the focused one already holds
 # a window; an empty frame stays as is and the terminal opens into it
-keyreg $ModShift-t          chain , spawn ~/.local/bin/herbctl get-tuck , spawn $TERMINAL
+keyreg $ModShift-t          chain , spawn ~/.local/bin/herbctl new-frame , spawn $TERMINAL
 
 # applauncher
 keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 , spawn $APPSWITCHER . close_or_remove         # was Mod-Tab
 
 # CLOSE OR QUIT WM
-keyreg $ModShift-q spawn ~/.local/bin/herbctl get-hold
+keyreg $ModShift-q spawn ~/.local/bin/herbctl close-or-remove
 keyreg $ModCtrl-q           or . and , attr clients.focus , spawn xkill . close_and_remove
 keyreg $ModShift-r          reload
 
 # WINDOWING
-keyreg $Mod-a spawn ~/.local/bin/herbctl get-advice
+keyreg $Mod-a spawn ~/.local/bin/herbctl focus-frame-left
 keyreg $ModShift-a           or . and , compare tags.focus.curframe_wcount gt 1 , chain ! split left ! shift left . spawn $APPLAUNCHER           # was Mod-Tab
 # ModShift-b mirrors ModShift-a downwards: with >1 window in the
 # focused frame, split a bottom frame and shift the window down into
 # it.
-keyreg $ModShift-b spawn ~/.local/bin/herbctl get-below
-keyreg $ModCtrl-a spawn ~/.local/bin/herbctl get-dive
-keyreg $ModCtrl-e spawn ~/.local/bin/herbctl get-toss
+keyreg $ModShift-b spawn ~/.local/bin/herbctl split-down
+keyreg $ModCtrl-a spawn ~/.local/bin/herbctl shift-left
+keyreg $ModCtrl-e spawn ~/.local/bin/herbctl shift-right
 # split-auto + the tile register (hc_tile is a polyframes spawn,
 # so this stays a chain — see the herbctl exclusion list)
 keyreg $ModShift-e           chain . split auto . spawn $local/hc_tile
@@ -249,10 +249,10 @@ keyreg $ModShift-e           chain . split auto . spawn $local/hc_tile
 
 
 # split into direction
-keyreg $Mod-v spawn ~/.local/bin/herbctl get-vex
-keyreg $Mod-b spawn ~/.local/bin/herbctl get-bend
-keyreg $ModCtrl-v spawn ~/.local/bin/herbctl get-vexi
-keyreg $ModCtrl-b spawn ~/.local/bin/herbctl get-bendi
+keyreg $Mod-v spawn ~/.local/bin/herbctl split-right-cycle
+keyreg $Mod-b spawn ~/.local/bin/herbctl focus-frame-down
+keyreg $ModCtrl-v spawn ~/.local/bin/herbctl split-right-focus
+keyreg $ModCtrl-b spawn ~/.local/bin/herbctl split-bottom-focus
 
 
 
