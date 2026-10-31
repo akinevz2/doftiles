@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# pause — freeze a terminal until a key is pressed (presentation beat).
+#
+# Sets its own window title so the paused window reads pleasantly in the
+# bar / window lists, prints a hint line, then waits for exactly one key
+# press (any key, including Enter). Exits 0 on keypress; a bare Ctrl-C
+# interrupts and exits 130 like a normal interrupt.
+#
+# Usage (typically as the tail of a one-shot command window):
+#   echo "deploying..." && ./deploy.sh && pause
+
+title='⏸  paused — press any key to continue'
+
+# Own the window title (OSC 0). xterm/alacritty/st-compatible.
+printf '\033]2;%s\007' "$title"
+
+printf '\n\033[2m─────────────── %s ───────────────\033[0m\n' "$title"
+
+# -s silent (no echo), -n 1 (single key), -r raw (no line buffering).
+# Ctrl-C still aborts via SIGINT; everything else counts as "a key".
+if read -r -s -n 1 _key 2>/dev/null; then
+    printf '\033[2K\r\033[0mcontinuing.\n'
+    exit 0
+fi
+exit 130
