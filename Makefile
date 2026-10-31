@@ -70,9 +70,9 @@ deploy:
 		$(SCRIPT) --profile || exit 1; \
 		if [ -x "$$HOME/.local/bin/on-deploy" ]; then \
 			$(MAKE) --no-print-directory provision || \
-				echo "deploy: apply FAILED — profile saved; run 'make provision' to retry" >&2; \
+				echo "deploy: apply FAILED — profile saved; retry: make provision" >&2; \
 		else \
-			echo "deploy: on-deploy not installed — apply skipped (run 'make bootstrap')"; \
+			echo "deploy: on-deploy missing — apply skipped (make bootstrap)"; \
 		fi; \
 	fi
 	@for pkg in $$($(SCRIPT) "$(P)"); do \
@@ -298,33 +298,32 @@ credentials:
 	fi
 
 bootstrap: submodules
-	@echo "bootstrap: ensuring the on-deploy binary (the toolchain steps + package walk + provision exec it)"
+	@echo "bootstrap: on-deploy binary"
 	@$(MAKE) --no-print-directory _bootstrap-on-deploy || \
-		echo "bootstrap: on-deploy deploy FAILED — the toolchain steps and the package walk will be skipped; install bun (arch: pacman -S bun) or node/npm, then re-run 'make bootstrap'" >&2
+		echo "bootstrap: on-deploy deploy FAILED — install bun, re-run make bootstrap" >&2
 	@if [ -x "$(HOME)/.local/bin/on-deploy" ]; then \
-		echo "bootstrap: toolchain assurances (bun, postinstall trust, herbctl)"; \
+		echo "bootstrap: toolchain assurances"; \
 		"$(HOME)/.local/bin/on-deploy" toolchain || \
-			echo "bootstrap: toolchain FAILED — bun trust / herbctl may be missing; re-run 'make bootstrap'" >&2; \
+			echo "bootstrap: toolchain FAILED — re-run make bootstrap" >&2; \
 	else \
-		echo "bootstrap: on-deploy missing — toolchain assurances skipped" >&2; \
+		echo "bootstrap: on-deploy missing — toolchain skipped" >&2; \
 	fi
-	@echo "bootstrap: stowing every package"
+	@echo "bootstrap: stow all"
 	@$(MAKE) --no-print-directory stow
-	@echo "bootstrap: ensuring polyframes artifact (palette/launchers/bar exec it directly)"
+	@echo "bootstrap: polyframes artifact"
 	@if [ -x "$(HOME)/.local/bin/on-deploy" ]; then \
 		"$(HOME)/.local/bin/on-deploy" deps || \
-			echo "bootstrap: polyframes deploy FAILED — launchers/bar will degrade; fix per the on-deploy deps output, then re-run 'make bootstrap'" >&2; \
 	else \
 		echo "bootstrap: on-deploy missing — polyframes deploy skipped" >&2; \
 	fi
-	@echo "bootstrap: stowing every package"
-	@echo "bootstrap: verifying required binaries (continues on missing ones)"
+	@echo "bootstrap: stow all"
+	@echo "bootstrap: verify binaries"
 	@$(MAKE) --no-print-directory add-packages || \
 		echo "bootstrap: missing packages listed below — install them and re-run when ready" >&2
 	@$(MAKE) --no-print-directory services-check
 	@$(MAKE) --no-print-directory status
 	@$(MAKE) --no-print-directory credentials
-	@echo "bootstrap: complete — units enabled; the WM stack comes up when X is available"
+	@echo "bootstrap: complete"
 	@$(MAKE) --no-print-directory session-link
 
 # session-link — the nested-profile browser surface: AFTER install,
@@ -367,9 +366,9 @@ install: all
 	@for pkg in $(STOW_PKGS); do \
 		mf="$(CURDIR)/$$pkg/.local/share/$$pkg/Makefile"; \
 		if [ -f "$$mf" ]; then \
-			echo "install: $$pkg dependencies ($$mf)"; \
+			echo "install:  deps"; \
 			$(MAKE) --no-print-directory -C "$$pkg/.local/share/$$pkg" install || \
-				echo "install: $$pkg dependency step FAILED — see above" >&2; \
+				echo "install:  deps FAILED" >&2; \
 		fi; \
 	done
 	@$(MAKE) --no-print-directory status
@@ -463,7 +462,7 @@ add-packages:
 		if [ -x "$$HOME/.local/bin/on.deploy" ]; then \
 			"$$HOME/.local/bin/on.deploy" || true; \
 		else \
-			echo "packages: on-deploy not deployed — the interactive package walk was skipped (run 'make bootstrap')" >&2; \
+			echo "packages: on-deploy missing — walk skipped (make bootstrap)" >&2; \
 		fi; \
 	fi
 	@missing=""; \

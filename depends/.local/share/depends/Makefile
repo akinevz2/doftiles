@@ -36,13 +36,12 @@ uninstall:
 	fi
 
 status:
-	@echo "== depends artifacts =="
 	@for bin in polyframes herbctl on-deploy; do \
 		if [ -x "$(HOME)/.local/bin/$$bin" ]; then st=installed; else st=MISSING; fi; \
 		printf '  %-12s %s\n' "$$bin" "$$st"; \
 	done
 	@if [ -f "$(HOME)/.config/doftiles.conf" ]; then \
-		grep -H . "$(HOME)/.config/doftiles.conf" | sed 's/^/  /'; \
+		printf '  %-12s %s\n' method "$$(grep '^POLYFRAMES_METHOD' $(HOME)/.config/doftiles.conf | cut -d= -f2)"; \
 	fi
 
 .PHONY: install start stop enable disable uninstall status

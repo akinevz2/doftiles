@@ -26,11 +26,16 @@ enable:
 	@systemctl --user enable $(UNIT)
 
 disable:
-	@systemctl --user disable $(UNIT) 2>/dev/null || \
-		echo "xvfb: disable was a no-op (linked unit: drop the .wants symlink by hand)"
+	@for d in $$HOME/.config/systemd/user/*.wants; do \
+		[ -e "$$d/$(UNIT)" ] && rm -f "$$d/$(UNIT)"; \
+	done; \
+	echo "xvfb: disabled (.wants symlink dropped)"
 
 uninstall:
-	@systemctl --user disable --now $(UNIT) 2>/dev/null; \
+	@systemctl --user stop $(UNIT) 2>/dev/null; \
+	for d in $$HOME/.config/systemd/user/*.wants; do \
+		[ -e "$$d/$(UNIT)" ] && rm -f "$$d/$(UNIT)"; \
+	done; \
 	$(ONDEPLOY) pkg remove $(BIN) && echo "xvfb: package removed (config stays stowed — unstow the xvfb package for that)"
 
 status:

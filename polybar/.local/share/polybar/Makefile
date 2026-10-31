@@ -34,7 +34,6 @@ uninstall:
 	@echo "polybar: config is stow-managed — unstow the polybar package instead; the polyframes artifact uninstalls via the depends package ('make -C ~/dots/depends/.local/share/depends uninstall')"
 
 status:
-	@echo "== polybar =="
 	@if [ -x "$(HOME)/.local/bin/polyframes" ]; then st=installed; else st=MISSING; fi; \
 	printf '  %-12s %s\n' polyframes "$$st"
 	@pgrep -af 'polybar' >/dev/null && echo "  bar: running" || echo "  bar: not running"

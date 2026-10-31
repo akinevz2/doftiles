@@ -47,13 +47,12 @@ enable:
 
 disable:
 	@systemctl --user disable $(UNITS) 2>/dev/null || \
-		echo "herbstluftwm: disable was a no-op (linked units: drop the .wants symlinks by hand)"
+		echo "herbstluftwm: disable: linked units — drop the .wants symlinks"
 
 uninstall:
 	@echo "herbstluftwm: nothing to uninstall — config is stow-managed; herbctl is removed with the depends package"
 
 status:
-	@echo "== herbstluftwm =="
 	@if [ -x "$(HOME)/.local/bin/herbctl" ]; then st=installed; else st=MISSING; fi; \
 	printf '  %-12s %s\n' herbctl "$$st"
 	@for u in $(UNITS); do \

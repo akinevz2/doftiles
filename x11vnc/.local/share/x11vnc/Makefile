@@ -26,11 +26,16 @@ enable:
 	@systemctl --user enable $(UNIT)
 
 disable:
-	@systemctl --user disable $(UNIT) 2>/dev/null || \
-		echo "x11vnc: disable was a no-op (linked unit: drop the .wants symlink by hand)"
+	@for d in $$HOME/.config/systemd/user/*.wants; do \
+		[ -e "$$d/$(UNIT)" ] && rm -f "$$d/$(UNIT)"; \
+	done; \
+	echo "x11vnc: disabled (.wants symlink dropped)"
 
 uninstall:
-	@systemctl --user disable --now $(UNIT) 2>/dev/null; \
+	@systemctl --user stop $(UNIT) 2>/dev/null; \
+	for d in $$HOME/.config/systemd/user/*.wants; do \
+		[ -e "$$d/$(UNIT)" ] && rm -f "$$d/$(UNIT)"; \
+	done; \
 	$(ONDEPLOY) pkg remove $(BIN) && echo "x11vnc: package removed (config stays stowed — unstow the x11vnc package for that)"
 
 status:
