@@ -142,7 +142,8 @@ help:
 	@echo ""
 	@echo "Services (YES=1 skips prompts; non-interactive requires it):"
 	@echo "  make services-start | services-stop | restart"
-	@echo "  make reload-systemd  daemon-reload, enable --now all"
+	@echo "  make reload-systemd  daemon-reload only"
+	@echo "  make services-check  daemon-reload + enable --now all"
 	@echo ""
 	@echo "Dependencies (polyframes; method state: ~/.config/doftiles.conf):"
 	@echo "  on-deploy deps    ensure | --force | --method source|npm|release"
@@ -315,7 +316,7 @@ bootstrap: submodules
 	@echo "bootstrap: verifying required binaries (continues on missing ones)"
 	@$(MAKE) --no-print-directory add-packages || \
 		echo "bootstrap: missing packages listed below — install them and re-run when ready" >&2
-	@$(MAKE) --no-print-directory reload-systemd
+	@$(MAKE) --no-print-directory services-check
 	@$(MAKE) --no-print-directory status
 	@$(MAKE) --no-print-directory credentials
 	@echo "bootstrap: complete — units enabled; the WM stack comes up when X is available"
@@ -508,17 +509,26 @@ services-installed:
 		echo -e "Missing services:\033[33m$$missing\033[0m"; \
 	fi
 
+# reload-systemd — daemon-reload ONLY (no enabling: services-stop and
+# restart depend on this and must never start the services they are
+# about to stop). The enable pass lives in services-check.
 reload-systemd:
 	@echo ""
 	@systemctl --user daemon-reload 2>/dev/null || \
 		echo "services: systemctl --user daemon-reload failed (systemd not running?)" >&2
+
+# services-check — daemon-reload, then enable (and start) every unit in
+# service.order. --no-block keeps this from idling when a unit cannot
+# come up yet (e.g. headless: herbst polls 30s for X per attempt).
+services-check: reload-systemd
 	@if [ ! -f "$(SERVICES_FILE)" ]; then \
 		echo ""; \
 		echo -e "\033[31mERROR: $(SERVICES_FILE) file not found.\033[0m"; \
 		exit 1; \
 	fi
 	@for service in $(SERVICE_ORDER); do \
-		systemctl --user enable --now "$$service" || echo "services-check: failed to enable and start $$service"; \
+		systemctl --user enable --now --no-block "$$service" 2>/dev/null \
+			|| echo "services-check: failed to enable and start $$service"; \
 	done && echo "Enabled services: $(SERVICE_ORDER)"
 
 # services-start / services-stop / restart — confirm on an interactive
@@ -561,9 +571,36 @@ service-action:
 		exit 0; \
 	fi; \
 	for service in $(SERVICE_ORDER); do \
-		systemctl --user $(ACTION) "$$service" || systemctl --user status "$$service"; \
+		if [ "$(ACTION)" = "stop" ]; then \
+			# disable AND stop. `systemctl disable` on a stow-linked unit \
+			# removes the unit symlink itself (it undoes `systemctl link`), \
+			# so disable by hand: drop the .wants symlinks only. \
+			for d in "$$HOME"/.config/systemd/user/*.wants; do \
+				[ -e "$$d/$$service" ] && rm -f "$$d/$$service"; \
+			done; \
+			# A unit stuck in activating (e.g. herbst's ExecStartPre \
+			# polling for X) makes a plain stop wait for the pending \
+			# start job — cancel pending start/restart jobs first, and \
+			# stop --no-block so nothing waits. \
+			for job in $$(systemctl --user list-jobs --no-legend 2>/dev/null | \
+				grep -F " $$service" | grep -E " (start|restart) " | \
+				cut -d" " -f1); do \
+				systemctl --user cancel "$$job" 2>/dev/null; \
+			done; \
+			systemctl --user stop --no-block "$$service" 2>/dev/null; \
+		else \
+			# --no-block: never wait on a start job — a headless herbst \
+			# polls 30s for X per attempt and would idle the whole make. \
+			systemctl --user reset-failed "$$service" 2>/dev/null; \
+			systemctl --user $(ACTION) --no-block "$$service" 2>/dev/null || \
+				echo "services: $(ACTION) job submitted for $$service"; \
+		fi; \
 	done; \
-	echo "services: $(ACTION) complete"
+	sleep 1; \
+	echo "services: $(ACTION) submitted; current state:"; \
+	for service in $(SERVICE_ORDER); do \
+		printf '  %-24s %s\n' "$$service" "$$(systemctl --user is-active "$$service" 2>/dev/null)"; \
+	done
 
 system: status add-packages-system add-packages
 	@echo -e "system: \033[1;33mfresh\033[0m"

@@ -12,6 +12,9 @@ Environment=XDG_SESSION_TYPE=x11
 UnsetEnvironment=WAYLAND_DISPLAY
 ExecStart=/usr/bin/x11vnc -display localhost:0.0 -nopw -forever -shared -listen localhost -rfbport 5900 -noshm
 Restart=on-failure
+# x11vnc exits 2 when its X server is torn down underneath it (stopping
+# xvfb, or the WM session going away) — that is a normal shutdown.
+SuccessExitStatus=2
 
 [Install]
 WantedBy=default.target

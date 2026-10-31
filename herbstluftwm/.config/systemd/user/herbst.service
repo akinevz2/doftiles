@@ -1,6 +1,10 @@
 # ~/.config/systemd/user/herbstluftwm.service
 [Unit]
 Description=herbstluftwm window manager (inside VcXsrv)
+# Headless guard: without an X server ExecStartPre fails every attempt;
+# stop the Restart=on-failure loop after 3 tries instead of spinning.
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple

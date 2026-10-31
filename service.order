@@ -1,2 +1,5 @@
-#xvfb x11vnc herbst novnc compton herbst compton dunst
-herbst compton dunst hc_send-error-daemon
+# Units are enabled and started in this order by `make services-check`
+# (bootstrap) and driven by services-start / services-stop / restart.
+# xvfb x11vnc novnc form the headless/VNC stack; herbst targets
+# localhost:0.0, which Xvfb provides on VNC setups.
+xvfb x11vnc novnc herbst compton dunst hc_send-error-daemon

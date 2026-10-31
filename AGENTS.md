@@ -118,11 +118,25 @@ annotation), `service.order` (unit start order).
   needs a terminal); `YES=1` bypasses the confirmation.
 - `make status`, `services-available`, `services-installed` — report
   systemd user-unit state.
-- `make reload-systemd`, `services-start`, `services-stop`,
-  `restart` — daemon-reload, then enable/start/stop/restart units in
-  `service.order` order. Confirmations: interactive terminal prompts;
+- `make reload-systemd` — daemon-reload ONLY (no enabling: `services-stop`
+  and `restart` depend on it and must never start what they're stopping).
+  `make services-check` — daemon-reload + `enable --now --no-block` all
+  units in `service.order` (used by bootstrap). `make services-start`,
+  `services-stop`, `restart` — confirm on an interactive terminal;
   non-interactive runs REQUIRE `YES=1` (nothing hangs on stdin).
-  start/stop/restart share one `service-action` body.
+  start/stop/restart share one `service-action` body. All service
+  actions run `--no-block` and print a post-run state summary, so a
+  headless session (herbst's ExecStartPre polls 30s for X per attempt)
+  never idles the make. `services-stop` disables by removing
+  `default.target.wants` symlinks directly — do NOT use
+  `systemctl --user disable` on dots units: the stow-created unit
+  symlink in `~/.config/systemd/user` is a systemd `linked` unit file,
+  and disable treats it as an undoable `systemctl link`, DELETING the
+  unit file (systemd then falls back to distro units, e.g. the static
+  dunst.service that ABRTs headless). Pending start/restart jobs are
+  cancelled before stopping so stop never waits on a stuck start job.
+  `herbst.service` carries StartLimitIntervalSec/Burst so a missing X
+  server cannot spin the Restart=on-failure loop forever.
 - `make update` — the safe pull directly in the repo: fetch +
   fast-forward (fallback `git pull --rebase --autostash`), submodule
   sync, then `on-deploy deps --force` refreshes the polyframes

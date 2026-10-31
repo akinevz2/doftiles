@@ -12,6 +12,9 @@ Environment=XDG_SESSION_TYPE=x11
 UnsetEnvironment=WAYLAND_DISPLAY
 ExecStart=/usr/share/novnc/utils/novnc_proxy --vnc localhost:5900 --listen localhost:6080
 Restart=on-failure
+# 143 = SIGTERM: the python proxy doesn't trap it, so stopping the unit
+# lands as "failed" without this.
+SuccessExitStatus=143
 
 [Install]
 WantedBy=default.target
