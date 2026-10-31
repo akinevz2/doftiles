@@ -274,7 +274,7 @@ restore-defaults:
 	fi; \
 	$(STOW) -R -t $$HOME defaults && echo "restore-defaults: defaults stowed (the machine's pre-dots config is back)"
 
-bootstrap: submodules stow profile-snapshot
+bootstrap: submodules stow profile-snapshot polyframes-ensure trust-subrepos
 	@echo "bootstrap: ensuring polyframes artifact (palette/launchers/bar exec it directly)"
 	@$(MAKE) --no-print-directory polyframes-ensure || \
 		echo "bootstrap: polyframes deploy FAILED — launchers/bar will degrade; install bun (arch: pacman -S bun) or npm, then run 'make polyframes-ensure'" >&2
@@ -296,6 +296,30 @@ depends-deploy:
 # file powers repo-side fall-back runs and installed copies.
 polyframes-ensure:
 	@$(MAKE) --no-print-directory -C $(DEPLOY_MK) ensure
+
+# trust-subrepos — bun's trust policy blocks the dependency subrepos'
+# postinstall scripts (bunli generate et al.), which breaks the
+# polyframes build inside the submodule checkout. Gated behind a
+# simple confirmation; non-interactive runs skip unless YES=1.
+trust-subrepos:
+	@echo "trust-subrepos: bun blocks the subrepos' postinstall scripts"
+	@if [ -t 0 ]; then \
+		read -r -p "  trust all of the project's subrepos now? [Y/n] " a; \
+		case $$a in n|N) echo "  skipped — run 'make trust-subrepos' before building polyframes"; exit 0 ;; esac; \
+	elif [ -z "$$YES" ]; then \
+		echo "  non-interactive without YES=1 — skipped (run 'make trust-subrepos YES=1')"; \
+		exit 0; \
+	fi; \
+	( cd depends/.local/share/polyframes && \
+		if [ ! -x node_modules/bun/bin/bun ] && command -v bun >/dev/null 2>&1; then \
+			echo "  seeding node_modules/bun/bin/bun from the ambient bun" \
+			    " (bun's npm postinstall cannot rename across filesystems)"; \
+			cp "$$(command -v bun)" node_modules/bun/bin/bun \
+				&& chmod +x node_modules/bun/bin/bun; \
+		fi; \
+		bun pm trust --all ) \
+		&& echo "  trusted: all subrepo scripts allowed" \
+		|| echo "  trust FAILED — the polyframes build may fail" >&2
 
 deps: wm
 	@if ! ls -al *.packages *.requires *.order; then \
