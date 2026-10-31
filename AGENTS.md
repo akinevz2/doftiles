@@ -29,13 +29,9 @@ Primary consumer environments:
 scripts), `.local/bin/{polyctl,ewmh_labels}`,
 `.local/share/polybar/Makefile` (bar control: theme/reload/up/down) |
 | `depends` | deployment + dependency management: `.local/bin/on.deploy`,
-`.local/bin/install/ubuntu.deploy` (moved from herbstluftwm), the
-polyframes submodule at `.local/share/polyframes`,
-`.local/share/doftiles/Makefile` (`deploy-fromsource`,
-`deploy-fromnpm`, `update`, `uninstall`, conf-get/conf-set — stowed to
-`~/.local/share/doftiles`, runnable from either side; every path
-anchors to the real file location), `.config/doftiles.conf`
-(install-method state) |
+`.local/bin/install/{ubuntu,manjaro}.deploy`, the polyframes submodule
+at `.local/share/polyframes`, and `.config/doftiles.conf`
+(deploy-method state, written by `on-deploy deps`) |
 | `dunst` | `.config/dunst`, `.local/bin/check-mail.sh`, `read-mail.sh` |
 | `agents` | `.config/opencode`, `.config/poolside`, `.local/bin`,
 `.local/share` — OpenCode config (the `opencode-screencast` submodule
@@ -127,17 +123,19 @@ annotation), `service.order` (unit start order).
   `service.order` order. Confirmations: interactive terminal prompts;
   non-interactive runs REQUIRE `YES=1` (nothing hangs on stdin).
   start/stop/restart share one `service-action` body.
-- `make update` — delegates to `depends/Makefile`: fetch + fast-forward
-  (fallback `git pull --rebase --autostash`), submodule sync, then
-  refresh the polyframes artifact per the recorded install method.
-- `make -C ~/.local/share/doftiles deploy-fromsource` — submodule checkout on
-  `main` at the remote tip (`polyframes-sync`) + `bun install` +
-  build + install; records `POLYFRAMES_METHOD=source`. This advances
-  the submodule past the recorded commit — commit the gitlink bump.
-- `make -C ~/.local/share/doftiles deploy-fromnpm` — `npm install --global
-  github:akinevz2/polyframes`; records `POLYFRAMES_METHOD=npm`.
-- `make -C ~/dots/depends uninstall` — removes the deployed artifact
-  per the recorded method and resets the conf.
+- `make update` — the safe pull directly in the repo: fetch +
+  fast-forward (fallback `git pull --rebase --autostash`), submodule
+  sync, then `on-deploy deps --force` refreshes the polyframes
+  artifact per the recorded method.
+- `on-deploy deps` — the dependency deployment (was the deleted
+  `depends/.local/share/doftiles/Makefile`): ensure (deploy only when
+  missing, the install step), `--force` redeploy (the refresh flow),
+  `--method source|npm|release` (explicit + recorded),
+  `--uninstall` (removes the artifact per the recorded method,
+  resets the conf). `source` = submodule checkout on `main` at the
+  remote tip + `bun install` + the package's own make install — this
+  advances the submodule past the recorded commit; commit the gitlink
+  bump.
 
 `~/.config/doftiles.conf` (stowed from `depends`) tracks the install
 method per deployable (`POLYFRAMES_METHOD=source|npm|none`) — it lives
@@ -301,11 +299,11 @@ the relevant unit.
     `herbst/.local/bin/hlwm_cwds_dump` and the screencast plugin) — not
     junk. Its (and `bun`'s) postinstall may sit blocked under bun's default
     trust policy (`bun pm trust -g herbstutil bun` to allow).
-18. **polyframes deployment lives in `depends`** (2026-10): the
+18. **polyframes deployment lives in `on-deploy deps`** (2026-10): the
     polybar module is a standalone Bun/bunli binary. The git
     submodule checkout is `dots/depends/.local/share/polyframes`
-    (stowed to `~/.local/share/polyframes`); `make -C ~/.local/share/doftiles
-    deploy-fromsource` (or `deploy-fromnpm`) builds/installs
+    (stowed to `~/.local/share/polyframes`); `on-deploy deps`
+    (`--method source|npm|release`) builds/installs
     `~/.local/bin/polyframes` and records the method in
     `~/.config/doftiles.conf`. `[module/polyframes]` in `config.ini`
     execs the binary directly — no shim, no nvm/Node dependency.

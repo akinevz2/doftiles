@@ -144,10 +144,10 @@ help:
 	@echo "  make services-start | services-stop | restart"
 	@echo "  make reload-systemd  daemon-reload, enable --now all"
 	@echo ""
-	@echo "Dependencies (install method state: doftiles.conf):"
-	@echo "  make -C ~/.local/share/doftiles deploy-fromsource"
-	@echo "  make -C ~/.local/share/doftiles deploy-fromnpm"
-	@echo "  make -C ~/.local/share/doftiles uninstall"
+	@echo "Dependencies (polyframes; method state: ~/.config/doftiles.conf):"
+	@echo "  on-deploy deps    ensure | --force | --method source|npm|release"
+	@echo "  on-deploy deps --uninstall"
+	@echo "  make update       safe pull + submodules + artifact refresh"
 	@echo ""
 	@echo "Packages (one per line):"
 	@for pkg in $(STOW_PKGS); do echo "  $$pkg"; done
@@ -305,8 +305,13 @@ bootstrap: submodules
 	@echo "bootstrap: stowing every package"
 	@$(MAKE) --no-print-directory stow
 	@echo "bootstrap: ensuring polyframes artifact (palette/launchers/bar exec it directly)"
-	@$(MAKE) --no-print-directory polyframes-ensure || \
-		echo "bootstrap: polyframes deploy FAILED — launchers/bar will degrade; install bun (arch: pacman -S bun) or npm, then run 'make polyframes-ensure'" >&2
+	@if [ -x "$(HOME)/.local/bin/on-deploy" ]; then \
+		"$(HOME)/.local/bin/on-deploy" deps || \
+			echo "bootstrap: polyframes deploy FAILED — launchers/bar will degrade; fix per the on-deploy deps output, then re-run 'make install'" >&2; \
+	else \
+		echo "bootstrap: on-deploy missing — polyframes deploy skipped" >&2; \
+	fi
+	@echo "bootstrap: stowing every package"
 	@echo "bootstrap: verifying required binaries (continues on missing ones)"
 	@$(MAKE) --no-print-directory add-packages || \
 		echo "bootstrap: missing packages listed below — install them and re-run when ready" >&2
@@ -347,15 +352,6 @@ session-link:
 
 install: bootstrap
 
-depends-deploy:
-	@$(MAKE) --no-print-directory -C $(DEPLOY_MK) deploy
-
-# polyframes-ensure — the bootstrap hook: deploy only when missing
-# (idempotent). Delegated to the deployed depends Makefile so the same
-# file powers repo-side fall-back runs and installed copies.
-polyframes-ensure:
-	@$(MAKE) --no-print-directory -C $(DEPLOY_MK) ensure
-
 # on-deploy binary variables — _bootstrap-on-deploy (above) builds it
 # from the submodule checkout ONLY when missing (idempotent).
 # `make add-packages` (the on.deploy walk), `make provision` and the
@@ -388,16 +384,25 @@ stow: wm
 # sync — perform update followed by push only if update succeeded.
 sync: push
 
-# update — delegated to depends (the dependency/deployment manager),
-# which owns the safe pull (-ff, fallback --rebase --autostash) plus the
-# submodule and per-method artifact refreshes.
-# The deployment Makefile: deployed at ~/.local/share/doftiles (stow
-# link into the repo), with the repo-side copy as fallback for fresh
-# clones that have not stowed depends yet.
-DEPLOY_MK := $(if $(wildcard $(HOME)/.local/share/doftiles/Makefile),$(HOME)/.local/share/doftiles,depends/.local/share/doftiles)
-
+# update — the safe pull (-ff, fallback --rebase --autostash; local
+# changes ride along, conflicts stop for manual resolution — nothing
+# is ever silently discarded), the submodules, then the polyframes
+# artifact refresh per the recorded method (`on-deploy deps --force`
+# rebuilds/installs and re-records the method).
 update:
-	@$(MAKE) --no-print-directory -C $(DEPLOY_MK) update
+	@git fetch origin; \
+	if git merge --ff-only origin/main 2>/dev/null; then \
+		echo "update: fast-forwarded to origin/main"; \
+	elif git pull --rebase --autostash origin main; then \
+		echo "update: rebased onto origin/main"; \
+	fi
+	@git submodule update --init --recursive
+	@if [ -x "$(HOME)/.local/bin/on-deploy" ]; then \
+		"$(HOME)/.local/bin/on-deploy" deps --force || \
+			echo "update: polyframes refresh FAILED — run 'on-deploy deps --force' after fixing" >&2; \
+	else \
+		echo "update: on-deploy missing — polyframes artifact not refreshed" >&2; \
+	fi
 
 # push — push commits if the worktree is clean; otherwise stage everything
 # and launch $EDITOR with the current directory plus each modified file.
