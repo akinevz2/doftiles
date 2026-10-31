@@ -11,7 +11,7 @@
 #                  otherwise a plain numbered menu; without a TTY the
 #                  call errors with usage.
 set -euo pipefail
-DOTS="$(cd "$(dirname "$0")/.." && pwd)"
+DOTS="$(cd "$(dirname "$0")/../../../.." && pwd)"
 cd "$DOTS"
 
 # --- the package universe ------------------------------------------------

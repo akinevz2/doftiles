@@ -5,7 +5,7 @@
 SHELL  := /bin/bash
 STOW   := stow
 MAKE   := make
-SCRIPT := scripts/deploy-menu.sh
+SCRIPT := $(CURDIR)/depends/.local/bin/install/deploy-menu
 
 SERVICES_FILE := service.order
 WM_PACKAGES := wm.packages
@@ -42,7 +42,7 @@ STATE_FILE := $(STATE_DIR)/stowed
 
 # --- selective deployment ------------------------------------------------
 # Any package target stows it, records it as remembered, and runs its
-# post-stow hook (see scripts/deploy-menu.sh — hooks needing a running
+# post-stow hook (see depends/.local/bin/install/deploy-menu — hooks
 # WM/X are guarded and no-op with a note on headless targets).
 $(STOW_PKGS):
 	$(STOW) -R -t $$HOME $@
@@ -58,16 +58,11 @@ $(STOW_PKGS):
 #   The configuration (target, binaries, session, credentials) is the
 #   configure wizard (`on-deploy configure`; also the bootstrap step).
 deploy:
-	@if [ ! -t 0 ] || [ "$(PROFILE)" = "skip" ]; then \
-		
+	@if [ -x "$(HOME)/.local/bin/on-deploy" ]; then \
+		"$(HOME)/.local/bin/on-deploy" apply || \
+			echo "deploy: apply FAILED" >&2; \
 	else \
-		$(SCRIPT) --profile || exit 1; \
-		if [ -x "$$HOME/.local/bin/on-deploy" ]; then \
-			"$$HOME/.local/bin/on-deploy" apply || \
-				echo "deploy: apply FAILED — profile saved" >&2; \
-		else \
-			echo "deploy: on-deploy missing — apply skipped (make bootstrap)"; \
-		fi; \
+		echo "deploy: on-deploy missing — apply skipped (make bootstrap)"; \
 	fi
 	@for pkg in $$($(SCRIPT) "$(P)"); do \
 		$(MAKE) --no-print-directory $$pkg; \
