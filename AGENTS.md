@@ -34,9 +34,10 @@ at `.local/share/polyframes`, and `.config/doftiles.conf`
 (deploy-method state, written by `on-deploy deps`) |
 | `dunst` | `.config/dunst`, `.local/bin/check-mail.sh`, `read-mail.sh` |
 | `agents` | `.config/opencode`, `.config/poolside`, `.local/bin`,
-`.local/share` — OpenCode config (the `opencode-screencast` submodule
-STAYS here: `opencode.json(c)` loads the plugin via the relative path
-`./opencode-screencast`, so moving it would break plugin loading) |
+`.local/share` — OpenCode config (the `opencode-screencast` plugin is
+vendored here as plain tracked files — opencode.json(c) loads it via
+the relative path `./opencode-screencast`, so moving it would break
+plugin loading) |
 | `shell` | `.bashrcx`, `.profile`, `.aliases`, `.exports`, `.zshrc`,
 `.vim`, `.taskrc`, `.my-credentials`, `Makefile`,
 `.config/{aliases,exports,mimeapps.list}`, `.local/bin/` (install
