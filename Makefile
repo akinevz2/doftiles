@@ -72,7 +72,7 @@ deploy:
 			$(MAKE) --no-print-directory provision || \
 				echo "deploy: provision FAILED — profile saved; run 'make provision' to retry" >&2; \
 		else \
-			echo "deploy: on-deploy not installed — provision skipped (run 'make install')"; \
+			echo "deploy: on-deploy not installed — provision skipped (run 'make bootstrap')"; \
 		fi; \
 	fi
 	@for pkg in $$($(SCRIPT) "$(P)"); do \
@@ -116,6 +116,10 @@ help:
 	@echo "                  P=\"a b\" is the fine-grained non-interactive"
 	@echo "                  form; PROFILE=skip bypasses the profile TUI"
 	@echo "  make <package>  stow + remember + post-stow hook one pkg"
+	@echo "  make install    stow every package, then run each"
+	@echo "                  package's dependency Makefile"
+	@echo "                  (dots/<pkg>/.local/share/<pkg>/Makefile —"
+	@echo "                  they defer to on-deploy for binaries)"
 	@echo "  make bootstrap  full one-call deploy: ensures the toolchain"
 	@echo "                  assurances (bun via npm if missing, bun"
 	@echo "                  postinstall trust, the on-deploy + herbctl"
@@ -238,7 +242,7 @@ submodules:
 # bun toolchain + trust + the *-ensure binaries USED to be four
 # separate recipes (bun-toolchain, bun-trust, on-deploy-ensure,
 # herbctl-ensure). They are not user choices — they are ASSURANCES the
-# user gets when calling `make install`, so they live inside
+# user gets when calling `make bootstrap`, so they live inside
 # on-deploy (`on-deploy toolchain`) and the bootstrap just execs it.
 #
 # _bootstrap-on-deploy is the one exception that must stay here: it
@@ -295,11 +299,11 @@ credentials:
 bootstrap: submodules
 	@echo "bootstrap: ensuring the on-deploy binary (the toolchain steps + package walk + provision exec it)"
 	@$(MAKE) --no-print-directory _bootstrap-on-deploy || \
-		echo "bootstrap: on-deploy deploy FAILED — the toolchain steps and the package walk will be skipped; install bun (arch: pacman -S bun) or node/npm, then re-run 'make install'" >&2
+		echo "bootstrap: on-deploy deploy FAILED — the toolchain steps and the package walk will be skipped; install bun (arch: pacman -S bun) or node/npm, then re-run 'make bootstrap'" >&2
 	@if [ -x "$(HOME)/.local/bin/on-deploy" ]; then \
 		echo "bootstrap: toolchain assurances (bun, postinstall trust, herbctl)"; \
 		"$(HOME)/.local/bin/on-deploy" toolchain || \
-			echo "bootstrap: toolchain FAILED — bun trust / herbctl may be missing; re-run 'make install'" >&2; \
+			echo "bootstrap: toolchain FAILED — bun trust / herbctl may be missing; re-run 'make bootstrap'" >&2; \
 	else \
 		echo "bootstrap: on-deploy missing — toolchain assurances skipped" >&2; \
 	fi
@@ -308,7 +312,7 @@ bootstrap: submodules
 	@echo "bootstrap: ensuring polyframes artifact (palette/launchers/bar exec it directly)"
 	@if [ -x "$(HOME)/.local/bin/on-deploy" ]; then \
 		"$(HOME)/.local/bin/on-deploy" deps || \
-			echo "bootstrap: polyframes deploy FAILED — launchers/bar will degrade; fix per the on-deploy deps output, then re-run 'make install'" >&2; \
+			echo "bootstrap: polyframes deploy FAILED — launchers/bar will degrade; fix per the on-deploy deps output, then re-run 'make bootstrap'" >&2; \
 	else \
 		echo "bootstrap: on-deploy missing — polyframes deploy skipped" >&2; \
 	fi
@@ -351,7 +355,23 @@ session-link:
 		echo "  (xrdp Xvnc module -> the shared x11vnc framebuffer, same session as noVNC)"; \
 	fi
 
-install: bootstrap
+# install — stow every package, then run each package's dependency
+# Makefile (dots/<pkg>/.local/share/<pkg>/Makefile) so binary
+# dependencies get installed. Packages without that Makefile only get
+# stowed. The dependency Makefiles DEFER to on-deploy for the actual
+# binary management (the standard rule set there: install, start, stop,
+# uninstall, status, disable, enable). Full one-call provisioning
+# (toolchain bootstrap + services + profile) stays in `make bootstrap`.
+install: all
+	@for pkg in $(STOW_PKGS); do \
+		mf="$(CURDIR)/$$pkg/.local/share/$$pkg/Makefile"; \
+		if [ -f "$$mf" ]; then \
+			echo "install: $$pkg dependencies ($$mf)"; \
+			$(MAKE) --no-print-directory -C "$$pkg/.local/share/$$pkg" install || \
+				echo "install: $$pkg dependency step FAILED — see above" >&2; \
+		fi; \
+	done
+	@$(MAKE) --no-print-directory status
 
 # on-deploy binary variables — _bootstrap-on-deploy (above) builds it
 # from the submodule checkout ONLY when missing (idempotent).
@@ -436,13 +456,13 @@ SYSTEM_PACKAGES := $(shell ls -d system-* 2>/dev/null)
 # add-packages — verify required binaries; the on-deploy walk (which
 # prompts per missing binary) runs only on an interactive terminal,
 # and only when the binary exists — otherwise the caller is pointed
-# at 'make install' (which bootstraps on-deploy itself).
+# at 'make install' (which bootstraps on-deploy itself — 'make bootstrap'; plain 'make install' only stows and runs the package dependency Makefiles).
 add-packages:
 	@if [ -t 0 ]; then \
 		if [ -x "$$HOME/.local/bin/on.deploy" ]; then \
 			"$$HOME/.local/bin/on.deploy" || true; \
 		else \
-			echo "packages: on-deploy not deployed — the interactive package walk was skipped (run 'make install')" >&2; \
+			echo "packages: on-deploy not deployed — the interactive package walk was skipped (run 'make bootstrap')" >&2; \
 		fi; \
 	fi
 	@missing=""; \

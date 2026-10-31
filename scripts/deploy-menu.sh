@@ -42,7 +42,11 @@ hook() {
             fflink="$HOME/.local/bin/firefox"
             if [ -e "$ffexe" ]; then
                 mkdir -p "$HOME/.local/bin"
-                ln -sfn "$DOTS/shell/.local/bin/firefox" "$fflink"
+                # RELATIVE link: stow cannot own absolute symlinks — an
+                # absolute link here made every later `stow -R shell`
+                # abort with "existing target is not owned by stow".
+                ln -sfn "$(realpath --relative-to="$HOME/.local/bin" \
+                    "$DOTS/shell/.local/bin/firefox")" "$fflink"
             elif [ -L "$fflink" ] && \
                  [ "$(realpath -m "$fflink" 2>/dev/null || true)" = \
                    "$DOTS/shell/.local/bin/firefox" ]; then
