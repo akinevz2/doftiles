@@ -1,0 +1,13 @@
+[Unit]
+Description=xrdp (user) — RDP surface onto the shared framebuffer
+# the module attaches to the x11vnc framebuffer; start after it
+After=x11vnc.service
+
+[Service]
+ExecStart=/usr/bin/xrdp --config %h/.config/xrdp/xrdp.ini --port 3390
+StandardOutput=append:%h/.local/state/xrdp.log
+StandardError=append:%h/.local/state/xrdp.log
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

@@ -58,9 +58,9 @@ $(STOW_PKGS):
 #   make deploy P="a b"       fine-grained, no TUI, works non-interactive
 #   make deploy PROFILE=skip  bypass the deploy.profile TUI
 # The profile TUI (scripts/deploy-menu.sh --profile) selects and
-# configures deploy.profile (session model, features, units, env),
-# writes it, and runs provision (make provision) — guarded: skipped
-# non-interactive without PROFILE=, and provision itself is skipped
+# configures deploy.profile (deployment model, features, units, env),
+# writes it, and runs apply (make provision) — guarded: skipped
+# non-interactive without PROFILE=, and apply itself is skipped
 # when on-deploy is not installed. Each package selection is then
 # stowed, remembered, and hooked.
 deploy:
@@ -70,9 +70,9 @@ deploy:
 		$(SCRIPT) --profile || exit 1; \
 		if [ -x "$$HOME/.local/bin/on-deploy" ]; then \
 			$(MAKE) --no-print-directory provision || \
-				echo "deploy: provision FAILED — profile saved; run 'make provision' to retry" >&2; \
+				echo "deploy: apply FAILED — profile saved; run 'make provision' to retry" >&2; \
 		else \
-			echo "deploy: on-deploy not installed — provision skipped (run 'make bootstrap')"; \
+			echo "deploy: on-deploy not installed — apply skipped (run 'make bootstrap')"; \
 		fi; \
 	fi
 	@for pkg in $$($(SCRIPT) "$(P)"); do \
@@ -138,9 +138,10 @@ help:
 	@echo ""
 	@echo "Inspection:"
 	@echo "  make status     packages / services / git state"
-	@echo "  make provision  platform provisioning via on-deploy, per"
-	@echo "                  deploy.profile (xserver, xinitrc, greeter,"
-	@echo "                  nested stack, xrdp)"
+	@echo "  make provision  platform apply via on-deploy, per"
+	@echo "                  deploy.profile (env, wsl verify, units;"
+	@echo "                  package groups live in the package"
+	@echo "                  Makefiles: on-deploy packages <rule>)"
 	@echo "  make update     safe pull + submodule sync/refresh"
 	@echo "  make push, sync   commit/push flow (see AGENTS.md)"
 	@echo ""
@@ -169,12 +170,12 @@ clean:
 	@echo "clean: all packages unstowed; system binaries untouched"
 
 # status — binaries, packages, services, git state.
-# provision — platform provisioning via on-deploy (deploy.profile):
-# xserver packages, the xinitrc session line, the greeter (or the
-# WSL verify-only bypass). See on-deploy's README for the contract.
-# Runs from ~/dots — on-deploy's cwd contract.
+# provision — platform apply via on-deploy (deploy.profile): env,
+# the WSL verify-only bypass, unit enables. Package groups (xserver,
+# nested, xrdp, greeter, xinitrc) live in the package Makefiles —
+# run via `on-deploy packages <rule>`. See on-deploy's README.
 provision:
-	@cd $(CURDIR) && ~/.local/bin/on-deploy provision
+	@cd $(CURDIR) && ~/.local/bin/on-deploy apply
 
 status:
 	@echo "== binaries (wm.requires) =="
