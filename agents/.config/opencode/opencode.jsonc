@@ -1,16 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": [
-    "./opencode-screencast"
-  ],
+  "plugins": ["./opencode-screencast"],
   "formatter": true,
   "lsp": true,
   "watcher": {
-    "ignore": [
-      "node_modules/**",
-      "dist/**",
-      ".git/**"
-    ]
+    "ignore": ["node_modules/**", "dist/**", ".git/**"]
   },
   "permission": {
     "doom_loop": "deny",
@@ -74,43 +68,9 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "WS-RAREBOX",
       "options": {
-        "baseURL": "http://ws-rarebox:11434/v1",
-        "apiKey": "ollama"
+        "baseURL": "http://ws-rarebox:11434/v1"
       },
       "models": {
-        "hf.co/unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE": {
-          "name": "GLM 4.7 Flash MOE",
-          "limit": {
-            "context": 96000,
-            "output": 8192
-          },
-          "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
-          },
-          "attachment": true,
-          "reasoning": true,
-          "temperature": true,
-          "tool_call": true,
-          "interleaved": {
-            "field": "reasoning_text"
-          }
-        },
-        "hf.co/bartowski/zai-org_GLM-4.5-Air-GGUF:latest": {
-          "name": "GLM 4.5 Air GGUF",
-          "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
-          }
-        },
         "laguna-xs-2.1:32k": {
           "name": "Laguna XS 2.1 (32k)",
           "limit": {
@@ -118,23 +78,15 @@
             "output": 4096
           },
           "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text"],
+            "output": ["text"]
           }
         },
         "nemotron-3.5-lightning": {
           "name": "Nemotron 3.5 Lightning",
           "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text"],
+            "output": ["text"]
           },
           "reasoning": true,
           "tool_call": true
@@ -146,27 +98,19 @@
             "output": 4096
           },
           "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text"],
+            "output": ["text"]
           }
         },
-        "glm-4.7-flash:32k": {
-          "name": "GLM 4.7 Flash (32k)",
+        "glm-4.7-flash": {
+          "name": "GLM 4.7 Flash",
           "limit": {
             "context": 32768,
             "output": 4096
           },
           "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text"],
+            "output": ["text"]
           },
           "attachment": true,
           "reasoning": true,
@@ -180,16 +124,12 @@
     "servers": {
       "github": {
         "type": "local",
-        "command": [
-          "/home/kine/.local/bin/github-mcp-wrapper"
-        ],
+        "command": ["/home/kine/.local/bin/github-mcp-wrapper"],
         "enabled": true
       },
       "sonarqube": {
         "type": "local",
-        "command": [
-          "/home/kine/.local/bin/sonarqube-mcp-wrapper"
-        ],
+        "command": ["/home/kine/.local/bin/sonarqube-mcp-wrapper"],
         "enabled": true
       }
     }
