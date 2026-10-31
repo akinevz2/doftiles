@@ -80,7 +80,7 @@ deploy:
 	done
 
 # all — stow + hook every package (and remember them all)
-all: $(STOW_PKGS)
+all: $(WM_PACKAGES)
 
 # restow — the remembered subset (the default goal of bare `make`);
 # if nothing has ever been deployed, show the overview instead.
@@ -363,12 +363,12 @@ session-link:
 # uninstall, status, disable, enable). Full one-call provisioning
 # (toolchain bootstrap + services + profile) stays in `make bootstrap`.
 install: all
-	@for pkg in $(STOW_PKGS); do \
+	@for pkg in $(WM_PACKAGES); do \
 		mf="$(CURDIR)/$$pkg/.local/share/$$pkg/Makefile"; \
 		if [ -f "$$mf" ]; then \
-			echo "install:  deps"; \
+			echo "install: $$pkg deps"; \
 			$(MAKE) --no-print-directory -C "$$pkg/.local/share/$$pkg" install || \
-				echo "install:  deps FAILED" >&2; \
+				echo "install: $$pkg deps FAILED" >&2; \
 		fi; \
 	done
 	@$(MAKE) --no-print-directory status

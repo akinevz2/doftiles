@@ -59,10 +59,10 @@ status:
 		printf '  %-20s %s\n' "$$u" "$$(systemctl --user is-active $$u 2>/dev/null)"; \
 	done
 
-# xserver — the startx-capable set (managed-X platforms only; the
-# wsl-systemd model verifies the EXTERNAL VcXsrv instead)
+# xserver — the startx-capable set (managed-X platforms only; a
+# wsl-systemd deployment model keeps the X server external)
 xserver:
-	@if grep -q 'wsl-systemd' $(PROFILE) 2>/dev/null; then \
+	@if [ ! -f "$(PROFILE)" ] || grep -q 'wsl-systemd' "$(PROFILE)"; then \
 		echo "xserver: wsl-systemd — external X server, nothing to install"; \
 		exit 0; \
 	fi; \

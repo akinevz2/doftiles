@@ -1,1 +1,3 @@
-herbstluftwm compton dunst polybar depends agents shell
+agents compton depends dunst herbstluftwm polybar shell
+# individually deployable service packages (on-deploy packages <rule> or make <pkg>):
+# xrdp xvfb x11vnc novnc
