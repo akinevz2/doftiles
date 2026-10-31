@@ -139,16 +139,14 @@ across the `dots` and `development` repos.
   `~/.my-credentials`, or prints a reminder with the exact setup command when
   the file is missing), `dekineify` (adapt the
   repo for a new user/branch), home Makefile (see above).
-- **llms** — `bootstrap-sonarqube.sh` (fresh instance → admin password → API token →
-  gitignored env file), `sonarqube-mcp-manager` (compose stack lifecycle),
-  `docker-compose.yml` (SonarQube + PostgreSQL + SonarQube-MCP), `sonarqube-mcp-wrapper`
-  and `github-mcp-wrapper` (stdio MCP wrappers for OpenCode), `opencode-remote` /
-  `opencode-remote-add` (inspect/add remote provider config).
+- **llms** — `github-mcp-wrapper` and other stdio MCP wrappers for OpenCode,
+  `opencode-remote` / `opencode-remote-add` (inspect/add remote provider
+  config).
 - **maintenance** — `check-msi-dirs.sh` + its systemd oneshot unit (dunst alert with
   actionable click-through).
 - **herbst / polybar / rofi / dunst** — WM _runtime_ helpers rather than installers:
   the `hc_*` suite, `polyctl`/`winbarctl`, polybar
   `polybar.sh`/`polywins.sh`, dunst `check-mail.sh`/`read-mail.sh`.
 
-Secrets produced at deploy time (`shell/.cache/sonarqube.env`, `*.admin`) are gitignored
+Secrets produced at deploy time (`shell/.cache/*.env`) are gitignored
 and never tracked; `~/.my-credentials` (name + email only) is tracked on purpose.
