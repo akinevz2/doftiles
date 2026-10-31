@@ -52,20 +52,14 @@ $(STOW_PKGS):
 	fi
 	@$(SCRIPT) --hook $@
 
-# deploy — selective deployment, TUI-driven when interactive:
-#   make deploy               profile TUI first, then a whiptail
-#                             checklist (plain menu fallback)
-#   make deploy P="a b"       fine-grained, no TUI, works non-interactive
-#   make deploy PROFILE=skip  bypass the deploy.profile TUI
-# The profile TUI (scripts/deploy-menu.sh --profile) selects and
-# configures deploy.profile (deployment model, features, units, env),
-# writes it, and runs the deploy target apply — guarded: skipped
-# non-interactive without PROFILE=, and apply itself is skipped
-# when on-deploy is not installed. Each package selection is then
-# stowed, remembered, and hooked.
+# deploy — selective deployment: the deploy target apply, then a
+#   whiptail checklist (plain menu fallback) of packages to stow.
+#   P="a b" is the fine-grained non-interactive form.
+#   The configuration (target, binaries, session, credentials) is the
+#   configure wizard (`on-deploy configure`; also the bootstrap step).
 deploy:
 	@if [ ! -t 0 ] || [ "$(PROFILE)" = "skip" ]; then \
-		echo "deploy: profile TUI skipped"; \
+		
 	else \
 		$(SCRIPT) --profile || exit 1; \
 		if [ -x "$$HOME/.local/bin/on-deploy" ]; then \
@@ -137,7 +131,7 @@ help:
 	@echo ""
 	@echo "Inspection:"
 	@echo "  make status       binaries / packages / services / git"
-	@echo "  make deploy       profile TUI + package picker + target apply"
+	@echo "  make deploy       deploy target apply (configure = the wizard)"
 	@echo "  make session-link print the noVNC/RDP session URL"
 	@echo "  make update       safe pull + submodule sync/refresh"
 	@echo "  make push, sync   commit/push flow"

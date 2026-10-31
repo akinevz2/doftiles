@@ -6,8 +6,8 @@
 # The FEATURE rules (xserver, xinitrc, nested, xrdp, greeter) hold the
 # bash implementations of the session's package-group special steps;
 # they defer the platform package-manager work to `on-deploy pkg`.
-# The deployment model + features are configured in deploy.profile
-# (on-deploy configure); these rules read it for their guards.
+# The deployment model (the `session =` line of wm.requires,
+# on-deploy configure) gates the managed-X rules.
 # Run them via `on-deploy packages <rule>` or directly:
 #   make -C ~/.local/share/herbstluftwm nested
 #
@@ -18,7 +18,7 @@
 UNITS := herbst.service
 ONDEPLOY ?= $(HOME)/.local/bin/on-deploy
 DOTS     ?= $(HOME)/dots
-PROFILE  := $(DOTS)/deploy.profile
+REQUIRES := $(DOTS)/wm.requires
 
 # the deploy target = the last non-comment line of wm.requires
 TARGET := $(shell grep -v '^\s*#' $(DOTS)/wm.requires | tail -1)
@@ -62,7 +62,7 @@ status:
 # xserver — the startx-capable set (managed-X platforms only; a
 # wsl-systemd deployment model keeps the X server external)
 xserver:
-	@if [ ! -f "$(PROFILE)" ] || grep -q 'wsl-systemd' "$(PROFILE)"; then \
+	@if [ ! -f "$(REQUIRES)" ] || sed -n '2p' "$(REQUIRES)" | grep -qx 'wsl-systemd'; then \
 		echo "xserver: wsl-systemd — external X server, nothing to install"; \
 		exit 0; \
 	fi; \
