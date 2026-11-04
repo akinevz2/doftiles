@@ -60,18 +60,19 @@ hook() {
             ;;
         herbstluftwm)
             # the autostart's keybind state machines: when the herbctl
-            # binary is missing, `on-deploy toolchain` builds + installs
-            # it from the submodule (the assurance that used to be the
-            # herbctl-ensure recipe; make all/wm/herbstluftwm all reach
-            # the hook). Fail-soft — freshness lands via `make update` +
-            # `on-deploy toolchain --force`.
+            # binary is missing, the depends package's `components`
+            # command (deps/.local/bin/components, the on-deploy
+            # `toolchain` verb's successor) builds + installs it from
+            # the submodule. Fail-soft — freshness lands via `make
+            # update` (components --force runs through packages
+            # install).
             if [ ! -x "$HOME/.local/bin/herbctl" ]; then
-                if [ -x "$HOME/.local/bin/on-deploy" ] && \
+                if [ -x "$HOME/.local/bin/components" ] && \
                    [ -f "$DOTS/depends/.local/share/herbctl/src/index.ts" ]; then
-                    "$HOME/.local/bin/on-deploy" toolchain || \
+                    "$HOME/.local/bin/components" || \
                         echo "deploy: herbctl build FAILED — the get-* keybinds exec it" >&2
                 else
-                    echo "deploy: herbctl missing (no on-deploy or no submodule checkout) — run 'make install'"
+                    echo "deploy: herbctl missing (no components or no submodule checkout) — run 'make bootstrap'"
                 fi
             fi
             if herbstclient version >/dev/null 2>&1; then

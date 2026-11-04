@@ -1,26 +1,25 @@
 # depends — package dependency Makefile (the dots/<pkg>/.local/share/<pkg>
-# pattern). Every package that deploys BINARIES routes its dependency
-# management through on-deploy; this Makefile is the package-side entry
-# point the dots Makefile calls (make install runs `install` here after
-# stowing).
+# pattern). Every package that deploys BINARIES routes its installation
+# through its own Makefile; this one execs the package-local command
+# `depends/.local/bin/components` (stowed to ~/.local/bin/components):
+# bun, bun trust, herbctl — and polyframes with its install method
+# recorded in ~/.config/doftiles.conf.
 #
-# Artifacts owned by this package:
-#   ~/.local/bin/polyframes   (on-deploy deps; method in
-#                              ~/.config/doftiles.conf)
-#   ~/.local/bin/herbctl      (on-deploy toolchain)
-#   ~/.local/bin/on-deploy    (bootstrap-built; toolchain keeps it)
+# The dots Makefile reaches here via `on-deploy packages install`
+# (after stowing). The dots Makefile ALSO builds ~/.local/bin/on-deploy
+# itself (bootstrap) — installing components is a package concern, but
+# a missing on-deploy binary is the dots repo's bootstrap problem.
 #
 # All seven standard rules are defined; start/stop/enable/disable are
 # deliberate no-ops — these are plain binaries, not services.
 
-ONDEPLOY ?= $(HOME)/.local/bin/on-deploy
+COMPONENTS ?= $(HOME)/.local/bin/components
 
 install:
-	@if [ -x "$(ONDEPLOY)" ]; then \
-		$(ONDEPLOY) toolchain || { echo "depends: toolchain FAILED" >&2; exit 1; }; \
-		$(ONDEPLOY) deps || { echo "depends: deps FAILED" >&2; exit 1; }; \
+	@if [ -x "$(COMPONENTS)" ]; then \
+		$(COMPONENTS) || { echo "depends: components FAILED" >&2; exit 1; }; \
 	else \
-		echo "depends: on-deploy missing — run 'make bootstrap' in ~/dots first" >&2; \
+		echo "depends: ~/.local/bin/components missing — stow the depends package (make -C ~/dots depends)" >&2; \
 		exit 1; \
 	fi
 
@@ -28,15 +27,11 @@ start stop enable disable:
 	@echo "depends: nothing to $@ — the deployed artifacts are plain binaries"
 
 uninstall:
-	@if [ -x "$(ONDEPLOY)" ]; then \
-		$(ONDEPLOY) deps --uninstall; \
-		echo "depends: polyframes artifact removed (herbctl/on-deploy binaries left; rm -f ~/.local/bin/{herbctl,on-deploy} to drop them)"; \
-	else \
-		echo "depends: on-deploy missing" >&2; exit 1; \
-	fi
+	@$(COMPONENTS) --uninstall; \
+	echo "depends: polyframes artifact removed (herbctl binary left; rm -f ~/.local/bin/herbctl to drop it)"
 
 status:
-	@for bin in polyframes herbctl on-deploy; do \
+	@for bin in polyframes herbctl on-deploy components; do \
 		if [ -x "$(HOME)/.local/bin/$$bin" ]; then st=installed; else st=MISSING; fi; \
 		printf '  %-12s %s\n' "$$bin" "$$st"; \
 	done
