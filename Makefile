@@ -53,8 +53,7 @@ STOW_ONLY := $(patsubst %,--only %,$(WM_PACKAGES))
 #                     unit (units needing X stay enabled-but-failed)
 #   status            the closing report
 bootstrap: submodules _bootstrap-on-deploy
-	@-$(ONDEPLOY_BIN) configure
-	@-$(ONDEPLOY_BIN) install
+	@$(ONDEPLOY_BIN) install || { [ $$? -eq 130 ] && exit 130 || true; }
 	$(ONDEPLOY_BIN) preserve --only "$(WM_PACKAGES)"
 	$(ONDEPLOY_BIN) packages install
 	$(SELF) services-check
@@ -107,7 +106,9 @@ _bootstrap-on-deploy:
 # is bootstrapped FIRST so the delegations below can run.
 install: _bootstrap-on-deploy
 	@set -e; \
-	$(ONDEPLOY_BIN) configure || { echo "install: configure FAILED — continuing (recorded config kept)"; }; \
+	$(ONDEPLOY_BIN) configure; \
+	rc=$$?; \
+	if [ $$rc -eq 130 ]; then exit 130; elif [ $$rc -ne 0 ]; then echo "install: configure FAILED — continuing (recorded config kept)"; fi; \
 	$(ONDEPLOY_BIN) preserve --only "$(WM_PACKAGES)"; \
 	$(ONDEPLOY_BIN) packages install $(WM_PACKAGES); \
 	$(SELF) status
