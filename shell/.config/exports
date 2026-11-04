@@ -12,7 +12,7 @@ fi
 
 # IDE viewing shortcuts 
 export GIT_EDITOR="code --wait"
-export EDITOR="code"
+export EDITOR="vim"
 export VIEW="code -r"
 export VISUAL="code --wait"
 export NEW_WINDOW="--new-window"
