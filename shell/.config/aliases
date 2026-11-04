@@ -11,6 +11,9 @@ alias l='ls'
 alias s='ls -r'
 
 # Git
+alias ush='git push'
+alias ull='git pull'
+alias repo='git pull --ff --autostash && git push; git status'
 alias status='git status'
 alias commit='git commit'
 alias add='git add'
