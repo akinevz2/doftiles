@@ -41,9 +41,19 @@ while [ $# -gt 0 ]; do
 done
 
 METHOD_FLAG=""
-DOTS_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"   # dots/depends/.local/bin -> dots
-HERBCTL_DIR="$DOTS_DIR/depends/.local/share/herbctl"
-POLY_DIR="$DOTS_DIR/depends/.local/share/polyframes"
+DOTS=""
+# locate the dots repo: env override → cwd walk-up (make -C runs the
+# components script from inside depends/…) → $HOME/dots fallback (the
+# plain `components` invocation from a stowed link on any cwd). The
+# marker file IS the dots root's manifest.
+_d="$PWD"
+while [ "$_d" != "/" ]; do
+    [ -f "$_d/wm.requires" ] && DOTS="$_d" && break
+    _d="$(dirname "$_d")"
+done
+DOTS="${DOTS_DIR:-${DOTS:-$HOME/dots}}"
+HERBCTL_DIR="$DOTS/depends/.local/share/herbctl"
+POLY_DIR="$DOTS/depends/.local/share/polyframes"
 BIN_DIR="$HOME/.local/bin"
 HERBCTL="$BIN_DIR/herbctl"
 POLY="$BIN_DIR/polyframes"
@@ -173,8 +183,8 @@ poly_sync() {
         echo "    [dry-run] submodule sync/update + $POLY_DIR -> origin/main"
         return 0
     fi
-    git -C "$DOTS_DIR" submodule sync -- depends/.local/share/polyframes || return 1
-    git -C "$DOTS_DIR" submodule update --init -- depends/.local/share/polyframes || return 1
+    git -C "$DOTS" submodule sync -- depends/.local/share/polyframes || return 1
+    git -C "$DOTS" submodule update --init -- depends/.local/share/polyframes || return 1
     git -C "$POLY_DIR" checkout -q -B main origin/main || return 1
     git -C "$POLY_DIR" pull --ff-only || return 1
 }
@@ -266,7 +276,7 @@ deploy_polyframes() {
 }
 
 # ── main ──────────────────────────────────────────────────────────────
-[ -d "$DOTS_DIR" ] || die2 "cannot locate the dots repo from $0"
+[ -d "$DOTS" ] || die2 "cannot locate the dots repo from $0"
 
 install_bun
 if ! have bun && [ "$DRY" != 1 ]; then

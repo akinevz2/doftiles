@@ -1,7 +1,8 @@
 # herbstluftwm — package dependency Makefile (the dots/<pkg>/
 # .local/share/<pkg> pattern). The WM stack's binary dependency is
 # herbctl (the keybind state machines); it is built and installed by
-# `on-deploy toolchain`, so the standard rules defer to on-deploy.
+# the depends package PACKAGE.s `components` command, so the standard
+# rules defer to it.
 #
 # The FEATURE rules (xserver, xinitrc, nested, xrdp, greeter) hold the
 # bash implementations of the session's package-group special steps;
@@ -16,7 +17,8 @@
 # THIS package's units only.
 
 UNITS := herbst.service
-ONDEPLOY ?= $(HOME)/.local/bin/on-deploy
+ONDEPLOY  ?= $(HOME)/.local/bin/on-deploy
+COMPONENTS ?= $(HOME)/.local/bin/components
 DOTS     ?= $(HOME)/dots
 REQUIRES := $(DOTS)/wm.requires
 
@@ -29,10 +31,10 @@ pkg-install:
 	@$(ONDEPLOY) pkg install $(1)
 
 install:
-	@if [ -x "$(ONDEPLOY)" ]; then \
-		$(ONDEPLOY) toolchain || { echo "herbstluftwm: toolchain FAILED (herbctl)" >&2; exit 1; }; \
+	@if [ -x "$(COMPONENTS)" ]; then \
+		$(COMPONENTS) || { echo "herbstluftwm: components FAILED (herbctl)" >&2; exit 1; }; \
 	else \
-		echo "herbstluftwm: on-deploy missing — run 'make bootstrap' in ~/dots first" >&2; \
+		echo "herbstluftwm: components missing — stow the depends package (make -C ~/dots depends)" >&2; \
 		exit 1; \
 	fi
 

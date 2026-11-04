@@ -45,7 +45,9 @@ STOW_ONLY := $(patsubst %,--only %,$(WM_PACKAGES))
 #                     is absent)
 #   install           the wm.requires requirement walk (installs the
 #                     missing binaries from the target's repos)
-#   stow              stow -R every package in wm.packages
+#   preserve          the conflict resolver: packages -> per-file diff +
+#                     decisions (non-tty falls back to archive-first
+#                     keep flow), then stow -R per package
 #   packages install  each package's own dependency Makefile rules
 #   services check    daemon-reload + enable --now every service.order
 #                     unit (units needing X stay enabled-but-failed)
@@ -53,7 +55,7 @@ STOW_ONLY := $(patsubst %,--only %,$(WM_PACKAGES))
 bootstrap: submodules _bootstrap-on-deploy
 	@-$(ONDEPLOY_BIN) configure
 	@-$(ONDEPLOY_BIN) install
-	$(ONDEPLOY_BIN) stow --only "$(WM_PACKAGES)"
+	$(ONDEPLOY_BIN) preserve --only "$(WM_PACKAGES)"
 	$(ONDEPLOY_BIN) packages install
 	$(SELF) services-check
 	$(SELF) status
@@ -95,15 +97,19 @@ _bootstrap-on-deploy:
 	echo "on-deploy: installed $(ONDEPLOY_BIN)"
 
 # ── stowing ───────────────────────────────────────────────────────────
-# install — stow the stack, then run each package's dependency
-# Makefile (dots/<pkg>/.local/share/<pkg>/Makefile). The on-deploy
-# binary is bootstrapped FIRST so the delegations below can run;
-# `configure` is NOT folded in here (the interactive bootstrap does
-# it; incremental runs keep the recorded configuration).
+# install — configure FIRST (same folded apply as the bootstrap; the
+# recorded configuration still re-applies and prompts for the git
+# identity when absent), then resolve conflicts per package (preserve),
+# then run each package's dependency Makefile — ONLY the packages
+# manifested in wm.packages (no bare `packages install`, which would
+# reach every package with a Makefile, including the individually
+# deployable VNC/xrdp ones and their sudo steps). The on-deploy binary
+# is bootstrapped FIRST so the delegations below can run.
 install: _bootstrap-on-deploy
 	@set -e; \
-	$(ONDEPLOY_BIN) stow --only "$(WM_PACKAGES)"; \
-	$(ONDEPLOY_BIN) packages install; \
+	$(ONDEPLOY_BIN) configure || { echo "install: configure FAILED — continuing (recorded config kept)"; }; \
+	$(ONDEPLOY_BIN) preserve --only "$(WM_PACKAGES)"; \
+	$(ONDEPLOY_BIN) packages install $(WM_PACKAGES); \
 	$(SELF) status
 
 # all / stow / wm — restow the wm.packages stack (stow -R per package)

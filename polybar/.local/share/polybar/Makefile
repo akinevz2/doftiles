@@ -1,19 +1,19 @@
 # polybar deployment orchestration.
 #
 # Owns: running polyctl, and the theme apply. Binary dependency
-# management (the polyframes artifact) defers to on-deploy — see the
-# depends package Makefile (dots/depends/.local/share/depends/Makefile).
+# management (the polyframes artifact) defers to the depends package's
+# `components` command — see dots/depends/.local/share/depends/Makefile.
 
-ONDEPLOY ?= $(HOME)/.local/bin/on-deploy
+COMPONENTS ?= $(HOME)/.local/bin/components
 
 theme:
 	$(HOME)/.local/bin/reload_theme -f
 
 install:
-	@if [ -x "$(ONDEPLOY)" ]; then \
-		$(ONDEPLOY) deps || { echo "polybar: polyframes deploy FAILED" >&2; exit 1; }; \
+	@if [ -x "$(COMPONENTS)" ]; then \
+		$(COMPONENTS) || { echo "polybar: components FAILED (polyframes)" >&2; exit 1; }; \
 	else \
-		echo "polybar: on-deploy missing — run 'make bootstrap' in ~/dots first" >&2; \
+		echo "polybar: components missing — stow the depends package (make -C ~/dots depends)" >&2; \
 		exit 1; \
 	fi
 	@$(MAKE) --no-print-directory theme
