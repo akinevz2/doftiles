@@ -182,17 +182,19 @@ status: _bootstrap-on-deploy
 	fi
 
 # update — the safe pull directly in the repo: fetch + fast-forward
-# (fallback --rebase --autostash), submodule sync, then on-deploy drives
-# the per-package depends Makefiles — which rebuild the on-deploy binary
-# UNCONDITIONALLY as their first artifact, so a pulled submodule always
-# lands a fresh binary.
+# (fallback --rebase --autostash), submodule sync, then UNCONDITIONALLY
+# rebuild + install the binary from the freshly pulled submodule (a
+# stale installed binary may predate the `depends` verb; also, a pull
+# must land a fresh binary), and finally the per-package depends
+# Makefiles — with the on-deploy artifact SKIPPED in them (already
+# fresh; SKIP_ONDEPLOY is understood by the package Makefiles).
 update:
 	git fetch
-	git merge --ff-only
-	git pull --rebase --autostash 2>/dev/null || true
+	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
 	git submodule sync
 	git submodule update --init --recursive
-	$(ONDEPLOY_BIN) depends --install $(Y)
+	$(SELF) _build-on-deploy
+	SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(Y)
 
 # on-deploy housekeeping verbs stay one call away:
 #   $(ONDEPLOY_BIN) preserve <pkg> ...   conflict-safe restow
