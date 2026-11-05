@@ -1,0 +1,6 @@
+# system.required — the SUBMODULE manifest: each non-comment line is a stow
+# package followed by its dots-relative submodule path(s). This is the
+# CONFIGURED scope of `on-deploy depends` (sync/build/install walk) and the
+# source root of the submodule walkers; comments (#) are preserved.
+bat bat/.local/share/bat-src
+depends depends/.local/share/polyframes depends/.local/share/herbctl depends/.local/share/herbstutil depends/.local/share/on-deploy

@@ -48,8 +48,9 @@ hooks, firefox wrapper, check-wsl, check-msi-dirs, load-credentials,
 dekineify), `.local/share/applications/` |
 
 Repo-level files —
-`Makefile`, `README.md`, `AGENTS.md`, `wm.packages`, `wm.requires`,
-`service.order` — are **not** stowed (never put dotfiles at repo root
+`Makefile`, `README.md`, `AGENTS.md`, `stows.required`,
+`wm.required` (binaries+session+target), `system.required` (submodules),
+`services.required` — are **not** stowed (never put dotfiles at repo root
 — they won't be linked). Misc documentation lives in `docs/`
 (`PLAN.polyframes-deployment.md`, `analysis.md`, `polywins.md`) —
 also not stowed.
@@ -73,10 +74,13 @@ also not stowed.
 
 ## Makefile targets
 
-Package manifests live in repo-level files: `wm.packages` (WM stack
-list), `wm.requires` (required binaries — the Makefile reads only its
-**first line**; the second line `ubuntu` is a target-distro
-annotation), `service.order` (unit start order).
+Package manifests live in repo-level files: `stows.required` (stow
+package list), `wm.required` (required binaries — the Makefile reads only its
+**first line**; the second line `wsl-systemd` is the deployment session; the
+last non-comment line `ubuntu` is the deploy target), and `system.required`
+(the SUBMODULE manifest — each line is a stow package with its
+dots-relative submodule paths, the configured scope of `on-deploy
+depends`); `services.required` (unit start order).
 
 - ANY package target (`make polybar`, `make shell`, ...) stows the
   package and runs its post-stow hook. Hooks live in
@@ -121,9 +125,9 @@ annotation), `service.order` (unit start order).
   build + install, bare = the discovery report. `on-deploy depends
   --no-sync` re-runs the Makefile rules without the git phase, and
   `--only <pkgs>` narrows the walk.
-- `make wm` — stow the stack from `wm.packages`; `make stow` is the
+- `make wm` — stow the stack from `stows.required`; `make stow` is the
   same thing; `make bash` = `shell` + `agents` only.
-- `make add-packages` — verifies every binary in `wm.requires`,
+- `make add-packages` — verifies every binary in `wm.required`,
   failing fast listing missing ones; the `on.deploy` walk (which
   prompts per missing binary) runs only on an interactive terminal.
 - `make add-packages-system` — previews, then after confirmation
@@ -134,7 +138,7 @@ annotation), `service.order` (unit start order).
 - `make reload-systemd` — daemon-reload ONLY (no enabling: `services-stop`
   and `restart` depend on it and must never start what they're stopping).
   `make services-check` — daemon-reload + `enable --now --no-block` all
-  units in `service.order` (used by bootstrap). `make services-start`,
+  units in `services.required` (used by bootstrap). `make services-start`,
   `services-stop`, `restart` — confirm on an interactive terminal;
   non-interactive runs REQUIRE `YES=1` (nothing hangs on stdin).
   start/stop/restart share one `service-action` body. All service
@@ -162,6 +166,12 @@ annotation), `service.order` (unit start order).
 `on-deploy depends` drives EVERY stow package that ships
 `dots/<pkg>/.local/state/depends/<pkg>.Makefile` — a package with
 submodules owns ALL of its build/link/install recipes there:
+
+- **Scope note**: the `depends` walk is NOT scoped by the
+  `wm.required` manifest — it keys on .Makefile presence (so `bat`
+  deploys via `make update` even though it is not in `wm.required`).
+  The wm-scope only applies to the configure-wizard walk and the bare
+  `on-deploy packages` sweeps. Narrow with `--only <pkgs>`.
 
 - standard rules: `toolchain` (runs `on-deploy toolchain --<lang>`),
   `build` (compile, nothing placed), `link` (place the built binaries
@@ -255,7 +265,7 @@ the relevant unit.
   still processes `Alias=`).
 - The WM session runs inside VcXsrv on Windows (WSL2); the autostart script
   is `herbst/.config/herbstluftwm/autostart`.
-- `service.order` currently enables `check-x-server herbst dunst compton
+- `services.required` currently enables `check-x-server herbst dunst compton
   hc_send-error-daemon`; `xvfb`, `x11vnc` and `novnc` units exist for
   headless/VNC setups and are commented out in the order file.
 - **xrdp layer on the nested profile** (2026-10): the `xrdp` FEATURE in
@@ -269,7 +279,7 @@ the relevant unit.
   module slot, backup at
   `xrdp.ini.on-deploy.bak`) and `enable --now`es the unit (restart only
   when it was already active). xrdp is a SYSTEM service — it is NOT in
-  `service.order` (user units only) and no dots unit exists for it; the
+  `services.required` (user units only) and no dots unit exists for it; the
   config is provisioner-managed, not stowed (no `system-xrdp` package).
 
 ## Quirks and conventions established in this session
@@ -439,7 +449,7 @@ the relevant unit.
     (repo) uses this for its xmessage confirmation dialog.
 21. **`make deploy` runs the profile TUI first** (2026-10): on an
     interactive terminal, `scripts/deploy-menu.sh --profile` walks
-    through distro target (wm.requires last line — pacman vs apt
+    through distro target (wm.required last line — pacman vs apt
     branches in on-deploy's provisioners), session model, features,
     units (universe = repo `*.service` files) and env lines, writes
     `deploy.profile`, then `make provision` runs before any stowing.
@@ -455,7 +465,7 @@ the relevant unit.
 ```sh
 cd ~/dots
 make wm                  # stow herbst + alacritty + dunst + compton
-make restart             # daemon-reload, restart service.order units
+make restart             # daemon-reload, restart services.required units
 journalctl --user -u herbst.service -u compton.service -b --since "2 min ago" --no-pager
 ```
 

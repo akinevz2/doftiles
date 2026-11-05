@@ -24,7 +24,7 @@ SELF   := $(MAKE) --no-print-directory
 
 ONDEPLOY_BIN    := $(HOME)/.local/bin/on-deploy
 ONDEPLOY_SUBMOD := $(CURDIR)/depends/.local/share/on-deploy# manifests (read by on-deploy, not by this Makefile)
-WM_PACKAGES_FILE := wm.packages
+WM_PACKAGES_FILE := stows.required
 WM_PACKAGES      := $(shell grep -vi '^#' $(WM_PACKAGES_FILE))
 
 # toolchain/deps knobs: YES=1 -> on-deploy runs without confirmations
@@ -81,7 +81,7 @@ toolchain: bootstrap
 # depends Makefiles: `depends --install` = sync the submodules, build,
 # and install (on-deploy depends --build for sync+build only).
 deps: toolchain
-	@if ! ls -l $(WM_PACKAGES_FILE) wm.requires service.order; then \
+	@if ! ls -l $(WM_PACKAGES_FILE) wm.required system.required services.required; then \
 		exit 1; \
 	fi
 	$(ONDEPLOY_BIN) depends --install $(Y)
@@ -140,7 +140,7 @@ submodules:
 # install — configure FIRST (same apply; prompts for the git identity
 # when ~/.my-credentials is absent), then resolve conflicts per package
 # (preserve), then run each package's OLD-pattern dependency Makefile —
-# ONLY the packages manifested in wm.packages. The SUBMODULES are
+# ONLY the packages manifested in wm.required. The SUBMODULES are
 # deployed by `deps` (on-deploy depends --install) — target order:
 #   make bootstrap toolchain deps install
 install: _bootstrap-on-deploy
@@ -152,7 +152,7 @@ install: _bootstrap-on-deploy
 	$(ONDEPLOY_BIN) packages install $(WM_PACKAGES); \
 	$(SELF) status
 
-# all / stow / wm — restow the wm.packages stack (stow -R per package)
+# all / stow / wm — restow the wm.required stack (stow -R per package)
 all stow wm restow: _bootstrap-on-deploy
 	@$(ONDEPLOY_BIN) stow --only "$(WM_PACKAGES)"
 
@@ -160,7 +160,7 @@ all stow wm restow: _bootstrap-on-deploy
 unstow clean: _bootstrap-on-deploy
 	@$(ONDEPLOY_BIN) unstow --only "$(WM_PACKAGES)"
 
-# ── services (the service.order manifest, driven by on-deploy) ────────
+# ── services (the services.required manifest, driven by on-deploy) ────────
 services-check: _bootstrap-on-deploy
 	@$(ONDEPLOY_BIN) services check
 

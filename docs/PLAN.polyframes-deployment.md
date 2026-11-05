@@ -117,7 +117,7 @@ IMPLEMENTED. The package set after round three:
   target dropped; `wm` covers the full WM stack; the MAKEFILES
   variable renamed to MF_FILES (a sub-make inheriting MAKEFILES
   re-reads the files and double-defines every target).
-- `wm.packages` updated to the final set: herbstluftwm herbst_theme
+- `stows.required` updated to the final set: herbstluftwm herbst_theme
   herbst_focus herbst_titles herbst_web dunst polybar depends agents
   shell.
 
@@ -133,7 +133,7 @@ polybar/depends half stays):
 - `herbst_theme` -> `herbstluftwm` (theme + reload_theme + winbarctl).
 - `herbst_titles` -> `herbstluftwm` (theme.d/titles.theme).
 - `herbst_web` -> `herbstluftwm` (xvfb/x11vnc/novnc units).
-- `wm.packages`: herbstluftwm dunst polybar depends agents shell.
+- `stows.required`: herbstluftwm dunst polybar depends agents shell.
 - deploy-menu.sh: the herbst_theme post-stow hook (reload_theme -f)
   folded into the herbstluftwm hook (reload + theme apply).
 - Live cutover order: stow -D the four packages FIRST (unstow while
@@ -210,13 +210,13 @@ when it deploys something with its own build/pull lifecycle
    it needs no npm publish).
 5. The npm path (publish + the recipe) — owner decision on
    visibility/naming.
-6. Retire the monolithic `herbst` package (update `wm.packages`,
+6. Retire the monolithic `herbst` package (update `stows.required`,
    AGENTS.md, the README's package table).
 
 ## E. Risks
 
 - stow package ordering: `herbst_wm` must stow before `herbst_bar`
-  (the bar needs the WM env); the `service.order` file covers
+  (the bar needs the WM env); the `services.required` file covers
   services only.
 - the autostart split: keybinds reference helper paths owned by
   OTHER packages — the stow -R of one package must not break
