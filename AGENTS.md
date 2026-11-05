@@ -203,6 +203,28 @@ After changing anything in `services/`, restow and run
 `systemctl --user daemon-reload` (or `make reload-systemd`), then restart
 the relevant unit.
 
+## Headless / non-interactive mode (2026-11)
+
+- **`make update` is headless out of the box** (verified repeatedly on
+  non-tty shells): every step is non-gated — the git pull falls back to
+  `--rebase --autostash` (fails loudly on conflict, never hangs), the
+  bun/npm builds are quiet, and `depends --install` has no TTY gates.
+- **The deploy chain is headless with `YES=1`**
+  (`make bootstrap toolchain deps install YES=1`): the knob feeds `-y`
+  to the verbs whose installs may prompt (`toolchain` errors out
+  "non-interactive without --yes" otherwise); `deps`/`depends
+  --install` never confirm; `make install` gates nothing on a tty —
+  the TUI wizard branch stays TTY-only (non-interactive runs keep the
+  recorded config and apply it), preserve auto-keeps conflicts,
+  per-package rules run straight.
+- **The honest exception**: anything shelling through sudo or a
+  platform `<target>.deploy` script needs passwordless sudo (or an
+  interactive TTY) — inherent to system-package installation, not an
+  on-deploy gate; failures exit loudly, no hangs.
+- The TUI/session gates are the only real tty assumptions (bunli
+  prompts hard-fail without one); every command has a non-tty fallback
+  documented in its verb.
+
 ## Services / WM runtime model
 
 - `check-x-server.service` (2026-11, `shell` package) runs FIRST and
