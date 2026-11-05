@@ -10,3 +10,6 @@
 [submodule "depends/.local/share/herbctl"]
 	path = depends/.local/share/herbctl
 	url = https://github.com/akinevz2/herbctl.git
+[submodule "bat/.local/share/bat-src"]
+	path = bat/.local/share/bat-src
+	url = https://github.com/sharkdp/bat

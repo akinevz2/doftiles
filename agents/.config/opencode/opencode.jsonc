@@ -76,19 +76,12 @@
         "baseURL": "http://ws-rarebox:11434/v1"
       },
       "models": {
-        "laguna-xs-2.1:32k": {
-          "name": "Laguna XS 2.1 (32k)",
+        "ollama/qwen3.8:27b": {
+          "name": "Qwen 3.8 27B",
           "limit": {
-            "context": 32768,
-            "output": 4096
+            "context": 53248,
+            "output": 8192
           },
-          "modalities": {
-            "input": ["text"],
-            "output": ["text"]
-          }
-        },
-        "nemotron-3.5-lightning": {
-          "name": "Nemotron 3.5 Lightning",
           "modalities": {
             "input": ["text"],
             "output": ["text"]
@@ -96,19 +89,17 @@
           "reasoning": true,
           "tool_call": true
         },
-        "qwen3-coder": {
-          "name": "Qwen3 Coder",
-          "limit": {
-            "context": 32768,
-            "output": 4096
-          },
+        "unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF": {
+          "name": "Nemotron 3.5 Bolt E4B",
           "modalities": {
             "input": ["text"],
             "output": ["text"]
-          }
+          },
+          "reasoning": true,
+          "tool_call": true
         },
-        "glm-4.7-flash": {
-          "name": "GLM 4.7 Flash",
+        "ollama/hf.co/unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE": {
+          "name": "GLM 4.7 Flash MXFP4 MOE",
           "limit": {
             "context": 131072,
             "output": 8192
@@ -120,6 +111,19 @@
           "attachment": true,
           "reasoning": true,
           "temperature": true,
+          "tool_call": true
+        },
+        "ollama/hf.co/unsloth/DeepSeek-R1-Distill-Qwen-14B-GGUF:Q8_0": {
+          "name": "DeepSeek R1 Distill Qwen 14B",
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          },
+          "modalities": {
+            "input": ["text"],
+            "output": ["text"]
+          },
+          "reasoning": true,
           "tool_call": true
         }
       }

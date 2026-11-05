@@ -1,152 +1,104 @@
-# dots — GNU Stow dotfiles
+# dots
 
-Personal configuration repository managed with [GNU Stow](https://www.gnu.org/software/stow/).
-Every top-level directory is a **stow package** whose contents mirror `$HOME`.
-Repo-level files (`Makefile`, `README.md`, `AGENTS.md`, `docs/*`,
-`wm.packages`, `wm.requires`, `service.order`) are **not** stowed; `docs/` holds the misc documentation.
+dots is a GNU Stow–based dotfiles repository for a
+[herbstluftwm](https://herbstluftwm.org)–centered Linux environment. The
+system deploy — the `on-deploy` binary — is implemented in the
+[on-deploy repository](https://github.com/akinevz2/on-deploy) (the deploy
+tool's source and releases, checked out here as a submodule); this
+repository is its **procedural specialiser**: the manifests, the
+per-package Makefiles and the recorded configuration that turn the general
+deployer into *this* system's deployment. The `Makefile` here is
+delegation-only — every target is a short sequence of `on-deploy` commands,
+except the bootstrap build of the binary itself, which cannot delegate to
+anything before it exists.
 
-**Deploy through Make, never bare stow.** The recipes wrap `stow -R -t $HOME <package>`
-with hooks, service reloads and checks (see the recipe table below); running
-`stow` by hand silently skips all of that.
+- every top-level directory is a **stow package**: its contents mirror `$HOME`
+  and are linked with `stow -R -t $HOME <package>` (similar to a plain stow
+  repository, but nothing is run by hand — always through the Make recipes,
+  which wrap restowing with hooks, conflict resolution and service reloads)
+- repo-level files (`Makefile`, `README.md`, `AGENTS.md`, `docs/`, `scripts/`,
+  `wm.packages`, `wm.requires`, `service.order`) are **not** stowed
+- the secrets produced at deploy time (`shell/.cache/*.env`) are gitignored;
+  `~/.my-credentials` (name + email only) is tracked on purpose
+- the primary consumers are a WSL2 host (herbstluftwm + compton against
+  VcXsrv/X11; the `DISPLAY=localhost:0.0` convention holds everywhere) and
+  devcontainers
 
-Primary consumers: a WSL2 host (herbstluftwm + compton against VcXsrv/X11, hostname `WS*`)
-and devcontainers. Agent guidance lives in [AGENTS.md](AGENTS.md).
+## Deployment
 
-## Quick start
+The deployment is an explicit chain; each step is idempotent and safe to
+re-run:
 
 ```bash
 cd ~/dots
-git submodule update --init --recursive   # polywins + opencode-screencast
-make install                              # full WM host: shell, git, llms, task + WM stack
-make bash                                 # headless / container: shell, git, llms, task only
+make bootstrap    # deploy on-deploy: submodule checkouts, the binary, stow depends, bun trust
+make toolchain    # on-deploy toolchain --bun (or --rustup for the rust side)
+make deps         # on-deploy depends --install: sync submodules, build, install
+make install      # configure + preserve (conflict resolver) + per-package rules + status
 ```
 
-## Packages provided
+`make update` is the safe pull of the repository itself (fetch + fast-forward,
+submodule sync, then `on-deploy depends --install`, which rebuilds the
+on-deploy binary unconditionally as its first artifact).
 
-| Package       | Stows into `$HOME`                                                           | Rough contents                                                                                                                                                                                                                                                                                                    |
-| ------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `alacritty`   | `~/.config/alacritty`                                                        | Terminal emulator config (`alacritty.toml`)                                                                                                                                                                                                                                                                       |
-| `compton`     | `~/.config/compton`                                                          | Compositor config (`compton.conf`) plus rofi context-menu helpers (`context_menu.rasi`, `rofi_tags_move`, `rofi_tags_swap`, design docs)                                                                                                                                                                          |
-| `dunst`       | `~/.config/dunst`, `~/.local/bin`                                            | Notification daemon config; mail-notification scripts (`check-mail.sh`, `read-mail.sh`)                                                                                                                                                                                                                           |
-| `git`         | `~/.my-credentials`, `~/.local/bin`, `~/Makefile`                            | Tracked (intentionally non-sensitive) name/email credentials; `load-credentials` post-stow hook; `dekineify` (re-personalize the repo); home-level Makefile for multi-repo `pull`/`push`/`sync`                                                                                                                   |
-| `herbst`      | `~/.config/herbstluftwm`, `~/.local/bin`                                     | Herbstluftwm configs, theme reload; windowing helpers,`polyctl`,`winbarctl`                                                                                                                                                                                                                                       |
-| `llms`        | `~/.config/opencode`, `~/.config/poolside`, `~/.local/bin`, `~/.local/share` | OpenCode config (`opencode.jsonc` with `opencode.json` as a symlink to it, agents, skills, themes, `tui.json`, the vendored `opencode-screencast` plugin); poolside assistant config; `opencode-remote`/`opencode-remote-add`                               |
-| `maintenance` | `~/.config/systemd/user`, `~/.local/bin`                                     | `check-msi-dirs` oneshot unit + script (alerts on Windows temp dirs via dunst)                                                                                                                                                                                                                                    |
-| `polybar`     | `~/.config/polybar`, `~/.local/bin`                                          | `config.ini`; `scripts/polybar.sh`, `polywins.sh` (+ `polywins` submodule); `ewmh_labels` (`polyframes` renderer is a compiled binary from `~/development/personal/polyframes`, not part of this repo)                                                                                                            |
-| `rofi`        | `~/.config/rofi`                                                             | `config.rasi`, launcher/powermenu themes, applets, and ~40 `bin/` helper scripts (menus, launchers, powermenu)                                                                                                                                                                                                    |
-| `services`    | `~/.config/systemd/user`                                                     | User units: `herbst`, `compton`, `dunst` (active in `service.order`) plus `xvfb`, `x11vnc`, `novnc` for headless/VNC setups (currently disabled)                                                                                                                                                                  |
-| `shell`       | `$HOME` dotfiles                                                             | `.bashrcx` (sourced by the preserved `~/.bashrc`), `.profile`, `.aliases`, `.exports`, `.config/{aliases,exports,mimeapps.list}`; `~/.local/bin`: `firefox` wrapper (→ Windows Firefox; linked only when `/mnt/c/.../firefox.exe` exists — shell post-stow hook prunes it otherwise), `check-wsl`, `green`/`yellow`; `~/.local/share/applications/firefox.desktop`; `.cache/` (gitignored machine-local env files) |
-| `task`        | `~/.taskrc`                                                                  | Taskwarrior config                                                                                                                                                                                                                                                                                                |
-| `vim`         | `~/.vim`                                                                     | Vim config (runtime state gitignored)                                                                                                                                                                                                                                                                             |
-| `zshell`      | `~/.zshrc`, `~/.zprofile`                                                    | Oh My Zsh-based config, sources the generated credentials env                                                                                                                                                                                                                                                     |
+### The verbs
 
-`depends/` is an empty placeholder. `wm.packages` still lists the pre-rename `opencode`
-package (now `llms`) and omits `vim`/`zshell`/`maintenance`; stow those individually.
+| Recipe           | Effect                                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------------- |
+| `bootstrap`      | submodule checkouts at their remote tips, the on-deploy binary when missing, `stow depends`, the bun-trust steps |
+| `toolchain`      | `on-deploy toolchain --bun` — the language toolchains the per-package Makefiles build with (`YES=1` runs non-interactively; `on-deploy toolchain --check` fails fast, installing nothing) |
+| `deps`           | `on-deploy depends --install` — sync the submodules and run each package's `build`→`install` rules (`--build` for install-less builds) |
+| `install` / `wm` / `all` | configure, conflict-safe restow (`preserve --only $(wm.packages)`), the per-package rules, and `stow -R` of the `wm.packages` stack |
+| `services-*`     | `service.order` unit control via `on-deploy services` (`check`/`start`/`stop`/`restart`; non-interactive runs require `YES=1`) |
+| `status`         | the `check` + `services status` + credentials reminder                                       |
 
-## Required system binaries
+## The per-package depends scheme
 
-### Toolchain (needed to install the repo at all)
+`on-deploy depends` drives every stow package that ships
+`dots/<pkg>/.local/state/depends/<pkg>.Makefile`; the package owns ALL of its
+build / link / install recipes there, so no package behavior is hardcoded into
+on-deploy (`depends` discovers and delegates only):
 
-| Binary      | Ubuntu/Debian package    | Purpose                                     |
-| ----------- | ------------------------ | ------------------------------------------- |
-| `git`       | `git`                    | Clone, submodules, `make update/push`       |
-| `make`      | `make`                   | All deployment targets                      |
-| `stow`      | `stow`                   | Linking packages                            |
-| `bash`      | `bash`                   | Hooks and scripts (all scripts are bash/sh) |
-| `systemctl` | `systemd` (user session) | Only for the `services`/WM workflow         |
+- `toolchain` — `on-deploy toolchain --<lang>` (missing toolchains install
+  through the platform package manager; `--check` fail-fasts with the
+  "toolchain missing" message instead)
+- `build` — compile from the submodule checkouts, placing nothing
+- `link` — place the built binaries into `dots/<pkg>/.local/bin/` (the
+  package owns its artifacts; a subsequent `stow -R` ships them into
+  `~/.local/bin` and swaps legacy regular files for the package links)
+- `install` — source by default (`PKG=true` routes through the platform
+  package manager: `on-deploy pkg install <name>` for distro artifacts, the
+  npm global rider for the JS artifacts); knobs: `FORCE=1`, `DRY=1`, `M=`
+  (explicit method, recorded in `~/.config/doftiles.conf`)
 
-### WM stack — `wm.requires`, verified by `make add-packages`
+## Packages
 
-| Binary                         | Ubuntu/Debian package                            |
-| ------------------------------ | ------------------------------------------------ |
-| `herbstluftwm`, `herbstclient` | `herbstluftwm`                                   |
-| `compton`                      | `compton` (or a picom build with compton syntax) |
-| `polybar`                      | `polybar`                                        |
-| `rofi`                         | `rofi`                                           |
-| `hsetroot`                     | `hsetroot`                                       |
-| `xset`                         | `x11-xserver-utils`                              |
-| `dunst`                        | `dunst`                                          |
-| `notify-send`                  | `libnotify-bin`                                  |
+| Package        | Stows into `$HOME`                    | Contents                                                                                                          |
+| -------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `agents`       | `~/.config/opencode`, `~/.config/poolside`, `~/.local/bin` | OpenCode + poolside configuration (the `opencode-screencast` plugin is vendored as plain tracked files) |
+| `bat`          | —                                     | the rust package: the `sharkdp/bat` submodule (`bat/.local/share/bat-src`) and its per-package depends Makefile    |
+| `compton`      | `~/.config/compton`, units            | compositor configuration and its user service                                                                     |
+| `depends`      | `~/.local/bin/on.deploy`, `~/.local/bin/install/`, `~/.config/doftiles.conf` | the deployment machinery: the four bun submodules (`on-deploy`, `herbstutil`, `herbctl`, `polyframes`) at `.local/share/`, the per-package depends Makefile, the `on.deploy` shim and the `<target>.deploy` scripts |
+| `dunst`        | `~/.config/dunst`, `~/.local/bin`     | notification daemon configuration; the mail scripts (`check-mail.sh`, `read-mail.sh`) and its user service         |
+| `herbstluftwm` | `~/.config/{herbstluftwm,alacritty,rofi}`, `~/.local/bin` | the WM stack: the autostart, the theme (`reload_theme`, `winbarctl`), the whole `hc_*`/`hlwm_*` float + focus machinery, and its user services |
+| `polybar`      | `~/.config/polybar`, `~/.local/bin`, `~/.local/share/polybar` | the bar (`config.ini`, `polybar.sh`, `polywins.sh`), the control scripts (`polyctl`, `ewmh_labels`) and the bar-control Makefile |
+| `shell`        | `$HOME`                               | `.bashrcx` (sourced by the preserved `~/.bashrc`), `.profile`, `.aliases`, `.exports`, `.zshrc`, `.zprofile`, `.taskrc`, `~/.my-credentials`; the `firefox` wrapper (+ `.desktop` and `mimeapps.list`), `check-wsl`, and the `install/` hook scripts |
+| `xrdp`, `xvfb`, `x11vnc`, `novnc` | user units         | individually deployable headless / VNC / RDP stacks (not in `wm.packages`; `systemctl --user` face only)          |
 
-### Per-package runtime binaries
+`wm.packages` lists the stow set of bulk targets; `wm.requires` the required
+binaries plus the deploy target; `service.order` the unit start order.
 
-| Binary                    | Package needed by                                  | Ubuntu/Debian package         |
-| ------------------------- | -------------------------------------------------- | ----------------------------- |
-| `alacritty`               | alacritty                                          | `alacritty`                   |
-| `task`                    | task                                               | `taskwarrior`                 |
-| `zsh` (+ `~/.oh-my-zsh`)  | zshell                                             | `zsh`                         |
-| `vim`                     | vim                                                | `vim`                         |
-| `node` ≥ 18, `npm`        | llms (OpenCode, MCP tooling)                       | `nodejs npm`                  |
-| `bun`                     | llms (`opencode-remote-add`)                       | `bun`                         |
-| `docker` + compose plugin | containerized services                              | `docker.io docker-compose-v2` |
-| `curl`                    | llms bootstrap                                     | `curl`                        |
-| `gh`                      | llms GitHub MCP token fallback (optional)          | `gh`                          |
-| `mail`                    | dunst mail scripts                                 | `bsd-mailx` or `mailutils`    |
-| `xvfb`, `x11vnc`, `novnc` | disabled VNC service units (optional)              | `xvfb x11vnc novnc`           |
+## Requirements
 
-WSL2 hosts additionally need an X server on the Windows side (VcXsrv); the repo
-convention is `DISPLAY=localhost:0.0` everywhere.
+Building/deploying the repository needs `git`, `make`, GNU `stow`, `bash` and
+systemd (user session). The WM stack binaries are manifested in `wm.requires`
+(herbstluftwm, herbstclient, compton, polybar, rofi, hsetroot, xset, dunst,
+notify-send): `on-deploy install` verifies each and installs the missing ones
+through the `<target>.deploy` scripts. The language toolchains install through
+the platform package manager when missing — bun through
+`on-deploy toolchain --bun` and the rust toolchain through
+`on-deploy toolchain --rustup`; `--check` verifies without installing.
 
-`make add-packages` checks the WM binaries and refuses to continue listing what is
-missing; `~/.local/bin/install/ubuntu.deploy <binary>` maps a missing binary to the
-apt package that provides it.
-
-## Deployment-aid scripts
-
-### Repo level — `Makefile`
-
-Deployment goes through the recipes; effects include their prerequisite
-recipes (make runs those first, in the listed order). `stow` is always
-invoked as `stow -R -t $HOME <package>`.
-
-| Recipe                                                | Effect                                                                                                                                                                                                                   |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `install`                                             | Full WM host setup: `stow` (bash + wm), then `system`.                                                                                                                                                                   |
-| `stow`                                                | `bash` + `wm` — everything but services, `system-*` and the individually stowed packages.                                                                                                                                |
-| `bash`                                                | Stows `shell` (runs the bashrc source-line hook), `git` (runs `load-credentials`), `llms`, `task`.                                                                                                                       |
-| `wm` → `herbst`                                       | Stows `herbst` + `herbstclient reload`, then `alacritty`, `dunst`, `compton`.                                                                                                                                            |
-| `stow-wm`                                             | `status`, then stows every package listed in `wm.packages`.                                                                                                                                                              |
-| `system`                                              | `status`, then `add-packages-system`, then `add-packages`.                                                                                                                                                               |
-| `add-packages`                                        | Stows `shell`, runs the `on.deploy` preflight, then verifies every `wm.requires` binary — refuses to continue while anything is missing (`~/.local/bin/install/ubuntu.deploy` maps a missing binary to its apt package). |
-| `add-packages-system`                                 | Starts the service units (`start-services`), previews the `stow -n` linking plan for any `system-*` packages and applies them with `sudo stow -R -t /` after confirmation; skips cleanly when there are none.            |
-| `status`                                              | Read-only: prints the active state of every repo `*.service` and flags units from `service.order` that are missing.                                                                                                      |
-| `services`                                            | Stows the `services` package only (units land in `~/.config/systemd/user`).                                                                                                                                              |
-| `reload-systemd`                                      | `services` + `systemctl --user daemon-reload` + `enable --now` of every `service.order` unit.                                                                                                                            |
-| `start-services`, `stop-services`, `restart-services` | `reload-systemd`, then a y/N confirmation prompt, then the requested action per unit.                                                                                                                                    |
-| `update`                                              | Safe pull: fetch, then fast-forward to origin/main, then plain merge, then `$EDITOR` on real conflicts — or on the staged files when a dirty tree blocks the merge.                                                      |
-| `push`                                                | `update`; commits staged work (directly when only staged, via `$EDITOR` when unstaged/untracked) and pushes to upstream.                                                                                                 |
-| `sync`                                                | `update` + `push`.                                                                                                                                                                                                       |
-| `depends`                                             | Deploys `wm`, checks the manifest files (`*.packages`, `*.requires`, `*.order`) all exist, then `sync`.                                                                                                                  |
-
-`git/Makefile` (stowed as `~/Makefile`) orchestrates the same `update`/`push`/`sync`
-across the `dots` and `development` repos.
-
-### Package-internal scripts
-
-- **shell** — the deployment hooks:
-  - `.local/bin/install/bashrc` — stow hook run by `make bash`; appends a source line to
-    the distributed `~/.bashrc` instead of overwriting it.
-  - `.local/bin/install/ubuntu.deploy` — resolves (or installs) the apt package providing
-    a given binary.
-  - `.local/bin/on.deploy` — preflight guard invoked by `make add-packages`
-    (deprecated two-line shim: delegates to `~/.local/bin/on-deploy`, built
-    by the bootstrap's `_bootstrap-on-deploy` step — the toolchain
-    assurances moved into `on-deploy toolchain`).
-  - `.local/bin/check-wsl`, `firefox` wrapper + `firefox.desktop` + `mimeapps.list` —
-    WSL detection and browser/link plumbing.
-- **git** — `load-credentials` (not a post-stow hook anymore: `make credentials`
-  — the gated final step of `make bootstrap` — sets global git identity from
-  `~/.my-credentials`, or prints a reminder with the exact setup command when
-  the file is missing), `dekineify` (adapt the
-  repo for a new user/branch), home Makefile (see above).
-- **llms** — `github-mcp-wrapper` and other stdio MCP wrappers for OpenCode,
-  `opencode-remote` / `opencode-remote-add` (inspect/add remote provider
-  config).
-- **maintenance** — `check-msi-dirs.sh` + its systemd oneshot unit (dunst alert with
-  actionable click-through).
-- **herbst / polybar / rofi / dunst** — WM _runtime_ helpers rather than installers:
-  the `hc_*` suite, `polyctl`/`winbarctl`, polybar
-  `polybar.sh`/`polywins.sh`, dunst `check-mail.sh`/`read-mail.sh`.
-
-Secrets produced at deploy time (`shell/.cache/*.env`) are gitignored
-and never tracked; `~/.my-credentials` (name + email only) is tracked on purpose.
+For more, see [AGENTS.md](AGENTS.md) — the detailed agent-facing guide (the
+package table, the service model, and the accumulated quirks) — and the misc
+documentation in `docs/`.

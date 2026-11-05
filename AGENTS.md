@@ -29,9 +29,12 @@ Primary consumer environments:
 scripts), `.local/bin/{polyctl,ewmh_labels}`,
 `.local/share/polybar/Makefile` (bar control: theme/reload/up/down) |
 | `depends` | deployment + dependency management: `.local/bin/on.deploy`,
-`.local/bin/install/{ubuntu,manjaro}.deploy`, the polyframes submodule
-at `.local/share/polyframes`, and `.config/doftiles.conf`
-(deploy-method state, written by `on-deploy deps`) |
+`.local/bin/install/{ubuntu,manjaro}.deploy`, the FOUR bun submodules
+at `.local/share/{on-deploy,herbstutil,herbctl,polyframes}`, the
+per-package depends Makefile at `.local/state/depends/depends.Makefile`
+(the 2026-11 scheme: toolchain/build/link/install/trust rules), and
+`.config/doftiles.conf` (deploy-method state, written by the package
+Makefile's conf-set) |
 | `dunst` | `.config/dunst`, `.local/bin/check-mail.sh`, `read-mail.sh` |
 | `agents` | `.config/opencode`, `.config/poolside`, `.local/bin`,
 `.local/share` — OpenCode config (the `opencode-screencast` plugin is
@@ -95,22 +98,31 @@ annotation), `service.order` (unit start order).
   machine). Stale entries are skipped with a note; `make forget
   P="pkg ..."` drops entries (without unstowing).
 - `make all` — stow + hook every package (and remember them all).
-- `make bootstrap` — full deployment in ONE call, safe on a systemd
-  target with no running WM: stow everything (hooks no-op headless),
-  run the toolchain assurances (`on-deploy toolchain` — bun via npm
-  when missing, bun postinstall trust, herbctl binary; the former
-  bun-toolchain/bun-trust/on-deploy-ensure/herbctl-ensure recipes are
-  steps inside it now, with `_bootstrap-on-deploy` building the
-  on-deploy binary itself when missing so the add-packages walk
-  resolves), verify `wm.requires` binaries, daemon-reload +
-  `enable --now` per `service.order` (units needing X stay
-  enabled-but-failed until X exists), deploy the depends artifact (per
-  the conf method, default source), status report, then install git
-  credentials (`credentials` — reminder + skip when
-  ~/.my-credentials is missing). `make install` is an alias.
+- `make bootstrap` — DEPLOY ON-DEPLOY, NOTHING ELSE (the delegation
+  seed; safe on a systemd target with no running WM): initialize the
+  submodule checkouts at their remote tips, install the on-deploy
+  binary when missing (`_bootstrap-on-deploy` builds it — bun is
+  bootstrapped through npm inside the build when neither bun nor the
+  platform provide it), stow the `depends` package (the on.deploy
+  shim + the `install/` deploy scripts the binary's machinery needs),
+  and run the bun-submodule trust steps (`make trust`, delegating to
+  the depends package Makefile). A full deployment is the explicit
+  chain now: `make bootstrap toolchain deps install`.
+- `make toolchain` — bootstrap chain + `on-deploy toolchain --bun`:
+  installs the language toolchain the per-package depends Makefiles
+  build with (`YES=1` runs it non-interactively). on-deploy's
+  `toolchain` verb supports `--bun|--rustup` (platform package
+  manager; bun falls back to npm) and `--check` (verify-only
+  fail-fast) — the `<lang>` assurance the per-package Makefiles call.
+- `make deps` — manifest existence check, then
+  `on-deploy depends --install`: sync the submodule checkouts and
+  drive every package's `dots/<pkg>/.local/state/depends/<pkg>.Makefile`
+  — `--build` = sync + build (no install), `--install` = sync +
+  build + install, bare = the discovery report. `on-deploy depends
+  --no-sync` re-runs the Makefile rules without the git phase, and
+  `--only <pkgs>` narrows the walk.
 - `make wm` — stow the stack from `wm.packages`; `make stow` is the
   same thing; `make bash` = `shell` + `agents` only.
-- `make deps` — manifest existence check, then `make sync`.
 - `make add-packages` — verifies every binary in `wm.requires`,
   failing fast listing missing ones; the `on.deploy` walk (which
   prompts per missing binary) runs only on an interactive terminal.
@@ -140,20 +152,48 @@ annotation), `service.order` (unit start order).
   server cannot spin the Restart=on-failure loop forever.
 - `make update` — the safe pull directly in the repo: fetch +
   fast-forward (fallback `git pull --rebase --autostash`), submodule
-  sync, then `on-deploy deps --force` refreshes the polyframes
-  artifact per the recorded method.
-- `on-deploy deps` — the dependency deployment (was the deleted
-  `depends/.local/share/doftiles/Makefile`): ensure (deploy only when
-  missing, the install step), `--force` redeploy (the refresh flow),
-  `--method source|npm|release` (explicit + recorded),
-  `--uninstall` (removes the artifact per the recorded method,
-  resets the conf). `source` = submodule checkout on `main` at the
-  remote tip + `bun install` + the package's own make install — this
-  advances the submodule past the recorded commit; commit the gitlink
-  bump.
+  sync, then `on-deploy depends --install` — which rebuilds the
+  on-deploy binary UNCONDITIONALLY as its first artifact, so a pulled
+  submodule always lands a fresh binary.
+
+## The per-package depends Makefile scheme (2026-11)
+
+`on-deploy depends` drives EVERY stow package that ships
+`dots/<pkg>/.local/state/depends/<pkg>.Makefile` — a package with
+submodules owns ALL of its build/link/install recipes there:
+
+- standard rules: `toolchain` (runs `on-deploy toolchain --<lang>`),
+  `build` (compile, nothing placed), `link` (place the built binaries
+  into `dots/<pkg>/.local/bin/` — the package owns its artifacts and
+  stow ships them), `install` (source default; `PKG=true` = the
+  platform package manager — the deploy target's `on-deploy pkg
+  install <name>` for distro artifacts, the npm global rider for the
+  JS artifacts), `uninstall`, `status`; start/stop/enable/disable are
+  no-ops. Knobs: `FORCE=1` (redeploy), `DRY=1` (nothing changes),
+  `M=` (explicit method, recorded).
+- artifacts at `dots/<pkg>/.local/bin/` are gitignored (build
+  products); the stow links at `~/.local/bin/` point AT the package
+  copies — a legacy REGULAR file at a system path is swapped for the
+  package link on first `stow -R` (see `stow-depends` in the depends
+  Makefile). NOTE `~/.local/bin/install` is a SHARED TREE dir folded
+  per-file from `dots/shell` AND `dots/depends` — treat it as normal
+  stow folding, never as an artifact to swap/remove.
+- the `depends` package hosts four bun submodules (on-deploy, herbstutil,
+  herbctl, polyframes); `bat` hosts the rust one (`bat-src`, sharkdp/bat;
+  legacy release-download method still reachable via `M=release`).
+- the old per-package hook dirs `dots/<pkg>/.local/share/<pkg>/Makefile`
+  are retired for packages with the scheme Makefile; pkgops/
+  `on-deploy packages` still falls back to them for the rest (e.g.
+  polybar's bar-control Makefile). The `components` script and
+  `depends/.local/share/depends/Makefile` are DELETED — bun trust
+  moved into the depends package Makefile (`trust-local`/
+  `trust-global`), bun installation into `on-deploy toolchain --bun`,
+  and installing bun when missing for the on-deploy build itself
+  stays in the dots `_build-on-deploy`.
 
 `~/.config/doftiles.conf` (stowed from `depends`) tracks the install
-method per deployable (`POLYFRAMES_METHOD=source|npm|none`) — it lives
+method per deployable (`POLYFRAMES_METHOD=source|npm|none`,
+`BAT_METHOD=source|release|none`) — it lives
 in the repo, so method changes show up as tracked diffs. conf-set
 writes through the stow link (`sed --follow-symlinks` — plain
 `sed -i` would replace the symlink with a regular file).
@@ -314,14 +354,15 @@ the relevant unit.
     `herbst/.local/bin/hlwm_cwds_dump` and the screencast plugin) — not
     junk. Its (and `bun`'s) postinstall may sit blocked under bun's default
     trust policy (`bun pm trust -g herbstutil bun` to allow).
-18. **polyframes deployment lives in `on-deploy deps`** (2026-10): the
-    polybar module is a standalone Bun/bunli binary. The git
-    submodule checkout is `dots/depends/.local/share/polyframes`
-    (stowed to `~/.local/share/polyframes`); `on-deploy deps`
-    (`--method source|npm|release`) builds/installs
-    `~/.local/bin/polyframes` and records the method in
-    `~/.config/doftiles.conf`. `[module/polyframes]` in `config.ini`
-    execs the binary directly — no shim, no nvm/Node dependency.
+18. **Submodule deploys live in the per-package depends Makefiles**
+    (2026-11: replaces the old `on-deploy deps` — see the scheme
+    section above). The polybar module is a standalone Bun/bunli
+    binary built by `depends/.local/state/depends/depends.Makefile`
+    from `dots/depends/.local/share/polyframes` into
+    `dots/depends/.local/bin/polyframes` (stow ships it); its method
+    is recorded in `~/.config/doftiles.conf`. `[module/polyframes]`
+    in `config.ini` execs the binary directly — no shim, no nvm/Node
+    dependency.
 19. **rofi menus also moved into the polyframes binary** (2026-10):
     `rofi_tags`, `rofi_hidden`, `rofi_windows`, `rofi_launch`,
     `hc_switcher` and `hc_menu` were deleted from `herbst/.local/bin`
