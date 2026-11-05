@@ -11,9 +11,13 @@ ONDEPLOY ?= $(HOME)/.local/bin/on-deploy
 install:
 	@$(ONDEPLOY) pkg install $(BIN)
 	@if [ ! -f $$HOME/.config/systemd/user/$(UNIT) ]; then \
-		echo "dunst: user unit missing — stow the dunst package"; exit 1; fi
-	@systemctl --user daemon-reload; \
-	systemctl --user enable --now $(UNIT) && echo "dunst: $(UNIT) enabled"
+		echo "dunst: WARNING user unit missing — stow the dunst package (units not restarted here)"; exit 0; fi
+	@systemctl --user daemon-reload 2>/dev/null || true; \
+	if ! systemctl --user enable --now $(UNIT) 2>/dev/null; then \
+		echo "dunst: WARNING could not enable $(UNIT) (its Requires= chain — check-x-server? — is missing; stow the shell package)"; \
+	else \
+		echo "dunst: $(UNIT) enabled"; \
+	fi
 
 start:
 	@systemctl --user start $(UNIT)

@@ -5,9 +5,11 @@ shell/.cache/
 # built artifacts LINKED into the stow packages by the per-package
 # depends Makefiles (dots/<pkg>/.local/state/depends/<pkg>.Makefile) —
 # the stow packages own them, the repo does not track them
-depends/.local/bin/herbctl
-depends/.local/bin/polyframes
+herbctl/.local/bin/herbctl
+polyframes/.local/bin/polyframes
 bat/.local/bin/bat
+on-deploy/.local/bin/on-deploy
+herbstutil/.local/bin/
 vim/.vim/bundle/
 vim/.vim/.netrwhist
 vim/.vim/spell/en.utf-8.add

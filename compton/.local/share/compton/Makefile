@@ -11,9 +11,13 @@ ONDEPLOY ?= $(HOME)/.local/bin/on-deploy
 install:
 	@$(ONDEPLOY) pkg install $(BIN)
 	@if [ ! -f $$HOME/.config/systemd/user/$(UNIT) ]; then \
-		echo "compton: user unit missing — stow the compton package"; exit 1; fi
-	@systemctl --user daemon-reload; \
-	systemctl --user enable --now $(UNIT) && echo "compton: $(UNIT) enabled"
+		echo "compton: WARNING user unit missing — stow the compton package (units not restarted here)"; exit 0; fi
+	@systemctl --user daemon-reload 2>/dev/null || true; \
+	if ! systemctl --user enable --now $(UNIT) 2>/dev/null; then \
+		echo "compton: WARNING could not enable $(UNIT) (its Requires= chain — check-x-server? — is missing; stow the shell package)"; \
+	else \
+		echo "compton: $(UNIT) enabled"; \
+	fi
 
 # the compositor rides the WM session (BindsTo herbst in the unit):
 # a plain restart of the WM session restarts it with the unit's own

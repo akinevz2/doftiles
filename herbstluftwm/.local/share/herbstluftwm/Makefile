@@ -7,7 +7,7 @@
 # The FEATURE rules (xserver, xinitrc, nested, xrdp, greeter) hold the
 # bash implementations of the session's package-group special steps;
 # they defer the platform package-manager work to `on-deploy pkg`.
-# The deployment model (the `session =` line of wm.requires,
+# The deployment model (the `session =` line of wm.required,
 # on-deploy configure) gates the managed-X rules.
 # Run them via `on-deploy packages <rule>` or directly:
 #   make -C ~/.local/share/herbstluftwm nested
@@ -18,12 +18,11 @@
 
 UNITS := herbst.service
 ONDEPLOY  ?= $(HOME)/.local/bin/on-deploy
-COMPONENTS ?= $(HOME)/.local/bin/components
 DOTS     ?= $(HOME)/dots
-REQUIRES := $(DOTS)/wm.requires
+REQUIRES := $(DOTS)/wm.required
 
-# the deploy target = the last non-comment line of wm.requires
-TARGET := $(shell grep -v '^\s*#' $(DOTS)/wm.requires | tail -1)
+# the deploy target = the last non-comment line of wm.required
+TARGET := $(shell grep -v '^\s*#' $(DOTS)/wm.required | tail -1)
 ARCH := $(filter arch manjaro,$(TARGET))
 PKG := $(if $(ARCH),pacman,apt)
 
@@ -31,12 +30,11 @@ pkg-install:
 	@$(ONDEPLOY) pkg install $(1)
 
 install:
-	@if [ -x "$(COMPONENTS)" ]; then \
-		$(COMPONENTS) || { echo "herbstluftwm: components FAILED (herbctl)" >&2; exit 1; }; \
-	else \
-		echo "herbstluftwm: components missing — stow the depends package (make -C ~/dots depends)" >&2; \
+	@if [ ! -x "$(HOME)/.local/bin/herbctl" ]; then \
+		echo "herbstluftwm: herbctl missing — deploy its package: 'make update' (on-deploy depends drives dots/herbctl)" >&2; \
 		exit 1; \
-	fi
+	fi; \
+	echo "herbstluftwm: herbctl present — the WM artifact is the stowed stack (units via services.required)"
 
 start:
 	@systemctl --user start --no-block $(UNITS)

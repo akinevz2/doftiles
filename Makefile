@@ -23,7 +23,7 @@ MAKE   := make
 SELF   := $(MAKE) --no-print-directory
 
 ONDEPLOY_BIN    := $(HOME)/.local/bin/on-deploy
-ONDEPLOY_SUBMOD := $(CURDIR)/depends/.local/share/on-deploy# manifests (read by on-deploy, not by this Makefile)
+ONDEPLOY_SUBMOD := $(CURDIR)/on-deploy/.local/share/on-deploy# manifests (read by on-deploy, not by this Makefile)
 WM_PACKAGES_FILE := stows.required
 WM_PACKAGES      := $(shell grep -vi '^#' $(WM_PACKAGES_FILE))
 
@@ -69,7 +69,7 @@ bootstrap: submodules
 # submodule: per-checkout local trust + the global untrusted set. The
 # logic lives in the depends package Makefile (it knows the artifacts).
 trust:
-	@$(MAKE) $(call DEPS_MAKEFILE,depends) trust-local trust-global
+	@$(MAKE) $(call DEPS_MAKEFILE,herbstutil) trust-local trust-global
 
 # toolchain — the language toolchains: on-deploy installs the tools the
 # per-package Makefiles build with (bun here for starters) and
@@ -106,18 +106,8 @@ _build-on-deploy:
 		echo "on-deploy: bun missing — installing through npm"; \
 		npm install --global bun; \
 	fi; \
-	# bun's own postinstall downloads the bun runtime into os.tmpdir()
-	# and renames it into node_modules — on remote boxes /tmp is often
-	# tmpfs (EXDEV, cross-device rename); TMPDIR under the module keeps
-	# the rename same-device
-	cd "$(ONDEPLOY_SUBMOD)" && mkdir -p node_modules/.tmp && \
-		TMPDIR="$$(pwd)/node_modules/.tmp" bun install; \
-	cd "$(ONDEPLOY_SUBMOD)" && bun x bunli build --targets linux-x64 --minify; \
-	mv -f "$(ONDEPLOY_SUBMOD)/dist/index" "$(ONDEPLOY_SUBMOD)/dist/on-deploy"; \
-	rm -f "$(ONDEPLOY_SUBMOD)/dist/index.js.map"; \
-	mkdir -p "$(HOME)/.local/bin"; \
-	install -m 755 "$(ONDEPLOY_SUBMOD)/dist/on-deploy" "$(ONDEPLOY_BIN)"; \
-	echo "on-deploy: built + installed $(ONDEPLOY_BIN)"
+	$(MAKE) -C "$(CURDIR)/on-deploy" --no-print-directory \
+		-f .local/state/depends/on-deploy.Makefile install FORCE=1
 
 # _bootstrap-on-deploy — the delegation target seeded by bootstrap:
 # installs the binary ONLY when missing (fresh systems), leaving the

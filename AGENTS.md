@@ -28,13 +28,14 @@ Primary consumer environments:
 | `polybar` | `.config/polybar/` (config.ini + polybar.sh + polywins.sh
 scripts), `.local/bin/{polyctl,ewmh_labels}`,
 `.local/share/polybar/Makefile` (bar control: theme/reload/up/down) |
-| `depends` | deployment + dependency management: `.local/bin/on.deploy`,
-`.local/bin/install/{ubuntu,manjaro}.deploy`, the FOUR bun submodules
-at `.local/share/{on-deploy,herbstutil,herbctl,polyframes}`, the
-per-package depends Makefile at `.local/state/depends/depends.Makefile`
-(the 2026-11 scheme: toolchain/build/link/install/trust rules), and
-`.config/doftiles.conf` (deploy-method state, written by the package
-Makefile's conf-set) |
+| `depends` | deployment incumbent-package remnants only: `.local/bin/on.deploy`
+(the dots-Makefile contract shim), `.local/bin/install/{ubuntu,manjaro}.deploy`,
+and `.config/doftiles.conf` (deploy-method state, written through the
+stow symlink). The four bun submodules became their OWN stow packages
+(2026-11): `on-deploy`, `herbctl`, `herbstutil`, `polyframes` — each
+hosts `dots/<pkg>/.local/state/depends/<pkg>.Makefile` (the 2026-11
+scheme: toolchain/build/link/install rules) and its artifact under
+`dots/<pkg>/.local/bin` |
 | `dunst` | `.config/dunst`, `.local/bin/check-mail.sh`, `read-mail.sh` |
 | `agents` | `.config/opencode`, `.config/poolside`, `.local/bin`,
 `.local/share` — OpenCode config (the `opencode-screencast` plugin is
@@ -110,7 +111,7 @@ depends`); `services.required` (unit start order).
   platform provide it), stow the `depends` package (the on.deploy
   shim + the `install/` deploy scripts the binary's machinery needs),
   and run the bun-submodule trust steps (`make trust`, delegating to
-  the depends package Makefile). A full deployment is the explicit
+  the herbstutil package Makefile). A full deployment is the explicit
   chain now: `make bootstrap toolchain deps install`.
 - `make toolchain` — bootstrap chain + `on-deploy toolchain --bun`:
   installs the language toolchain the per-package depends Makefiles
@@ -167,11 +168,12 @@ depends`); `services.required` (unit start order).
 `dots/<pkg>/.local/state/depends/<pkg>.Makefile` — a package with
 submodules owns ALL of its build/link/install recipes there:
 
-- **Scope note**: the `depends` walk is NOT scoped by the
-  `wm.required` manifest — it keys on .Makefile presence (so `bat`
-  deploys via `make update` even though it is not in `wm.required`).
-  The wm-scope only applies to the configure-wizard walk and the bare
-  `on-deploy packages` sweeps. Narrow with `--only <pkgs>`.
+- **Scope note (2026-11)**: the `depends` walk IS the configured
+  `system.required` manifest (each line `<pkg> <path>…`) intersected
+  with .Makefile presence — `bat` deploys via `make update` because it
+  is LISTED there, not because of `stows.required`. Narrow with
+  `--only <pkgs>`; a listed package without a .Makefile is reported as
+  a misconfiguration.
 
 - standard rules: `toolchain` (runs `on-deploy toolchain --<lang>`),
   `build` (compile, nothing placed), `link` (place the built binaries
@@ -189,18 +191,26 @@ submodules owns ALL of its build/link/install recipes there:
   Makefile). NOTE `~/.local/bin/install` is a SHARED TREE dir folded
   per-file from `dots/shell` AND `dots/depends` — treat it as normal
   stow folding, never as an artifact to swap/remove.
-- the `depends` package hosts four bun submodules (on-deploy, herbstutil,
-  herbctl, polyframes); `bat` hosts the rust one (`bat-src`, sharkdp/bat;
-  legacy release-download method still reachable via `M=release`).
+- five packages host the repo's submodules, each owning its artifact
+  like `bat` does (`bat-src` is the rust one; legacy release-download
+  still reachable via `M=release`): `bat`, `herbctl`, `herbstutil`
+  (registry package — deployed through the npm/bun GLOBAL install;
+  also hosts the `trust-local`/`trust-global` recipes), `on-deploy`
+  (the binary; the dots `_build-on-deploy` keeps the bun-ensure
+  prelude because this rule must not self-delegate), `polyframes`
+  (bun + the checkout's own make; method recorded in
+  `~/.config/doftiles.conf`). `depends` is REMNANTS ONLY (the
+  `on.deploy` shim + `install/` scripts + doftiles.conf) — no
+  Makefile, no submodules.
 - the old per-package hook dirs `dots/<pkg>/.local/share/<pkg>/Makefile`
   are retired for packages with the scheme Makefile; pkgops/
   `on-deploy packages` still falls back to them for the rest (e.g.
-  polybar's bar-control Makefile). The `components` script and
-  `depends/.local/share/depends/Makefile` are DELETED — bun trust
-  moved into the depends package Makefile (`trust-local`/
-  `trust-global`), bun installation into `on-deploy toolchain --bun`,
-  and installing bun when missing for the on-deploy build itself
-  stays in the dots `_build-on-deploy`.
+  polybar's bar-control Makefile). The `components` script is DELETED
+  — `herbstluftwm`/`polybar` package hooks only VERIFY their binary
+  artifact (herbctl/polyframes presence + a pointer to `make update`);
+  `compton`/`dunst` hooks WARN on a missing unit chain (check-x-server
+  — stow the shell package first) instead of aborting the scheme walk —
+  service presence is the services flow's business, not a hook's.
 
 `~/.config/doftiles.conf` (stowed from `depends`) tracks the install
 method per deployable (`POLYFRAMES_METHOD=source|npm|none`,
@@ -414,13 +424,12 @@ the relevant unit.
     junk. Its (and `bun`'s) postinstall may sit blocked under bun's default
     trust policy (`bun pm trust -g herbstutil bun` to allow).
 18. **Submodule deploys live in the per-package depends Makefiles**
-    (2026-11: replaces the old `on-deploy deps` — see the scheme
-    section above). The polybar module is a standalone Bun/bunli
-    binary built by `depends/.local/state/depends/depends.Makefile`
-    from `dots/depends/.local/share/polyframes` into
-    `dots/depends/.local/bin/polyframes` (stow ships it); its method
-    is recorded in `~/.config/doftiles.conf`. `[module/polyframes]`
-    in `config.ini` execs the binary directly — no shim, no nvm/Node
+    (2026-11: each submodule owner is its OWN stow package —
+    `dots/polyframes/.local/state/depends/polyframes.Makefile` builds
+    from `dots/polyframes/.local/share/polyframes` into
+    `dots/polyframes/.local/bin/polyframes` (stow ships it); method
+    recorded in `~/.config/doftiles.conf`. `[module/polyframes]` in
+    `config.ini` execs the binary directly — no shim, no nvm/Node
     dependency.
 19. **rofi menus also moved into the polyframes binary** (2026-10):
     `rofi_tags`, `rofi_hidden`, `rofi_windows`, `rofi_launch`,

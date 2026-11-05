@@ -13,12 +13,11 @@ theme:
 	@timeout 60 $(HOME)/.local/bin/reload_theme -f || { echo "polybar: theme hook FAILED (timeout or error, exit $$?)" >&2; exit 1; }
 
 install:
-	@if [ -x "$(COMPONENTS)" ]; then \
-		$(COMPONENTS) || { echo "polybar: components FAILED (polyframes)" >&2; exit 1; }; \
-	else \
-		echo "polybar: components missing — stow the depends package (make -C ~/dots depends)" >&2; \
+	@if [ ! -x "$(HOME)/.local/bin/polyframes" ]; then \
+		echo "polybar: polyframes missing — deploy its package: 'make update' (on-deploy depends drives dots/polyframes)" >&2; \
 		exit 1; \
-	fi
+	fi; \
+	echo "polybar: polyframes present"
 	@$(MAKE) --no-print-directory theme
 
 start:
