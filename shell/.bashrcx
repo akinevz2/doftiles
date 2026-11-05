@@ -126,26 +126,10 @@ esac
 [ -f "$HOME/.exports"  ] && source "$HOME/.exports"
 [ -f "$HOME/.aliases"  ] && source "$HOME/.aliases"
 
-# ─── git identity (from the stowed ~/.my-credentials) ───────────────────────
-# Loaded by EVERY bash: the git-honored GIT_AUTHOR_*/GIT_COMMITTER_*
-# exports come straight from the credentials file (line 1 name, line 2
-# email) — no manual setup, no generated intermediary. (git only reads
-# these four variables; GIT_NAME/GIT_EMAIL do nothing.)
-if [ -f "$HOME/.my-credentials" ]; then
-    _cred_name=$(sed -n 1p "$HOME/.my-credentials")
-    _cred_email=$(sed -n 2p "$HOME/.my-credentials")
-    export GIT_AUTHOR_NAME="$_cred_name" GIT_COMMITTER_NAME="$_cred_name"
-    export GIT_AUTHOR_EMAIL="$_cred_email" GIT_COMMITTER_EMAIL="$_cred_email"
-    unset _cred_name _cred_email
-fi
-
-# ─── machine-local secrets (transient, gitignored in shell/.cache/) ─────────
-# Any *.env here is sourced into new shells; per-machine credentials (tokens)
-# live outside version control forever.
-for _secrets_file in "$HOME"/dots/shell/.cache/*.env; do
-    [ -f "$_secrets_file" ] && . "$_secrets_file"
-done
-unset _secrets_file
+# ─── shared extensions (get/got, git identity, secrets) ──────────────────────
+# Sourced by zsh too (via ~/.zshrc) — keep /home/kine/dots/shell/.shellx.rc
+# POSIX-portable, no bashisms.
+[ -f "$HOME/.shellx.rc" ] && source "$HOME/.shellx.rc"
 
 # ─── MOTD display ───────────────────────────────────────────────────────────
 # Show MOTD on first shell after boot, or when mail exists.
@@ -165,23 +149,6 @@ _show_motd() {
 # Only show MOTD in interactive shells
 case $- in *i*) _show_motd ;; esac
 
-get() {
-    # If a directory is passed as the first argument, change into it
-    # first; "-" means the previous directory (cd -) — shifted off so
-    # got lists the restored directory instead of reading "-" as a
-    # help flag.
-    if [ $# -gt 0 ]; then
-        case $1 in
-            -)
-                cd - || return 1
-                shift
-                ;;
-            *)
-                if [ -d "$1" ]; then
-                    cd -- "$1" || return 1
-                fi
-                ;;
-        esac
-    fi
-    source "$HOME/.local/bin/got" "$@"
-}
+# get() and the shared extensions (git identity, secrets, color aliases,
+# editor selection) live in ~/.shellx.rc — sourced above by both
+# ~/.bashrcx and ~/.zshrc.

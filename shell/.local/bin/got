@@ -1,14 +1,100 @@
 #!/bin/sh
-#!/usr/bin/env bash
-# got - quickly view a file or directory
+# got — quick view/search helper behind the `get` shell function.
 #
-# Usage:
-#   get                  ls -al --color=auto in the current directory
-#   get <dir>            cd into <dir>, ls it there
-#   get <dir> <names...> ls the dir, then locate each <name> beneath it
-#   get <file> [files..] open all of them in $EDITOR ($VIEW window hook)
+# Usage (normally reached via `get`; `get` may cd first for a leading
+# directory or "-" argument):
+#
+#   got                              ls -al the current directory
+#   got @                            same as above
+#   got @name [more...]              open <name> (and more) in $EDITOR
+#   got <dir> [names...]             ls the dir, then find each name beneath it
+#   got <file...>                    cat/bat the files (when every arg is a path)
+#   got <queries...> <file|dir>      grep each query (with file+line numbers)
+#                                    in a file; for a folder, find matching
+#                                    filenames under it and fzf-pick one
+#   got <queries...> -- <file|dir>...   same, with "--" making the
+#                                    queries/targets split explicit
+#
+# Split rule without "--": an argument that exists as a file/dir is a
+# target, everything else is a query.  With "--": queries come before,
+# targets after.  If there are no queries at all, targets are displayed
+# (cat/bat, dirs are ls'ed); if there are queries, targets are searched.
 
 EDITOR_BIN="${EDITOR:-vi}"
+
+if command -v bat >/dev/null 2>&1; then
+    BAT_BIN=bat
+elif command -v batcat >/dev/null 2>&1; then
+    BAT_BIN=batcat
+else
+    BAT_BIN=""
+fi
+
+usage() { sed -n '2,18p' "$0"; }
+
+# Is the IDX-th argument (value $2) of "$@" a query (rather than a
+# file/dir target)?  With an explicit "--" split: the pre-"--" side.
+# Without one: anything that does NOT resolve to an existing file/dir.
+# The value is passed along because POSIX sh helper functions have
+# their own positional scope and cannot index the caller's "$@".
+is_query() {
+    if [ "$sep_idx" -gt 0 ]; then
+        [ "$1" -lt "$sep_idx" ]
+    else
+        [ ! -e "$2" ]
+    fi
+}
+
+show_file() {
+    if [ -n "$BAT_BIN" ]; then
+        "$BAT_BIN" --style=plain "$@"
+    else
+        cat "$@"
+    fi
+}
+
+# Display every target: dirs are ls'ed, files cat/bat'ed.
+display_targets() {
+    rc=0
+    for t in "$@"; do
+        case $t in
+            --) continue ;;
+        esac
+        if [ -d "$t" ]; then
+            ls -al -- "$t"
+        elif [ -f "$t" ]; then
+            show_file "$t"
+        else
+            echo "got: not a file or directory: $t" >&2
+            rc=1
+        fi
+    done
+    return $rc
+}
+
+# Dir-first mode: list the directory, then locate each remaining
+# argument by basename under it.
+dir_mode() {
+    d=$1
+    shift
+    ls -al -- "$d"
+    for name in "$@"; do
+        case $name in
+            --) continue ;;
+        esac
+        echo
+        find "$d" -name "$name"
+    done
+}
+
+# Grep one query ($q, from the caller's loops) in one target ($t).
+_grep_one() {
+    if [ -d "$t" ]; then
+        grep -rnH -e "$q" -- "$t"
+    else
+        grep -nH -e "$q" -- "$t"
+    fi
+}
 
 main() {
     if [ $# -eq 0 ]; then
@@ -16,33 +102,138 @@ main() {
         return
     fi
 
-    case "$1" in
-        -h|--help|-*)
-            sed -n '2,10p' "$0"
-            return 0 ;;
+    case $1 in
+        --) ;;
+        -h|--help)  usage
+                    return 0 ;;
+        -*)         usage
+                    return 0 ;;
     esac
 
-    path="$1"
-    first="$(realpath "$(basename "$path")")"; shift
-    current="$(realpath "$(basename "$PWD")")"
-    if [ "$first" = "$current" ] || [ -d "$path" ]; then
-        ls -al --color=auto
+    # 1. "@" family.
+    #    "@" alone   → show the (current) directory, find extra names
+    #    "@<name>"   → open <name> (plus any more args) in $EDITOR
+    case $1 in
+        @)
+            shift
+            dir_mode . "$@"
+            return
+            ;;
+        @*)
+            name=${1#@}
+            shift
+            exec "$EDITOR_BIN" "$name" "$@"
+            ;;
+    esac
 
-        # Locate each extra argument beneath the listing directory:
-        # print every directory/file whose basename matches.
-        for name in "$@"; do
-            echo
-            # -name matches basenames; -print0 keeps odd names safe.
-            find . -name "$name"
+    # 2. First argument resolves to a directory: show it and find the
+    #    remaining arguments as filenames beneath it.
+    if [ -d "$1" ]; then
+        dir=$1
+        shift
+        dir_mode "$dir" "$@"
+        return
+    fi
+
+    # 3. Locate the "--" split (if any), then classify the arguments.
+    sep_idx=0
+    i=0
+    for a in "$@"; do
+        i=$((i + 1))
+        if [ "$a" = "--" ] && [ $sep_idx -eq 0 ]; then
+            sep_idx=$i
+        fi
+    done
+
+    n_targets=0
+    n_dirs=0
+    n_queries=0
+    i=0
+    for a in "$@"; do
+        i=$((i + 1))
+        case $a in
+            --) continue ;;
+        esac
+        if is_query "$i" "$a"; then
+            n_queries=$((n_queries + 1))
+        else
+            n_targets=$((n_targets + 1))
+            [ -d "$a" ] && n_dirs=$((n_dirs + 1))
+        fi
+    done
+
+    # 4. Dispatch.
+    if [ $n_targets -eq 0 ] && [ $n_queries -eq 0 ]; then
+        usage
+        return 1
+    fi
+
+    if [ $n_queries -eq 0 ]; then
+        # No queries: the arguments are files/dirs to display.
+        display_targets "$@"
+        return
+    fi
+
+    if [ $n_targets -eq 0 ]; then
+        echo "got: no file or directory among the arguments: $*" >&2
+        return 1
+    fi
+
+    if [ $n_dirs -eq $n_targets ]; then
+        # Only folder targets with queries: find matching filenames
+        # under each folder and pick one via fzf.
+        picks=""
+        i=0
+        for a in "$@"; do
+            i=$((i + 1))
+            case $a in
+                --) continue ;;
+            esac
+            is_query "$i" "$a" && continue
+            d=$a
+            [ -d "$d" ] || continue
+            j=0
+            for b in "$@"; do
+                j=$((j + 1))
+                case $b in
+                    --) continue ;;
+                esac
+                is_query "$j" "$b" || continue
+                finds=$(find "$d" -name "$b")
+                [ -n "$finds" ] && picks="$picks$finds
+"
+            done
         done
+        if command -v fzf >/dev/null 2>&1 && [ -n "$picks" ]; then
+            pick=$(printf '%s' "$picks" | fzf --prompt='got> ')
+            [ -n "$pick" ] && exec "$EDITOR_BIN" "$pick"
+        else
+            printf '%s\n' "$picks"
+        fi
         return
     fi
 
-    if [ -f "$path" ]; then
-        "$EDITOR_BIN" "$path" "$@"
-        return
-    fi
-    echo wat
+    # 5. Grep: every target against every query, with line numbers.
+    i=0
+    for a in "$@"; do
+        i=$((i + 1))
+        case $a in
+            --) continue ;;
+        esac
+        is_query "$i" "$a" && continue
+        t=$a
+        [ -d "$t" ] || [ -f "$t" ] || continue
+        j=0
+        for b in "$@"; do
+            j=$((j + 1))
+            case $b in
+                --) continue ;;
+            esac
+            is_query "$j" "$b" || continue
+            q=$b
+            _grep_one
+        done
+    done
 }
 
 main "$@"

@@ -1,0 +1,73 @@
+# ~/.shellx.rc — shell-agnostic extensions, shared by bash (~/.bashrcx)
+# and zsh (~/.zshrc).  Keep this POSIX-portable: no bashisms, no zshisms.
+
+# Guard against double-sourcing. (Top-level `return` is not POSIX; silence
+# the dash error and fall through to `true`.)
+if [ -n "${_DOTS_SHELLX_RC_LOADED:-}" ]; then
+    return 0 2>/dev/null || true
+fi
+_DOTS_SHELLX_RC_LOADED=1
+
+# ─── interactive-only niceties ───────────────────────────────────────────────
+case $- in
+    *i*)
+        # Color aliases (harmless if .aliases already set them).
+        alias ls='ls --color=auto'
+        alias grep='grep --color=auto'
+
+        # Editor.
+        if command -v code >/dev/null 2>&1; then
+            export EDITOR=code
+        elif command -v nvim >/dev/null 2>&1; then
+            export EDITOR=nvim
+        elif command -v vim >/dev/null 2>&1; then
+            export EDITOR=vim
+        fi
+        ;;
+esac
+
+# ─── git identity (from the stowed ~/.my-credentials) ────────────────────────
+# Loaded by EVERY shell: the git-honored GIT_AUTHOR_*/GIT_COMMITTER_*
+# exports come straight from the credentials file (line 1 name, line 2
+# email) — no manual setup, no generated intermediary. (git only reads
+# these four variables; GIT_NAME/GIT_EMAIL do nothing.)
+if [ -f "$HOME/.my-credentials" ]; then
+    _cred_name=$(sed -n 1p "$HOME/.my-credentials")
+    _cred_email=$(sed -n 2p "$HOME/.my-credentials")
+    export GIT_AUTHOR_NAME="$_cred_name" GIT_COMMITTER_NAME="$_cred_name"
+    export GIT_AUTHOR_EMAIL="$_cred_email" GIT_COMMITTER_EMAIL="$_cred_email"
+    unset _cred_name _cred_email
+fi
+
+# ─── machine-local secrets (transient, gitignored in shell/.cache/) ─────────
+# Any *.env here is sourced into new shells; per-machine credentials (tokens)
+# live outside version control forever.
+for _secrets_file in "$HOME"/dots/shell/.cache/*.env; do
+    [ -f "$_secrets_file" ] && . "$_secrets_file"
+done
+unset _secrets_file
+
+# ─── get/got: quick view + search over files and directories ────────────────
+# `got` (~/.local/bin/got) holds all the logic; `get` is the thin shell
+# wrapper that can cd first ("-": previous dir, or a leading directory).
+# Both shells source this file, so the same function works everywhere.
+get() {
+    if [ $# -gt 0 ]; then
+        if [ "$1" = "-" ]; then
+            cd - || return 1
+            shift
+        elif [ -d "$1" ]; then
+            cd -- "$1" || return 1
+            shift
+            # Re-entering the current directory explicitly, so `got`
+            # lists it and can `find` the remaining names beneath it.
+            if [ $# -gt 0 ]; then
+                got "." "$@"
+                return $?
+            fi
+            got
+            return $?
+        fi
+    fi
+    got "$@"
+}

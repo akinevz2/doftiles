@@ -104,15 +104,10 @@ source $ZSH/oh-my-zsh.sh
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 zstyle ':omz:update' mode disabled
 export PATH="$HOME/.local/bin:$PATH"
-# git identity from the stowed ~/.my-credentials (the git-honored
-# GIT_AUTHOR_*/GIT_COMMITTER_* — same mechanism as .bashrcx)
-if [ -f "$HOME/.my-credentials" ]; then
-    _cred_name=$(sed -n 1p "$HOME/.my-credentials")
-    _cred_email=$(sed -n 2p "$HOME/.my-credentials")
-    export GIT_AUTHOR_NAME="$_cred_name" GIT_COMMITTER_NAME="$_cred_name"
-    export GIT_AUTHOR_EMAIL="$_cred_email" GIT_COMMITTER_EMAIL="$_cred_email"
-    unset _cred_name _cred_email
-fi
+# Shared extensions: get/got, git identity (from the stowed
+# ~/.my-credentials), machine-local secrets, color aliases, EDITOR
+# selection — the same mechanism .bashrcx uses.
+[ -f "$HOME/.shellx.rc" ] && source "$HOME/.shellx.rc"
 
 # Keep the terminal (WM) title in sync with the running program, so
 # window lists show 'nvim' / 'vi' instead of the terminal class.
