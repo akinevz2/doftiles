@@ -27,8 +27,9 @@ ONDEPLOY_SUBMOD := $(CURDIR)/on-deploy/.local/share/on-deploy# manifests (read b
 WM_PACKAGES_FILE := stows.required
 WM_PACKAGES      := $(shell grep -vi '^#' $(WM_PACKAGES_FILE))
 
-# toolchain/deps knobs: YES=1 -> on-deploy runs without confirmations
-Y := $(if $(filter 1,$(YES)),-y,)
+# deployment knobs: FORCE=1 -> on-deploy runs without confirmations and
+# recovers from stow conflicts (repo unstow, then retry)
+Y := $(if $(filter 1,$(FORCE)),-y,)
 
 # the per-package depends Makefile of a stow package (make -f; the
 # 2026-11 scheme) — run from the package directory
@@ -184,7 +185,16 @@ update:
 	git submodule sync
 	git submodule update --init --recursive
 	$(SELF) _build-on-deploy
-	SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(Y)
+	@SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(Y) || { \
+		if [ -n "$(Y)" ]; then \
+			echo "update: FORCE=1 — repo stow failed; unstowing before retry"; \
+			$(ONDEPLOY_BIN) unstow $(Y); \
+			SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(Y); \
+		else \
+			echo "update: stow failed — rerun with FORCE=1 to unstow and retry" >&2; \
+			exit 1; \
+		fi; \
+	}
 
 # on-deploy housekeeping verbs stay one call away:
 #   $(ONDEPLOY_BIN) preserve <pkg> ...   conflict-safe restow
