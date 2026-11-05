@@ -122,10 +122,6 @@ esac
 #    fi
 #fi
 
-# ─── exports & aliases ───────────────────────────────────────────────────────
-[ -f "$HOME/.exports"  ] && source "$HOME/.exports"
-[ -f "$HOME/.aliases"  ] && source "$HOME/.aliases"
-
 # ─── shared extensions (get/got, git identity, secrets) ──────────────────────
 # Sourced by zsh too (via ~/.zshrc) — keep /home/kine/dots/shell/.shellx.rc
 # POSIX-portable, no bashisms.

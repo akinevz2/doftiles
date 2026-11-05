@@ -26,6 +26,10 @@ case $- in
         ;;
 esac
 
+# ─── exports & aliases ───────────────────────────────────────────────────────
+[ -f "$HOME/.exports"  ] && source "$HOME/.exports"
+[ -f "$HOME/.aliases"  ] && source "$HOME/.aliases"
+
 # ─── git identity (from the stowed ~/.my-credentials) ────────────────────────
 # Loaded by EVERY shell: the git-honored GIT_AUTHOR_*/GIT_COMMITTER_*
 # exports come straight from the credentials file (line 1 name, line 2

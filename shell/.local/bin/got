@@ -102,6 +102,15 @@ main() {
         return
     fi
 
+    # Optional leading flags: "-n" switches folder targets from
+    # content grep to filename search + fzf picking.
+    names=0
+    while [ "$1" = "-n" ]; do
+        names=1
+        shift
+        [ $# -eq 0 ] && { usage; return 1; }
+    done
+
     case $1 in
         --) ;;
         -h|--help)  usage
@@ -179,9 +188,9 @@ main() {
         return 1
     fi
 
-    if [ $n_dirs -eq $n_targets ]; then
-        # Only folder targets with queries: find matching filenames
-        # under each folder and pick one via fzf.
+    if [ $n_dirs -eq $n_targets ] && [ "${names:-0}" -eq 1 ]; then
+        # Folder targets with queries, "-n" requested: find matching
+        # filenames under each folder and pick one via fzf.
         picks=""
         i=0
         for a in "$@"; do
