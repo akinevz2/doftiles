@@ -263,7 +263,7 @@ keyreg $ModShift-r          reload
 
 # WINDOWING
 keyreg $Mod-a spawn ~/.local/bin/herbctl focus-frame-left
-keyreg $ModShift-a           or . and , compare tags.focus.curframe_wcount gt 1 , chain ! split left ! focus left . spawn $APPLAUNCHER           # was Mod-Tab
+keyreg $ModShift-a           or . and , compare tags.focus.curframe_wcount gt 0 , chain ! split left ! focus left . spawn $APPLAUNCHER           # was Mod-Tab
 # ModShift-b: open a split below (unconditional split bottom).
 #
 # ModCtrl-b: focus the frame below; when there is none, split below
