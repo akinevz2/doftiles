@@ -218,7 +218,10 @@ install-herbstutil-npm:
 	fi
 
 # ── aggregates (the rules `on-deploy depends` drives) ─────────────────
-install: toolchain on-deploy herbctl polyframes herbstutil
+# SKIP_ONDEPLOY=1 drops the on-deploy artifact — for the dots `update`
+# flow, which rebuilt the binary at the dots level right before calling
+# in (it cannot have run an OLD on-deploy then: the rebuild precedes).
+install: toolchain $(if $(filter 1,$(SKIP_ONDEPLOY)),,on-deploy) herbctl polyframes herbstutil
 	@echo "depends: install done (driven per artifact)"
 
 # ── bun trust (the dots bootstrap's trust step delegates here) ────────
