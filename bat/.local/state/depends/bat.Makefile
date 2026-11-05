@@ -183,6 +183,7 @@ install:
 	RECORDED="$$(make -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile conf-get)"; \
 	RESOLVED="$(M)"; \
 	if [ -z "$$RESOLVED" ]; then RESOLVED="$$RECORDED"; fi; \
+	case "$$RESOLVED" in none) RESOLVED="";; esac; \
 	if [ -z "$$RESOLVED" ]; then \
 		if command -v cargo >/dev/null 2>&1; then RESOLVED=source; else RESOLVED=release; fi; \
 	fi; \

@@ -99,6 +99,7 @@ install:
 	TMP="$$(make -C "$(CURDIR)" --no-print-directory -f .local/state/depends/polyframes.Makefile conf-get)"; \
 	METHOD="$(M)"; \
 	if [ -z "$$METHOD" ]; then METHOD="$$TMP"; fi; \
+	case "$$METHOD" in none) METHOD="";; esac; \
 	if [ -z "$$METHOD" ]; then \
 		if command -v bun >/dev/null 2>&1; then METHOD=source; else METHOD=release; fi; \
 	fi; \
