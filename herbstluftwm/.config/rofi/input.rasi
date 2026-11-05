@@ -1,0 +1,35 @@
+/*
+ * input.rasi
+ *
+ * Text-input-only rofi capture window, specialized from hlwm.rasi:
+ * centered on screen, no list content — just the inputbar (the
+ * hlwm prompt + entry line) floating as a plain text field.
+ * Used by dunstify-input for typed input capture.
+ */
+
+@import "hlwm.rasi"
+
+configuration {
+	/* a capture field: nothing to filter, nothing to list */
+	fixed-num-lines: false;
+}
+
+window {
+	location: center;
+	width: 480px;
+	/* compact: the input line only */
+	padding: 2px;
+}
+
+/* the notification prompt to show in the inputbar — set per-call
+   with rofi -p <text>; keep the bar free of any listing region */
+mainbox {
+	background-color: @bg-alt;
+	padding: 0px;
+	children: [ inputbar ];
+}
+
+/* no dropdown area: the notification itself carries the message */
+listview {
+	enabled: false;
+}

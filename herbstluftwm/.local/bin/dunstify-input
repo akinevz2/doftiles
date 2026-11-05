@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# dunstify-input — complement to dunstify and dunstify-callback:
+#
+#   1. spawn a notification with the leading arguments (passed to
+#      dunstify: -a, -t, summary, body, ...)
+#   2. capture typed text via a rofi hlwm-themed input window
+#      (input.rasi — centered, prompt text from the prompt argument)
+#
+# Usage:
+#   dunstify-input [dunstify opts...] "Summary" "Body" "Prompt" CALLBACK
+#   dunstify-input [dunstify opts...] "Summary" "Body" "Prompt" --
+#
+#   CALLBACK : shell command line; the typed text is piped into it
+#              (stdin). Set to "--" to ignore the callback and print
+#              the typed text to stdout instead.
+#   "Prompt" : shown in the rofi input window's prompt field.
+
+if [ $# -lt 3 ]; then
+    echo "usage: dunstify-input [dunstify opts...] 'Summary' 'Body' 'Prompt' CALLBACK|--" >&2
+    exit 1
+fi
+
+# last argument is the callback, the second-to-last is the rofi prompt,
+# everything before goes to dunstify
+callback="${*: -1}"
+prompt="${*: -2}"
+dunstify_args=("${@:1:$(( $# - 2 ))}")
+
+echo "--dunst begins--"
+
+# notification first; typed capture opens when its (only) action is
+# invoked — left click
+opts=(-a dunstify-input
+      -A "default,Enter input"
+      "${dunstify_args[@]}")
+id="$(dunstify "${opts[@]}" 2>/dev/null || true)"
+echo "--dunst ends-- (action: ${id:-none})"
+
+text=""
+case "$id" in
+    default)
+        text="$(rofi -dmenu -theme "$HOME/.config/rofi/input.rasi" -p "$prompt")" || text=""
+        ;;
+esac
+
+if [ -z "$text" ]; then
+    exit 0
+fi
+
+# the notification has served its purpose
+dunstctl close 2>/dev/null || true
+
+if [ "$callback" = "--" ]; then
+    printf '%s\n' "$text"
+else
+    printf '%s\n' "$text" | bash -c "$callback"
+fi
