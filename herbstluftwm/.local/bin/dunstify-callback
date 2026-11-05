@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# dunstify-callback — complement to dunstify: spawn a notification whose
+# context items (dunst -> rofi dmenu, hlwm theme) are read as lines from
+# stdin. Selecting an item invokes the callback command with that line.
+#
+# Usage:
+#   printf '%s\n' win1 win2 | dunstify-callback [dunstify opts...] CALLBACK
+#
+#   CALLBACK : shell command line; the selected item is appended as its
+#              final argument ("$1"). Set to "--" to ignore the callback
+#              (the selected item is printed to stdout instead).
+#
+# The non-CALLBACK arguments are passed through to dunstify as-is
+# (e.g. -a APP -t 900000 "Summary" "Body").
+# With no selection (notification expired / closed) nothing runs.
+
+# read items: one per line
+items=()
+while IFS= read -r line; do
+    items+=("$line")
+done
+
+if [ "${#items[@]}" -eq 0 ]; then
+    echo "dunstify-callback: no items on stdin" >&2
+    exit 1
+fi
+
+if [ $# -lt 1 ]; then
+    echo "usage: ... | dunstify-callback [dunstify opts...] CALLBACK" >&2
+    exit 1
+fi
+
+# last argument is the callback, the rest go to dunstify
+callback="${*: -1}"
+dunstify_args=("${@:1:$(( $# - 1 ))}")
+
+# build dunstify invocation, one action per item (numeric ids)
+opts=( "${dunstify_args[@]}" )
+for i in "${!items[@]}"; do
+    opts+=( -A "$(( i + 1 )),${items[$i]}" )
+done
+
+id="$(dunstify "${opts[@]}" 2>/dev/null || true)"
+if [ -z "${id:-}" ]; then
+    exit 0
+fi
+
+# dunstify prints the invoked action id (1-based index here);
+# anything else means the notification expired
+case "$id" in
+    *[!0-9]*|"")
+        exit 0
+        ;;
+esac
+sel="${items[$(( id - 1 ))]}"
+
+if [ "$callback" = "--" ]; then
+    printf '%s\n' "$sel"
+else
+    bash -c "$callback \"\$1\"" dunstify-callback "$sel"
+fi
