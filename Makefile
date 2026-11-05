@@ -1,8 +1,11 @@
 # dots — delegation-only Makefile.
 #
 # Every target here is a SHORT sequence of on-deploy commands (the
-# one exception is `_bootstrap-on-deploy`, which builds the on-deploy
-# binary itself — it cannot exist before it runs). All procedural
+# exceptions build the on-deploy binary itself — it cannot exist before
+# it runs: `_build-on-deploy` (the unconditional rebuild), and
+# `on-depends` (submodule pull → rebuild → stow the depends package,
+# self-contained so it works on FRESH installs where nothing exists
+# yet). All procedural
 # deployment logic lives in the on-deploy binary
 # (depends/.local/share/on-deploy, installed to ~/.local/bin/on-deploy)
 # except installing components (bun, herbctl, polyframes), which belongs
@@ -29,16 +32,20 @@ WM_PACKAGES      := $(shell grep -vi '^#' $(WM_PACKAGES_FILE))
 # the stow set for bulk targets
 STOW_ONLY := $(patsubst %,--only %,$(WM_PACKAGES))
 
-.PHONY: bootstrap submodules _bootstrap-on-deploy install all stow wm \
+.PHONY: bootstrap submodules _bootstrap-on-deploy _build-on-deploy on-depends \
+        install all stow wm \
         restow unstow clean status services-check services-start \
         services-stop restart update deps
 
 # ── bootstrap ─────────────────────────────────────────────────────────
 # Full deployment in ONE call, safe on a systemd target with no
-# running window manager. Nothing procedural here — each step is an
-# on-deploy command:
+# running window manager. The only procedural step is on-depends
+# (build + stow the toolchain before any delegation exists); the rest
+# are on-deploy commands:
 #   submodules        the dependency checkouts, at their remote tips
-#   _bootstrap-on-deploy            build ~/.local/bin/on-deploy
+#   on-depends        submodule pull -> REBUILD the binary -> stow the
+#                     depends package (the shim + component builders)
+#   _bootstrap-on-deploy            install the binary when missing
 #   components        bun + trust + herbctl + polyframes (depends pkg)
 #   configure         edit the manifests (+ fold: applies itself;
 #                     prompts for the git identity when ~/.my-credentials
@@ -53,6 +60,7 @@ STOW_ONLY := $(patsubst %,--only %,$(WM_PACKAGES))
 #                     unit (units needing X stay enabled-but-failed)
 #   status            the closing report
 bootstrap: submodules _bootstrap-on-deploy
+	@$(SELF) on-depends
 	@$(ONDEPLOY_BIN) install || { [ $$? -eq 130 ] && exit 130 || true; }
 	$(ONDEPLOY_BIN) preserve --only "$(WM_PACKAGES)"
 	$(ONDEPLOY_BIN) packages install
@@ -67,15 +75,13 @@ bootstrap: submodules _bootstrap-on-deploy
 submodules:
 	git submodule update --init --recursive --remote
 
-# _bootstrap-on-deploy — the one recipe that must stay: it builds the
-# on-deploy binary itself when missing (bun-through-npm fallback), so
-# the delegation targets below have something to call.
-_bootstrap-on-deploy:
-	@if [ -x "$(ONDEPLOY_BIN)" ]; then \
-		echo "on-deploy: $(ONDEPLOY_BIN) deployed already — skipping"; \
-		exit 0; \
-	fi; \
-	if [ ! -f "$(ONDEPLOY_SUBMOD)/src/index.ts" ]; then \
+# _build-on-deploy — ALWAYS rebuilds ~/.local/bin/on-deploy from the
+# submodule checkout (bun through npm when bun itself is missing), then
+# installs the binary. `_bootstrap-on-deploy` skips it when the binary
+# already exists; `on-depends` calls it UNCONDITIONALLY (a submodule
+# pull must land a fresh binary even when a stale one is installed).
+_build-on-deploy:
+	@if [ ! -f "$(ONDEPLOY_SUBMOD)/src/index.ts" ]; then \
 		echo "on-deploy: submodule checkout missing — run 'make submodules' first" >&2; \
 		exit 1; \
 	fi; \
@@ -90,10 +96,34 @@ _bootstrap-on-deploy:
 	cd "$(ONDEPLOY_SUBMOD)" && bun install; \
 	cd "$(ONDEPLOY_SUBMOD)" && bun x bunli build --targets linux-x64 --minify; \
 	mv -f "$(ONDEPLOY_SUBMOD)/dist/index" "$(ONDEPLOY_SUBMOD)/dist/on-deploy"; \
-	rm -f "$(ONDEPLOY_SUBMOD)/dist/index.map"; \
+	rm -f "$(ONDEPLOY_SUBMOD)/dist/index.js.map"; \
 	mkdir -p "$(HOME)/.local/bin"; \
 	install -m 755 "$(ONDEPLOY_SUBMOD)/dist/on-deploy" "$(ONDEPLOY_BIN)"; \
-	echo "on-deploy: installed $(ONDEPLOY_BIN)"
+	echo "on-deploy: built + installed $(ONDEPLOY_BIN)"
+
+# _bootstrap-on-deploy — the delegation target seeded at bootstrap:
+# installs the binary ONLY when missing (fresh systems), leaving the
+# rebuilds to on-depends.
+_bootstrap-on-deploy:
+	@if [ -x "$(ONDEPLOY_BIN)" ]; then \
+		echo "on-deploy: $(ONDEPLOY_BIN) deployed already — skipping"; \
+		exit 0; \
+	fi; \
+	$(SELF) _build-on-deploy
+
+# on-depends — self-contained maintenance step, safe on FRESH installs
+# (no on-deploy binary, nothing stowed): pull the on-deploy submodule to
+# its remote tip, REBUILD + install the binary, then stow the depends
+# package directly (plain stow — the shim on.deploy + the install/
+# deploy scripts + the component builders land in $HOME; the binary
+# itself cannot delegate yet, it is only now being built).
+on-depends: submodules _build-on-deploy
+	@command -v stow >/dev/null 2>&1 || { \
+		echo "on-depends: GNU stow missing — install stow (pacman -S stow / apt install stow)" >&2; \
+		exit 2; \
+	}
+	stow -R -t "$(HOME)" depends
+	@echo "on-depends: depends package stowed (on-deploy + shim available)"
 
 # ── stowing ───────────────────────────────────────────────────────────
 # install — configure FIRST (same folded apply as the bootstrap; the
@@ -151,15 +181,18 @@ deps: wm
 	@$(SELF) update
 
 # update — the safe pull directly in the repo: fetch + fast-forward
-# (fallback --rebase --autostash), submodule sync, then re-run the
-# components install (--force: refresh the artifacts per the recorded
-# method; the submodule bump lands in the checkout).
+# (fallback --rebase --autostash), submodule sync, then the on-depends
+# step (submodule pull → REBUILD + install the binary → stow the
+# depends package), and finally the components refresh (--force: build
+# the artifacts per the recorded method; bun/polyframes/herbctl live in
+# the depends package).
 update:
 	git fetch
 	git merge --ff-only
 	git pull --rebase --autostash 2>/dev/null || true
 	git submodule sync
 	git submodule update --init --recursive
+	$(SELF) on-depends
 	$(ONDEPLOY_BIN) packages install --only depends
 
 # on-deploy housekeeping verbs stay one call away:
