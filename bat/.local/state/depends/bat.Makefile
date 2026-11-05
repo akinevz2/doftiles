@@ -127,10 +127,10 @@ stow-bat:
 install-source:
 	@set -e; \
 	if [ "$(DRY)" = 1 ]; then echo "  [dry-run] make build + link + stow (source)"; exit 0; fi; \
-	$(MAKE) -C "$(CURDIR)" --no-print-directory build FORCE='$(FORCE)' DRY='$(DRY)'; \
-	$(MAKE) -C "$(CURDIR)" --no-print-directory link DRY='$(DRY)'; \
+	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile build FORCE='$(FORCE)' DRY='$(DRY)'; \
+	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile link DRY='$(DRY)'; \
 	case "$(DRY)" in 1) exit 0;; esac; \
-	$(MAKE) -C "$(CURDIR)" --no-print-directory stow-bat; \
+	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile stow-bat; \
 	[ -x "$(BIN)" ] || { echo "bat: stow did not place $(BIN) (stow conflict? see the output above)" >&2; exit 1; }; \
 	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile conf-set M=source; \
 	printf '  %-11s %s\n' bat "installed ($(BIN) (method=source; --force rebuilds))"
@@ -165,7 +165,7 @@ install-release:
 	tar -xzf "$$tmp" -C "$$dir" --strip-components=1; \
 	install -m 755 "$$dir/bat" "$(ARTIFACT)"; \
 	rm -rf "$$tmp" "$$dir"; \
-	$(MAKE) -C "$(CURDIR)" --no-print-directory stow-bat; \
+	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile stow-bat; \
 	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile conf-set M=release; \
 	printf '  %-11s %s\n' bat "installed ($(BIN) (method=release; --force redeploys))"
 
@@ -189,7 +189,7 @@ install:
 		if [ -e "$(BIN)" ] && [ -z "$(DRY)" ]; then \
 			echo "bat: $(BIN) exists — redeploying (method=$$RESOLVED)"; \
 		fi; \
-		exec make -C "$(CURDIR)" --no-print-directory "install-$$RESOLVED" \
+		exec make -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile "install-$$RESOLVED" \
 			FORCE='$(FORCE)' DRY='$(DRY)'; \
 	else \
 		printf '  %-11s %s\n' bat "ok ($(BIN) deployed already (method=$$RECORDED) — skipping (--force redeploys))"; \
