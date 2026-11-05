@@ -53,6 +53,11 @@ build:
 	case "$(DRY)" in 1) echo "  [dry-run] bun install + make build -> dist/polyframes"; exit 0;; esac; \
 	cd "$(SUB_DIR)" && mkdir -p node_modules/.tmp && \
 		TMPDIR="$$(pwd)/node_modules/.tmp" bun install; \
+	if [ -d "$(SUB_DIR)/node_modules/bun" ]; then \
+		echo "polyframes: ensuring the nested bun package's install hooks ran"; \
+		node "$(SUB_DIR)/node_modules/bun/install.js" 2>/dev/null || \
+			{ command -v node >/dev/null 2>&1 || echo "polyframes: node missing — cannot run the nested bun install hook" >&2; }; \
+	fi; \
 	$(MAKE) -C "$(SUB_DIR)" --no-print-directory build
 
 link:
