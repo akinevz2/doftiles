@@ -104,7 +104,7 @@ depends`); `services.required` (unit start order).
 - `make all` — stow + hook every package (and remember them all).
 - `make bootstrap` — DEPLOY ON-DEPLOY, NOTHING ELSE (the delegation
   seed; safe on a systemd target with no running WM): initialize the
-  submodule checkouts at their remote tips, install the on-deploy
+  submodule checkouts at their RECORDED pins (pinned doctrine: nested assets are upstream-owned; `git submodule update --remote` bumps by hand), install the on-deploy
   binary when missing (`_bootstrap-on-deploy` builds it — bun is
   bootstrapped through npm inside the build when neither bun nor the
   platform provide it), stow the `depends` package (the on.deploy
