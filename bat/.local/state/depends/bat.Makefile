@@ -153,8 +153,9 @@ install-release:
 	fi; \
 	[ -n "$$tag" ] || { echo "bat: could not resolve the latest release tag" >&2; exit 1; }; \
 	url=$(REPO)/releases/download/$$tag/bat-$$tag-$(ASSET_ARCH).tar.gz; \
-	tmp=/tmp/opencode/bat-install.$$$$.tar.gz; \
-	dir=/tmp/opencode/bat-install.$$$$; \
+	mktempdir=$$(mktemp -d) || exit 1; \
+	tmp=$$mktempdir/bat.tar.gz; \
+	dir=$$mktempdir/x; \
 	echo "    fetch: $$url"; \
 	if [ "$$fetcher" = curl ]; then \
 		curl -fsSL --retry 3 --user-agent doftiles-deploy "$$url" -o "$$tmp"; \
@@ -164,7 +165,7 @@ install-release:
 	mkdir -p "$$dir" "$(LINK)"; \
 	tar -xzf "$$tmp" -C "$$dir" --strip-components=1; \
 	install -m 755 "$$dir/bat" "$(ARTIFACT)"; \
-	rm -rf "$$tmp" "$$dir"; \
+	rm -rf "$$mktempdir"; \
 	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile stow-bat; \
 	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile conf-set M=release; \
 	printf '  %-11s %s\n' bat "installed ($(BIN) (method=release; --force redeploys))"
