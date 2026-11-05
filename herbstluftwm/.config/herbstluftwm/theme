@@ -83,12 +83,12 @@ herb attr theme.floating.padding_bottom 5
 herb attr theme.floating.border_width 2
 
 #= URGENT (unfocused, demand-attention) =#
-# the dunst critical red — replaces the inherited #eeeeee-based
-# accents on urgent windows — the alacritty bright magenta
-# (was #AA0033)
-herb attr theme.urgent.color '#A55EEA'
-herb attr theme.urgent.inner_color '#A55EEA'
-herb attr theme.urgent.outer_color '#A55EEA'
+# mirrored from the dunst critical palette: alacritty magenta border
+# (#a55eea) and red text (#eb4d4b) over a #333333 inner background
+# (was uniformly alacritty bright magenta / earlier #AA0033)
+herb attr theme.urgent.color '#eb4d4b'
+herb attr theme.urgent.inner_color '#333333'
+herb attr theme.urgent.outer_color '#a55eea'
 
 herb set frame_gap 2
 herb set window_gap 5

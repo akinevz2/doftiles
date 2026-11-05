@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# hc_dunst-dismiss — close the CURRENT (top) displayed notification.
+# Bound to mod-comma (frac_comma displaced the modal mod-d on the
+# notification panel's request).
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+exec dunstctl close

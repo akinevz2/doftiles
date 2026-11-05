@@ -69,8 +69,36 @@ keyreg $ModCtrl-c spawn ~/.local/bin/herbctl rotate-tree-back
 # hc_command — the rofi command palette over the helper scripts
 keyreg $Mod-c       spawn ~/.local/bin/hc_command
 
-# hc_dismiss-notifs — sweep the notification stack (errors et al.)
+# ==== notifications — dunst ====
+# The old dunst_keybinds fragment is folded here (across 2026 as an
+# unsourced leftover since the keys.d merge — grave bindings live here
+# again). Also: mod-n / modshift-n for history, mod-comma/mod-period
+# for dismiss/action on the displayed stack.
+# dunst history is LIFO: repeated mod-n pops go older — the "previous
+# notification" navigation. There is no dunstctl API to detect whether
+# a history popup is open, so no conditional rebinding is possible.
+keyreg $Mod-grave       spawn dunstctl history-pop
+keyreg $Mod-numbersign  spawn dunstctl close
+keyreg $ModCtrl-grave   spawn dunstctl context
+keyreg Ctrl-Shift-space spawn dunstctl close-all
+keyreg Ctrl-Shift-grave spawn pause_notification_toggle
+
+# notification helpers live in ~/.local/bin (repo pattern: one hc_*
+# wrapper per dunst verb — keybind registration still goes through
+# hlwm's spawn, which is the only mechanism it offers for externals)
+keyreg $Mod-n      spawn ~/.local/bin/hc_dunst-pop
+
+# paced pop of the whole history (via dunstctl history, id by id)
+keyreg $ModShift-n spawn ~/.local/bin/hc_dunst-pop-all
+
+# hc_dismiss-notifs — dismiss ALL notifications (errors et al.)
 keyreg $ModCtrl-d   spawn ~/.local/bin/hc_dismiss-notifs
+
+# mod-comma: dismiss the current (top) notification
+keyreg $Mod-comma   spawn ~/.local/bin/hc_dunst-dismiss
+# mod-period: trigger the selected notification's action (default action
+# when one exists; the context menu for multiple/none)
+keyreg $Mod-period  spawn ~/.local/bin/hc_dunst-action
 
 keyreg $Mod-w spawn ~/.local/bin/herbctl get-forward
 
@@ -131,17 +159,22 @@ keyreg $ModCtrl-Up              or . shift --level=frame up . shift --level=all 
 
 keyreg $ModCtrl-Right           or . shift --level=frame right . shift --level=all right
 
-keyreg $Mod-bracketleft     use_index -1 --skip-visible
+# window cycling was mod-comma/period — now mod-bracketleft/right
+keyreg $Mod-bracketleft     cycle_all --skip-invisible -1
+keyreg $Mod-bracketright    cycle_all --skip-invisible +1
 
-keyreg $Mod-bracketright    use_index +1 --skip-visible
+# workspace (tag) switching — the old mod-brackets — moved to shift
+keyreg $ModShift-bracketleft    use_index -1 --skip-visible
+keyreg $ModShift-bracketright   use_index +1 --skip-visible
+
+# move the focused window to the previous/next tag by index
+# (move_index takes the same -1/+1 relative index as use_index)
+keyreg $ModCtrl-bracketleft     move_index -1 --skip-visible
+keyreg $ModCtrl-bracketright    move_index +1 --skip-visible
 
 keyreg $ModCtrl-comma       resize left +$resizestep
 
 keyreg $ModCtrl-period      resize right +$resizestep
-
-keyreg $Mod-comma           cycle_all --skip-invisible -1
-
-keyreg $Mod-period          cycle_all --skip-invisible +1
 
 keyreg $ModShift-comma      shift left
 

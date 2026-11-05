@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# hc_dunst-pop-all — re-show the ENTIRE history, one notification at a
+# time. Bound to modshift-n. Reads the history via `dunstctl history`
+# (dunstctl exposes no "show all" call) and pops each entry by id with
+# a paced interval so the draining stack doesn't strobe on screen.
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+# .data[0] = array of history entries, newest first; id sits in id.data
+for id in $(dunstctl history | jq -r '.data[0][]?.id.data // empty'); do
+    dunstctl history-pop "$id" 2>/dev/null || true
+    sleep 0.3
+done

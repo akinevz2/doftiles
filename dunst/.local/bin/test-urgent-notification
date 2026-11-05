@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "--dunst begins--"
+dunstify \
+    -a "urgent-test" \
+    -u critical \
+    -t 900000 \
+    -A "default,Click,echo CLICKED-$(date +%s)" \
+    "Urgent Test Notification" \
+    "Left-click to run the echo action handler."
+echo "--dunst ends--"
+echo "dunst exit code: $?"

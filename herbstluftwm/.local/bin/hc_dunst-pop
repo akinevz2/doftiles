@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# hc_dunst-pop — pop the MOST RECENT notification from history.
+# Bound to mod-n. Dunst history is LIFO: each press re-shows the next
+# most recent entry, which doubles as walk-back navigation (dunst
+# exposes no prev/next API, so repeated pops are the navigation).
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+exec dunstctl history-pop

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# hc_dunst-action — invoke the selected notification's action. Bound to
+# mod-period: dunstctl action performs the default action when exactly
+# one exists, else opens the rofi context menu (dunstrc dmenu setting).
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+exec dunstctl action
