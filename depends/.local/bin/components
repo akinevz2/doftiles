@@ -135,6 +135,19 @@ install_trust() {
     done
 }
 
+# ── bun install (same-device TMPDIR) ──────────────────────────────────
+# bun's OWN postinstall (node_modules/bun/install.js) downloads the bun
+# runtime into os.tmpdir() and renameSync()s it into node_modules —
+# /tmp is tmpfs on the WSL2 stack, so that rename fails EXDEV and the
+# runtime fetch aborts (the toolchain still builds through the global
+# bun, but the message red-herrings every update). A TMPDIR under the
+# module itself keeps the rename same-device.
+bun_install() {
+    local dir="$1"
+    (cd "$dir" && mkdir -p node_modules/.tmp && \
+        TMPDIR="$(pwd)/node_modules/.tmp" bun install) || return 1
+}
+
 # ── herbctl (bunli build from the submodule checkout) ─────────────────
 build_bunli() {  # build_bunli <dir> <name> <destbin>
     local dir="$1" name="$2" dest="$3"
@@ -142,7 +155,7 @@ build_bunli() {  # build_bunli <dir> <name> <destbin>
         step "$name" ok "[dry-run] bun install + bunli build in $dir -> $dest"
         return 0
     fi
-    (cd "$dir" && bun install) || return 1
+    bun_install "$dir" || return 1
     (cd "$dir" && bun x bunli build --targets linux-x64 --minify) || return 1
     [ -f "$dir/dist/index" ] || return 1
     mv -f "$dir/dist/index" "$dir/dist/$name"
@@ -196,7 +209,7 @@ deploy_source() {
     }
     poly_sync || return 1
     [ "$DRY" = 1 ] && return 0
-    (cd "$POLY_DIR" && bun install) || return 1
+    bun_install "$POLY_DIR" || return 1
     # trust the checkout's dependencies (bun's policy blocks postinstall)
     local line pkg
     local untrusted

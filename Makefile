@@ -93,7 +93,12 @@ _build-on-deploy:
 		echo "on-deploy: bun missing — installing through npm"; \
 		npm install --global bun; \
 	fi; \
-	cd "$(ONDEPLOY_SUBMOD)" && bun install; \
+	# bun's own postinstall downloads the bun runtime into os.tmpdir()
+	# and renames it into node_modules — on remote boxes /tmp is often
+	# tmpfs (EXDEV, cross-device rename); TMPDIR under the module keeps
+	# the rename same-device (see components' bun_install note)
+	cd "$(ONDEPLOY_SUBMOD)" && mkdir -p node_modules/.tmp && \
+		TMPDIR="$$(pwd)/node_modules/.tmp" bun install; \
 	cd "$(ONDEPLOY_SUBMOD)" && bun x bunli build --targets linux-x64 --minify; \
 	mv -f "$(ONDEPLOY_SUBMOD)/dist/index" "$(ONDEPLOY_SUBMOD)/dist/on-deploy"; \
 	rm -f "$(ONDEPLOY_SUBMOD)/dist/index.js.map"; \
