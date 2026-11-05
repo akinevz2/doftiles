@@ -232,7 +232,12 @@ keyreg $ModShift-r          reload
 keyreg $Mod-a spawn ~/.local/bin/herbctl focus-frame-left
 keyreg $ModShift-a           or . and , compare tags.focus.curframe_wcount gt 1 , chain ! split left ! shift left . spawn $APPLAUNCHER           # was Mod-Tab
 # ModShift-b: open a split below (unconditional split bottom).
-keyreg $ModShift-b spawn ~/.local/bin/herbctl split-below
+#
+# ModCtrl-b: focus the frame below; when there is none, split below
+# and call hc_tile (the polyframes tile register).
+keyreg $ModShift-b spawn ~/.local/bin/herbctl split-bottom-focus
+keyreg $ModCtrl-b spawn ~/.local/bin/herbctl shift-down
+
 keyreg $ModCtrl-a spawn ~/.local/bin/herbctl shift-left
 keyreg $ModCtrl-e spawn ~/.local/bin/herbctl shift-right
 # split-auto + the tile register (hc_tile is a polyframes spawn,
@@ -259,10 +264,6 @@ keyreg $ModShift-e           chain . split auto . spawn $local/hc_tile
 keyreg $Mod-v spawn ~/.local/bin/herbctl split-right-cycle
 keyreg $Mod-b spawn ~/.local/bin/herbctl focus-frame-down
 keyreg $ModCtrl-v spawn ~/.local/bin/herbctl split-right-focus
-# ModCtrl-b: focus the frame below; when there is none, split below
-# and call hc_tile (the polyframes tile register).
-keyreg $ModCtrl-b spawn ~/.local/bin/herbctl focus-below
-
 
 
 

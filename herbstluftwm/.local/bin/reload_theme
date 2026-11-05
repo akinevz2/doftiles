@@ -18,8 +18,13 @@
 set -euo pipefail
 
 DISPLAY=${DISPLAY:-localhost:0.0}
+# defensive: an inherited-but-DEAD display hangs X clients forever — probe
+# for a reachable one with `on-deploy detect-server` (the central
+# detectDisplay probe: inherited DISPLAY, localhost:0.0/1.0, :0/:1, each
+# bounded 2s, exit 1 when nothing answers — env untouched on failure).
+_svr=$(on-deploy detect-server 2>/dev/null) && DISPLAY=$_svr
 export DISPLAY
-unset WAYLAND_DISPLAY
+unset _svr WAYLAND_DISPLAY
 
 herb() {
     herbstclient "$@"

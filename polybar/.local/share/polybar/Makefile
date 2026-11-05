@@ -7,7 +7,10 @@
 COMPONENTS ?= $(HOME)/.local/bin/components
 
 theme:
-	$(HOME)/.local/bin/reload_theme -f
+	@# timeout guard: a dead X must fail the hook, never wedge the
+	@# caller's `packages install` (runRule captures output — a hang
+	@# here is invisible until the caller is interrupted)
+	@timeout 60 $(HOME)/.local/bin/reload_theme -f || { echo "polybar: theme hook FAILED (timeout or error, exit $$?)" >&2; exit 1; }
 
 install:
 	@if [ -x "$(COMPONENTS)" ]; then \

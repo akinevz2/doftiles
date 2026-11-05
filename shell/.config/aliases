@@ -42,7 +42,7 @@ alias open=xdg-open
 
 # WM Stuff
 alias config="cd $HOME/.config && ls -l"
-alias autostart="$EDITOR --new-window $HOME/dots $HOME/.config/herbstluftwm/autostart"
+alias autostart="$EDITOR $HOME/.config/herbstluftwm/autostart $HOME/dots; herbstclient reload"
 alias aliases="$EDITOR $HOME/.config/aliases && source $HOME/.config/aliases"
 alias exports="$EDITOR $HOME/.config/exports && source $HOME/.config/exports"
 alias dots="cd $HOME/dots && tree -aL 2 -I '.git' $HOME/dots 2&>/dev/null || ls -AL ./**"

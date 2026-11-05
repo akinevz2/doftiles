@@ -28,9 +28,10 @@ if [[ $(hostname) == WS* ]]; then
     # Allows VS Code usage within the X11
     export DONT_PROMPT_WSL_INSTALL=true
 fi
-if [[ $(hostname) == WS-MINIFRIDGE ]]; then
-    export DISPLAY=localhost:1.0
-fi
+# NOTE: no per-host DISPLAY override — WS* hosts use the localhost:0.0
+# convention; the old WS-MINIFRIDGE :1.0 override left a stale display
+# in every session (see on-deploy detect-server / detectDisplay — the
+# same reachable-X probe that drives DISPLAY autodetection).
 
 export BUNPATH="${HOME}/.bun/bin"
 export PATH="$LOCAL_BIN:$BUNPATH:$PATH"
