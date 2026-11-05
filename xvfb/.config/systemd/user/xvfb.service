@@ -8,3 +8,9 @@ Restart=on-failure
 
 [Install]
 WantedBy=default.target
+# PROVIDES x-server.service (alias, see check-x-server.service): on the
+# headless/VNC profile enabling this unit replaces the probe-based
+# provider — x11vnc consumes the alias name, not this unit directly.
+# Enabling BOTH providers is an error (alias symlink conflict) — pick
+# one via service.order / the deploy services flow.
+Alias=x-server.service

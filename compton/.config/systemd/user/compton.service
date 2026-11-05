@@ -1,12 +1,14 @@
 [Unit]
 Description=compton compositor (inside VcXsrv)
-After=herbst.service
+After=check-x-server.service herbst.service
+Requires=check-x-server.service
 Requires=basic.target
 BindsTo=herbst.service
 
 [Service]
 Type=simple
-Environment=DISPLAY=localhost:0.0
+# DISPLAY is inherited from the user manager environment, set by
+# check-x-server — no hardcoded display here.
 # WSLg exposes a Wayland socket (wayland-0) that dual-backend apps like
 # rofi 2.0 autodetect; force the whole WM session onto X11/VcXsrv.
 Environment=XDG_SESSION_TYPE=x11

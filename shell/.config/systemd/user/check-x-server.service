@@ -1,0 +1,41 @@
+# check-x-server.service — resolve the REACHABLE X server and export it
+# into the systemd user manager environment BEFORE any WM service starts.
+#
+#   all WM units are After=/Requires= this one (systemd ordering is NOT
+#   transitive, so each unit names it explicitly)
+#
+# The wait-for-X logic that used to live in herbst.service's
+# ExecStartPre (a bounded poll for `xset q`) moved here, generalized:
+# every attempt runs `on-deploy detect-server --persist-to-systemd` —
+# the shared detectDisplay probe (inherited $DISPLAY, localhost:0.0/1.0,
+# :0/:1, each bounded 2s) — and exports the winner to all user units.
+#
+# The Retry=on-failure loop IS the wait: a restart per second until the
+# server appears, burst-capped so a headless session fails cleanly
+# instead of spinning forever. Since every consumer Requires= this
+# unit, a failed probe gates the whole WM session.
+
+[Unit]
+Description=Detect reachable X server, persist DISPLAY to the user session
+# each failed attempt retries via RestartSec (the on-failure retry IS
+# the wait-for-X); bounded so a headless session fails cleanly
+StartLimitIntervalSec=60
+StartLimitBurst=45
+
+[Service]
+Type=oneshot
+Environment=XDG_SESSION_TYPE=x11
+UnsetEnvironment=WAYLAND_DISPLAY
+ExecStart=/bin/sh -c 'exec %h/.local/bin/on-deploy detect-server --persist-to-systemd'
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=default.target
+# systemd has no Requires=-through-Provides= resolution (verified on 259:
+# Requires=<nonexistent-name> is "Unit not found"). The provided-name
+# mechanism here is the alias pattern (as with display-manager.service):
+# whichever provider unit is ENABLED installs the alias symlink, and
+# consumers require the SYMBOLIC name.
+Alias=x-server.service

@@ -5,12 +5,13 @@ Requires=xvfb.service
 
 [Service]
 Type=simple
-Environment=DISPLAY=localhost:0.0
-# WSLg exposes a Wayland socket (wayland-0) that dual-backend apps like
-# rofi 2.0 autodetect; force the whole WM session onto X11/VcXsrv.
 Environment=XDG_SESSION_TYPE=x11
 UnsetEnvironment=WAYLAND_DISPLAY
-ExecStart=/usr/bin/x11vnc -display localhost:0.0 -nopw -forever -shared -listen localhost -rfbport 5900 -noshm
+# DISPLAY is inherited from the user manager environment, set by
+# check-x-server (detect-server --persist-to-systemd); the fallback
+# keeps the standalone Xvfb(:0) stack working when that unit is not
+# enabled (headless/VNC profile).
+ExecStart=/bin/sh -c 'exec /usr/bin/x11vnc -display "${DISPLAY:-localhost:0.0}" -nopw -forever -shared -listen localhost -rfbport 5900 -noshm'
 Restart=on-failure
 # x11vnc exits 2 when its X server is torn down underneath it (stopping
 # xvfb, or the WM session going away) — that is a normal shutdown.

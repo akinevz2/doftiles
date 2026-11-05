@@ -1,6 +1,12 @@
 # Units are enabled and started in this order by `make services-check`
 # (bootstrap) and driven by services-start / services-stop / restart.
-# xvfb x11vnc novnc form the headless/VNC stack; herbst targets
-# localhost:0.0, which Xvfb provides on VNC setups.
-#xvfb x11vnc herbst novnc dunst compton herbst compton dunst
-herbst dunst compton hc_send-error-daemon
+# check-x-server runs FIRST and exports DISPLAY to the user manager
+# environment (on-deploy detect-server --persist-to-systemd); every WM
+# unit is After=/Requires= it and carries no hardcoded display.
+# xvfb x11vnc novnc form the headless/VNC stack (commented out here;
+# x11vnc falls back to the localhost:0.0 convention when check-x-server
+# is not enabled). Providers: check-x-server AND xvfb both declare
+# Alias=x-server.service — enable exactly ONE, the enabled one claims
+# the alias (herbst claims Alias=x-window-manager.service).
+#xvfb x11vnc herbst novnc dunst compton
+check-x-server herbst dunst compton hc_send-error-daemon

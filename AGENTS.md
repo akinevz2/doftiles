@@ -139,8 +139,8 @@ annotation), `service.order` (unit start order).
   non-interactive runs REQUIRE `YES=1` (nothing hangs on stdin).
   start/stop/restart share one `service-action` body. All service
   actions run `--no-block` and print a post-run state summary, so a
-  headless session (herbst's ExecStartPre polls 30s for X per attempt)
-  never idles the make. `services-stop` disables by removing
+  headless session (check-x-server retries probe failures, herbst is
+  gated by Requires= on it) never idles the make. `services-stop` disables by removing
   `default.target.wants` symlinks directly — do NOT use
   `systemctl --user disable` on dots units: the stow-created unit
   symlink in `~/.config/systemd/user` is a systemd `linked` unit file,
@@ -148,8 +148,9 @@ annotation), `service.order` (unit start order).
   unit file (systemd then falls back to distro units, e.g. the static
   dunst.service that ABRTs headless). Pending start/restart jobs are
   cancelled before stopping so stop never waits on a stuck start job.
-  `herbst.service` carries StartLimitIntervalSec/Burst so a missing X
-  server cannot spin the Restart=on-failure loop forever.
+  `check-x-server.service` carries StartLimitIntervalSec/Burst so a
+  missing X server cannot spin its Restart=on-failure probe loop
+  forever.
 - `make update` — the safe pull directly in the repo: fetch +
   fast-forward (fallback `git pull --rebase --autostash`), submodule
   sync, then `on-deploy depends --install` — which rebuilds the
@@ -204,17 +205,37 @@ the relevant unit.
 
 ## Services / WM runtime model
 
-- `herbst.service` starts herbstluftwm; `ExecStartPre` polls
-  `xset -display localhost:0.0 q` until the X server is reachable,
-  bounded at 30s (a headless `enable --now` fails cleanly instead of
-  hanging the start job).
+- `check-x-server.service` (2026-11, `shell` package) runs FIRST and
+  is the only place that resolves the X server: `on-deploy detect-server
+  --persist-to-systemd` — the shared detectDisplay probe — sets
+  `DISPLAY` in the systemd user manager environment. The wait-for-X
+  loop that used to be herbst's `ExecStartPre` lives here as the
+  on-failure Restart cycle (1s backoff, burst-capped to fail cleanly).
+  Every WM unit is `After=`/`Requires=` it; the ordering is NOT
+  transitive, so each unit names it explicitly.
+- `herbst.service` starts herbstluftwm; DISPLAY is inherited from the
+  manager env (no hardcoded display in any unit; `x11vnc` keeps a
+  localhost:0.0 fallback for the standalone Xvfb profile).
 - `compton.service` is `After=`/`BindsTo=` herbst — it starts with the WM
   and is killed when the WM stops (intentional).
+- **Provided names** (2026-11): systemd has NO Requires=-through-Provides=
+  resolution (verified on 259 — `Requires=<nonexistent>` is "Unit not
+  found"), so "provides" is expressed with `[Install] Alias=`
+  (display-manager.service pattern): `check-x-server` and `xvfb` both
+  declare `Alias=x-server.service`, `herbst` declares
+  `Alias=x-window-manager.service`; the ENABLED provider installs the
+  alias symlink (`~/.config/systemd/user/<alias>` -> provider) and they
+  must NOT be enabled together. Consumers require the symbolic name.
+  Never `systemctl --user enable --force`-style over an alias, and
+  never `reenable` stow-linked units (reenable = disable + enable, and
+  disable deletes a linked unit file symlink — that destroyed stow
+  links once already; use plain `enable`, which is idempotent and
+  still processes `Alias=`).
 - The WM session runs inside VcXsrv on Windows (WSL2); the autostart script
   is `herbst/.config/herbstluftwm/autostart`.
-- `service.order` currently enables `herbst compton dunst`; `xvfb`, `x11vnc`
-  and `novnc` units exist for headless/VNC setups and are commented out in
-  the order file.
+- `service.order` currently enables `check-x-server herbst dunst compton
+  hc_send-error-daemon`; `xvfb`, `x11vnc` and `novnc` units exist for
+  headless/VNC setups and are commented out in the order file.
 - **xrdp layer on the nested profile** (2026-10): the `xrdp` FEATURE in
   `deploy.profile` provisions a system-level xrdp whose Xvnc
   module attaches to the running x11vnc framebuffer (`localhost:5900`) —
@@ -231,11 +252,17 @@ the relevant unit.
 
 ## Quirks and conventions established in this session
 
-1. **DISPLAY is `localhost:0.0` everywhere** (WSL2 convention). Do not
-   reintroduce `127.0.0.1:0` — it appeared in the systemd units, the hlwm
-   autostart, and the `herbst/.local/bin` helper scripts, and had to be
-   unified. `shell/.config/exports` sets it only inside the
-   `hostname == WS*` block; the helper scripts use
+1. **DISPLAY comes from the manager env now** (2026-11). The single
+   source of truth is `check-x-server.service` running
+   `on-deploy detect-server --persist-to-systemd`; user units inherit
+   DISPLAY from the systemd user manager, shells inherit it the usual
+   way. Never hardcode `Environment=DISPLAY=...` in a unit again (it
+   was DaemonCoupling pain: units pinned `localhost:0.0` while the
+   server drifted to `:1.0`). Fallback convention if/when hardcoded
+   fallbacks are unavoidable is `localhost:0.0` — never `127.0.0.1:0`
+   (that regression already happened once across units, autostart, and
+   the `herbst` helper scripts). `shell/.config/exports` sets no
+   display at all; helper scripts use
    `DISPLAY=${DISPLAY:-localhost:0.0}`.
 2. **Software GL is WSL-only**: `LIBGL_ALWAYS_INDIRECT` /
    `LIBGL_ALWAYS_SOFTWARE` live inside the `WS*` block of `exports`, not
