@@ -15,6 +15,9 @@ theme:
 	@if [ -z "$${DISPLAY:-}" ] || ! command -v $(HOME)/.local/bin/reload_theme >/dev/null 2>&1; then \
 		echo "polybar: theme skipped (no X or no reloader)"; exit 0; \
 	fi; \
+	if ! herbstclient ping 2>/dev/null; then \
+		echo "polybar: theme skipped (no WM)"; exit 0; \
+	fi; \
 	if command -v timeout >/dev/null 2>&1; then \
 		timeout 60 $(HOME)/.local/bin/reload_theme -f || { echo "polybar: theme FAILED (timeout/exit $$?)" >&2; exit 1; }; \
 	else \
