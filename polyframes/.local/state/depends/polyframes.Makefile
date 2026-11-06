@@ -68,8 +68,12 @@ deps-install: deps-dir
 
 # one logical operation: run the nested bun's install hook (bun skips
 # postinstalls on fresh installs; idempotent, this IS a package step)
+# MUST run with cwd = the checkout: bun's install.js resolves its
+# fallback paths (node_modules/@oven/...) RELATIVE TO CWD — from the
+# package root it leaks a node_modules/ there, which stow then folds
+# into $HOME (the 2026-11-06 recurrence)
 bun-hooks:
-	@node "$(SUB_DIR)/node_modules/bun/install.js" 2>/dev/null || { echo "polyframes: node missing — the nested bun install hook was skipped" >&2; exit 1; }
+	@cd "$(SUB_DIR)" && node node_modules/bun/install.js 2>/dev/null || { echo "polyframes: node missing — the nested bun install hook was skipped" >&2; exit 1; }
 
 compile:
 	@$(MAKE) -C "$(SUB_DIR)" --no-print-directory build
