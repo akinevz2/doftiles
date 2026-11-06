@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# paused-for-dismiss_idle — the launch_alacritty park phase as a script.
+#
+# The inner shell's DEBUG title trap (.bashrcx __title_running) prints
+# BASH_COMMAND into the WM title — while launch_alacritty parked at its
+# inline `read -sn1 -r _`, the title showed that raw read blob. Running
+# the whole run-then-park sequence through THIS script makes the title
+# read
+#
+#     paused-for-dismiss_idle <program that was run>
+#
+# instead: the caller's trap prints the wrapper invocation (argv = the
+# command string), and the park below RE-ASSERTS that title explicitly
+# so the parked state never depends on trap timing — a run that set its
+# own title (vim, less, …) gets the paused title restored.
+#
+# Usage: paused-for-dismiss_idle "<command string>"
+#
+# Runs the command (eval'd here — the caller's interactive aliases
+# resolved at the launch_alacritty inner-shell level, before argv
+# quoting), reports the exit status, then parks with the SAME dismiss
+# semantics as before: any single key press dismisses, the script
+# exits, and the terminal window closes with it. The command's exit
+# status is the script's.
+set -u
+
+if [ -z "${1:-}" ]; then
+    echo "usage: paused-for-dismiss_idle \"<command string>\"" >&2
+    exit 1
+fi
+
+cmd=$1
+
+# The title is asserted up front too: when invoked other than through
+# the launch_alacritty inner shell (tests, manual runs) no DEBUG trap
+# ever printed it, and when the trap DID print it, this is the same
+# string idempotently.
+printf '\033]0;paused-for-dismiss_idle %s\007' "$cmd"
+
+__rc=0
+eval "$cmd"; __rc=$?
+echo
+echo "[exit $__rc] press any key to close..."
+# Restore the paused title AFTER the run: the command may have set its
+# own title (full-screen programs do) — the parked window must not
+# keep it.
+printf '\033]0;paused-for-dismiss_idle %s\007' "$cmd"
+read -sn1 -r _
+exit "$__rc"

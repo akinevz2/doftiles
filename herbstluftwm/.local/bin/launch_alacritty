@@ -3,10 +3,12 @@
 #
 # Pattern ported from the screencast plugin's single-shot terminal
 # (development/system screencast_scripts): the command runs under an
-# interactive bash inside the spawned terminal; when it exits, the
-# shell reports the exit status and waits for a SINGLE key press
-# ("press any key to close"), then exits — and the terminal window
-# closes with it. Nothing lingers.
+# interactive bash inside the spawned terminal, delegated to
+# paused-for-dismiss_idle — when the command exits, the wrapper
+# reports the exit status and waits for a SINGLE key press ("press any
+# key to close"), then exits — and the terminal window closes with it.
+# Nothing lingers; while parked, the WM title reads
+# "paused-for-dismiss_idle <program that was run>".
 #
 # Usage: launch_alacritty [--floating] [--urgent] [--no-distract] "<command>"
 #   TERMINAL overrides the terminal (default: alacritty).
@@ -42,9 +44,10 @@ case "${1:-}" in
         cat <<'EOF'
 launch_alacritty — run a command string inside a spawned $TERMINAL (default:
 alacritty, overridden by the TERMINAL environment variable). The
-command runs under an interactive bash; when it exits, the shell
-reports the status and waits for one key press, then the terminal
-closes.
+command runs under an interactive bash, delegated to
+paused-for-dismiss_idle; when it exits, the wrapper reports the
+status and waits for one key press, then the terminal closes. While
+parked, the WM title reads "paused-for-dismiss_idle <program>".
 
 Usage: launch_alacritty [--floating] [--urgent] [--no-distract] "<command>"
 
@@ -91,11 +94,15 @@ _first="${termclass:0:1}"; _rest="${termclass:1}"
 classpat="[${_first^}${_first,,}]${_rest}"
 
 # Interactive bash so the user's aliases and functions resolve. The
-# command string is %q-quoted and eval'd; after it exits the shell
-# reports the status and waits for ONE key press, then exits — the
-# terminal closes naturally with its shell.
+# command string is %q-quoted and handed to paused-for-dismiss_idle
+# (one argv = the whole command string): the wrapper runs the command,
+# reports the status, restores the
+# "paused-for-dismiss_idle <program>" title, and parks for ONE key
+# press — the terminal closes naturally with the inner shell. The
+# .bashrcx DEBUG title trap prints the WRAPPER invocation into the WM
+# title (argv includes the program), never the raw park read.
 QUOTED=$(printf '%q' "$USER_CMD")
-INNER="__rc=0; eval $QUOTED; __rc=\$?; echo; echo \"[exit \$__rc] press any key to close...\"; read -sn1 -r _"
+INNER="paused-for-dismiss_idle $QUOTED"
 
 # The switches install one scoped `rule once` (class-matched via the
 # pattern derived above; maxage bounds the arm) BEFORE the spawn, so
