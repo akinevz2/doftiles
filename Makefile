@@ -29,6 +29,11 @@ MAKE   := make
 SELF   := $(MAKE) --no-print-directory
 
 ONDEPLOY_BIN    := $(HOME)/.local/bin/on-deploy
+# the toolchains may live OUTSIDE the invoking shell's PATH (a
+# non-login make run carries no ~/.profile): the checks + builds in
+# this Makefile and the on-deploy verbs it drives resolve bun/rustup
+# through the standard user toolchain dirs FIRST
+export PATH := $(HOME)/.bun/bin:$(HOME)/.cargo/bin:$(PATH)
 ONDEPLOY_SUBMOD := $(CURDIR)/depends/.local/share/on-deploy# manifests (read by on-deploy, not by this Makefile)
 WM_PACKAGES_FILE := stows.required
 WM_PACKAGES      := $(shell grep -vi '^#' $(WM_PACKAGES_FILE))
@@ -43,6 +48,7 @@ DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 	.local/state/depends/$(1).Makefile
 
 .PHONY: depends bootstrap trust toolchain submodules bun rustup clean-upgrade configure \
+	depends-% \
 	on-deploy \
 	install all stow wm \
 	restow unstow clean status services-check services-start \
@@ -118,9 +124,12 @@ trust:
 	@$(MAKE) $(call DEPS_MAKEFILE,herbstutil) trust-local trust-global
 
 # toolchain — the language toolchains alone (the migrated flow: run
-# after make depends).
+# after make depends): composed of the per-toolchain verbs, BOTH
+# checked (each verb: the --check query first, the system install only
+# when absent — the FORCE knob feeds --yes/-f).
 toolchain: depends
-	$(ONDEPLOY_BIN) toolchain --bun $(F)
+	$(ONDEPLOY_BIN) toolchain --bun --check || $(ONDEPLOY_BIN) toolchain --bun --yes $(F)
+	$(ONDEPLOY_BIN) toolchain --rustup --check || $(ONDEPLOY_BIN) toolchain --rustup --yes $(F)
 
 # configure — the reconfiguration gate for clean-upgrade (before stow):
 # on an upgrade the deployment knobs may have changed — offer the TUI
@@ -149,6 +158,7 @@ help:
 	@echo "  configure  the reconfiguration gate: TUI menu on a tty, else FORCE=1 or error"
 	@echo "  all/stow/wm/restow  stow the wm.required stack"
 	@echo "  stow-<pkg>/unstow-<pkg>  per-package stow/unstow (stow-depends...)"
+	@echo "  depends-<pkg>  ONE submodule: toolchain check + scoped walk"
 
 	@echo "  unstow/clean  drop the links"
 	@echo "  status / services-check|start|stop / restart"
@@ -296,6 +306,26 @@ clean-upgrade:
 	@$(SELF) on-deploy
 	@$(SELF) configure
 	@$(SELF) stow
+
+# depends-% — ONE submodule package install (make depends-bat,
+# depends-herbctl, depends-herbstutil, depends-polyframes — any
+# submodule in system.required; an unknown name fails inside the walk
+# with the misconfiguration report). The bulk walk (depends --install)
+# silently assumes its prerequisites; the explicit verb honors them:
+#   1. the on-deploy binary exists (a fresh clone: `make depends` first)
+#   2. the package's toolchain REALLY works — the --check query fails
+#      LOUDLY pointing at `make bun`/`make rustup` (their sudo grant is
+#      inherent to the system install) instead of a cryptic mid-build
+#      "could not choose a version of cargo" error
+#   3. only then the scoped walk (synced, --only <pkg>, FORCE-threaded)
+depends-%:
+	@if [ ! -x "$(ONDEPLOY_BIN)" ]; then $(SELF) depends; fi
+	@tool=$$([ "$*" = bat ] && echo rustup || echo bun); \
+	if ! $(ONDEPLOY_BIN) toolchain --$$tool --check; then \
+		echo "depends-$*: the '$$tool' toolchain is missing or unusable — run 'make $$tool' first (system install, sudo-gated)" >&2; \
+		exit 2; \
+	fi
+	$(ONDEPLOY_BIN) depends --install --only "$*" $(F)
 
 # on-deploy housekeeping verbs stay one call away:
 #   $(ONDEPLOY_BIN) preserve <pkg> ...   conflict-safe restow
