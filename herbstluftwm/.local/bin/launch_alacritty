@@ -40,7 +40,7 @@ hc() { herbstclient "$@"; }
 case "${1:-}" in
     -h|--help)
         cat <<'EOF'
-hc_launch — run a command string inside a spawned $TERMINAL (default:
+launch_alacritty — run a command string inside a spawned $TERMINAL (default:
 alacritty, overridden by the TERMINAL environment variable). The
 command runs under an interactive bash; when it exits, the shell
 reports the status and waits for one key press, then the terminal
