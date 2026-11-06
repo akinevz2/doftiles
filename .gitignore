@@ -5,11 +5,23 @@ shell/.cache/
 # built artifacts LINKED into the stow packages by the per-package
 # depends Makefiles (dots/<pkg>/.local/state/depends/<pkg>.Makefile) —
 # the stow packages own them, the repo does not track them
-herbctl/.local/bin/herbctl
-polyframes/.local/bin/polyframes
-bat/.local/bin/bat
-depends/.local/bin/on-deploy
+# the deploy staging: the build output lands dots/<pkg>/.local/bin/
+# (per-package depends Makefiles) — never tracked; the stow step deploys
+# the exact artifact to ~/.local/bin
+herbctl/.local/bin/
+polyframes/.local/bin/
+bat/.local/bin/
+depends/.local/bin/
 herbstutil/.local/bin/
+
+# defensively: the build sleds (the submodules' own residues cannot leak
+# up here, but bun install can land at a package root if the cwd slips)
+polyframes/node_modules/
+herbctl/node_modules/
+bat/node_modules/
+depends/node_modules/
+herbstutil/node_modules/
+**/.on-deploy-release/
 vim/.vim/bundle/
 vim/.vim/.netrwhist
 vim/.vim/spell/en.utf-8.add
