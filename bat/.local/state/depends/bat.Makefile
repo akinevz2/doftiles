@@ -85,7 +85,14 @@ link:
 
 # ── toolchain (defer) ───────────────────────────────────────────────────
 toolchain:
-	@$(ONDEPLOY) toolchain --rustup --check || $(ONDEPLOY) toolchain --rustup $(if $(FORCE),--yes,) $(if $(FORCE),-f,)
+	@-$(ONDEPLOY) toolchain --rustup --check || $(ONDEPLOY) toolchain --rustup $(if $(FORCE),--yes,) $(if $(FORCE),-f,)
+	@# a bare rustup install leaves NO default toolchain: `cargo` then
+	@# dies with "rustup could not choose a version of cargo to run".
+	@# USER-level (no sudo); idempotent — the download only happens once.
+	@if ! rustup show active-toolchain >/dev/null 2>&1; then \
+		echo "bat: rustup has no default toolchain — installing stable (user-level, no sudo)"; \
+		rustup default stable; \
+	fi
 
 # ── the upstream release route (package-specific steps) ────────────────
 install-release: release-tag release-fetch release-extract release-link
