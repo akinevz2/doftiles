@@ -334,17 +334,19 @@ the relevant unit.
    line 2) is tracked in this repo on purpose — it is non-sensitive (name +
    email, the same as every commit author field) and is the shared source of
    truth for both the WSL host and the devcontainer. It must **stay
-   tracked**; do not re-add it to `.gitignore`. The generated
-   `~/.my-credentials-env` (GIT_NAME/GIT_EMAIL exports) is *not* tracked.
-   `~/development/.devcontainer/update-dots.sh` reads
-   `~/.my-credentials`, runs `git config --global`, and (re)generates
-   `~/.my-credentials-env`, appending a guarded source line
-   (`[ -f "$HOME/.my-credentials-env" ] && source ...`) to `.bashrc`/`.zshrc`.
-   Its idempotency check is a substring grep on the fragment path — keep the
-   source line compatible with that.
-5. **`.zshrc` sources `$HOME/.my-credentials-env`** with an existence guard —
-   never hardcode `/home/kine/...` paths; this repo must stay
-   user/machine-agnostic.
+   tracked**; do not re-add it to `.gitignore`. The transient companion
+   `~/.my-credentials-env` (GIT_NAME/GIT_EMAIL exports) is **reproducible
+   via `make credentials`** (which runs `configure-credentials --regen`,
+   then applies git config) — it is generated on demand, chmod 600, and
+   gitignored (`**/.my-credentials-env`) so it never leaks into the repo.
+   Nothing automatically appends source lines to `.bashrc`/`.zshrc`; the
+   persistent file is the only durable artifact.
+5. **No shell rc sources the env file** — the WSL host's `~/.shellx.rc`
+   reads `~/.my-credentials` directly; nothing sources
+   `~/.my-credentials-env` by default (the devcontainer's
+   `update-dots.sh` may append a guarded source line to the devcontainer's
+   own `.bashrc`/`.zshrc`, but that is devcontainer-scoped, not dots-side).
+   Keep everything user/machine-agnostic — never hardcode `/home/kine/...`.
 6. **`shell/.profile`** pushes `PATH` (and `WSL_INTEROP` on WSL) into the
    systemd user manager. The `systemctl` calls are guarded by
    `command -v systemctl && systemctl --user` so non-systemd logins don't

@@ -144,6 +144,19 @@ rustup:
 trust:
 	@$(MAKE) $(call DEPS_MAKEFILE,herbstutil) trust-local trust-global
 
+# credentials — regenerate the transient ~/.my-credentials-env from the
+# persistent ~/.my-credentials (the last stage of bootstrap). Reminds
+# instead of hard-failing when the persistent file is missing — a fresh
+# machine bootstraps without an identity until configure-credentials
+# runs interactively.
+credentials:
+	@if [ -f "$$HOME/.my-credentials" ]; then \
+		$(HOME)/.local/bin/configure-credentials --regen && \
+		$(HOME)/.local/bin/load-credentials || true; \
+	else \
+		echo "credentials: $$HOME/.my-credentials missing — run 'configure-credentials' in a terminal to set up name/email"; \
+	fi
+
 # toolchain — the language toolchains alone (the migrated flow: run
 # after make depends): composed of the per-toolchain verbs, BOTH
 # checked (each verb: the --check query first, the system install only
