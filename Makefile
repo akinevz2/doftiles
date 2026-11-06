@@ -54,12 +54,32 @@ depends:
 	git submodule update --init --recursive
 	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile install FORCE=1
 
+# sudo — the pre-flight grant: the root-check lives here (recipes that
+# need root depend on this target). As root we just proceed; otherwise
+# the grant is collected UPFRONT (a clean TTY, before anything else
+# runs — the mid-flight sudo prompt inside the TUI flows broke the
+# terminal echo). With the grant missing (non-tty or declined) the
+# make ERRORS OUT and asks for the sudo rerun.
+sudo:
+	@if [ "$$(id -u)" = 0 ]; then \
+		echo "sudo: running as root already"; \
+	elif sudo -n true 2>/dev/null; then \
+		echo "sudo: cached grant present"; \
+	elif [ -t 0 ]; then \
+		echo "sudo: collecting the root grant UPFRONT (the rustup platform install needs it; no mid-run prompts)"; \
+		sudo -v || { echo "sudo: declined — rerun with: sudo make bootstrap" >&2; exit 2; }; \
+	else \
+		echo "sudo: this recipe needs root — rerun with: sudo make bootstrap" >&2; \
+		exit 2; \
+	fi
+
 # bootstrap — PHASE 2: on-deploy installs the REST of the bootstrap:
 # bun (no-op when the system ships it — assumed) and rustup (bat's
 # source route), the bun postinstall trust steps, and the configured
 # system.required walk (sync + build + install per package Makefile).
 # Explicit chain: make depends bootstrap install
 bootstrap: depends
+	@$(SELF) sudo
 	$(ONDEPLOY_BIN) toolchain --bun $(Y)
 	$(ONDEPLOY_BIN) toolchain --rustup $(Y)
 	@$(SELF) trust
