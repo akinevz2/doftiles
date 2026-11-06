@@ -9,8 +9,14 @@ COMPONENTS ?= $(HOME)/.local/bin/components
 theme:
 	@# timeout guard: a dead X must fail the hook, never wedge the
 	@# caller's `packages install` (runRule captures output — a hang
-	@# here is invisible until the caller is interrupted)
-	@timeout 60 $(HOME)/.local/bin/reload_theme -f || { echo "polybar: theme hook FAILED (timeout or error, exit $$?)" >&2; exit 1; }
+	@# here is invisible until the caller is interrupted). When
+	@# `timeout` is absent (sparse boxes), the command runs bare —
+	@# theme apply is not a safeguard worth a hard failure.
+	@if command -v timeout >/dev/null 2>&1; then \
+		timeout 60 $(HOME)/.local/bin/reload_theme -f || { echo "polybar: theme FAILED (timeout/exit $$?)" >&2; exit 1; }; \
+	else \
+		$(HOME)/.local/bin/reload_theme -f || { echo "polybar: theme FAILED (exit $$?)" >&2; exit 1; }; \
+	fi
 
 install:
 	@if [ ! -x "$(HOME)/.local/bin/polyframes" ]; then \
