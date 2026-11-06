@@ -45,7 +45,7 @@ bun-ensure:
 		echo "depends: bun missing — installing through npm"; \
 		npm install --global bun; \
 	else \
-		echo "depends: neither bun nor npm found — install node/npm first (arch: pacman -S npm / apt install npm)" >&2; \
+		echo "depends: BUN IS REQUIRED to bootstrap this system — source-only, no transport carries the binary; install bun (npm install --global bun works where node/npm exists), then rerun this target" >&2; \
 		exit 2; \
 	fi
 

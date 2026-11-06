@@ -37,37 +37,57 @@ Y := $(if $(filter 1,$(FORCE)),-y,)
 DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 	.local/state/depends/$(1).Makefile
 
-.PHONY: depends trust toolchain submodules \
-	build-on-deploy \\
+.PHONY: depends bootstrap trust toolchain submodules \
+	build-on-deploy \
 	install all stow wm \
 	restow unstow clean status services-check services-start \
-	services-stop restart update
+	services-stop restart update help
 
 # ── depends ────────────────────────────────────────────────────────────
-# THE bootstrap + deps chain, merged: submodules at their recorded
-# pins -> the bootstrap deployable (depends.Makefile: bun-ensure
-# through npm + build + link; the router swaps + stows the depends
-# package) -> the configured system.required walk (sync at pins +
-# per-package Makefiles) -> the bun trust steps.
-depends: submodules
-	@command -v stow >/dev/null 2>&1 || { \
-		echo "depends: GNU stow missing — install stow (pacman -S stow / apt install stow)" >&2; \
-		exit 2; \
-	}
+# PHASE 1 of the bootstrap: submodules at their recorded pins, then the
+# bootstrap deployable (depends.Makefile: bun-ensure through npm when
+# even bun is missing + build + link:: the router swaps + stows the
+# depends package). ONLY on-deploy — nothing else: it cannot start the
+# platform toolchains yet.
+depends:
+	git submodule sync
+	git submodule update --init --recursive
 	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile install FORCE=1
+
+# bootstrap — PHASE 2: on-deploy installs the REST of the bootstrap:
+# bun (no-op when the system ships it — assumed) and rustup (bat's
+# source route), the bun postinstall trust steps, and the configured
+# system.required walk (sync + build + install per package Makefile).
+# Explicit chain: make depends bootstrap install
+bootstrap: depends
+	$(ONDEPLOY_BIN) toolchain --bun $(Y)
+	$(ONDEPLOY_BIN) toolchain --rustup $(Y)
 	@$(SELF) trust
 	$(ONDEPLOY_BIN) depends --install $(Y)
 
 # trust — the bun postinstall policy steps for every checked-out bun
 # submodule: per-checkout local trust + the global untrusted set. The
-# logic lives in the depends package Makefile (it knows the artifacts).
+# logic lives in the herbstutil adapter (it owns the artifact).
 trust:
 	@$(MAKE) $(call DEPS_MAKEFILE,herbstutil) trust-local trust-global
 
-# toolchain — the language toolchains: on-deploy installs the tools the
-# per-package Makefiles build with (bun here for starters).
+# toolchain — the language toolchains alone (the migrated flow: run
+# after make depends).
 toolchain: depends
 	$(ONDEPLOY_BIN) toolchain --bun $(Y)
+
+# help — the recipe listing
+help:
+	@echo "recipes:"
+	@echo "  depends    submodules at recorded pins + the on-deploy deploy"
+	@echo "  bootstrap  the toolchains (bun/rustup) + trust + the deps walk"
+	@echo "  toolchain  bun alone (make depends first)"
+	@echo "  update     fetch + ff + submodule sync + on-deploy rebuild + walk"
+	@echo "  install    configure + preserve + packages install (wm.required)"
+	@echo "  all/stow/wm/restow  stow the wm.required stack"
+	@echo "  unstow/clean  drop the links"
+	@echo "  status / services-check|start|stop / restart"
+	@echo "  FORCE=1    the non-interactive + fail-safe knob (retry after unstow)"
 
 # ── on-deploy itself ──────────────────────────────────────────────────
 # build-on-deploy — ALWAYS rebuilds ~/.local/bin/on-deploy from the
@@ -77,10 +97,9 @@ toolchain: depends
 build-on-deploy:
 	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile install FORCE=1
 
-# submodules — ensure every dependency subrepo is initialized AND at
-# its remote tip (--remote): the depends components build and the
-# on-deploy build compile from these checkouts, so they must be fresh
-# before anything runs. `on-deploy depends` resyncs them itself.
+# submodules — the REMOTE variant (the depends components build from
+# these checkouts): explicit only, the recorded-pins doctrine is the
+# default path.
 submodules:
 	git submodule update --init --recursive --remote
 
@@ -89,8 +108,8 @@ submodules:
 # when ~/.my-credentials is absent), then resolve conflicts per package
 # (preserve), then run each package's OLD-pattern dependency Makefile —
 # ONLY the packages manifested in wm.required. The SUBMODULES are
-# deployed by `deps` (on-deploy depends --install) — target order:
-#   make bootstrap toolchain deps install
+# deployed by the bootstrap chain (make depends bootstrap) — target order:
+#   make depends bootstrap install
 install: build-on-deploy
 	@set -e; \
 	$(ONDEPLOY_BIN) configure; \
