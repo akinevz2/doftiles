@@ -229,11 +229,13 @@ keyreg $ModCtrl-f          spawn ~/.local/bin/hc_zoom
 
 keyreg $ModShift-f spawn ~/.local/bin/herbctl fullscreen-toggle
 
-# tidying tool: pulls the focused client out of its frame (float +
-# center on screen, focus back to tiling); with a float on the tag,
-# an empty focused frame "drops" the float back in, a frame holding
-# clients just toggles focus to the floating layer (hc_floatx)
-keyreg $Mod-x               spawn ~/.local/bin/hc_floatx
+# float-unfocus (herbctl, the new Mod-x): from a focused float, un-float
+# it into the empty focused frame (curframe_wcount = 0) or hand focus
+# back to the tiling layer; from tiling, focus the float ONLY (no
+# un-float) and center it to root. hc_floatx — the old Mod-x register —
+# moves to ModCtrl-x verbatim.
+keyreg $Mod-x               spawn ~/.local/bin/herbctl float-unfocus
+keyreg $ModCtrl-x           spawn ~/.local/bin/hc_floatx
 
 
 # LAUNCHERS
