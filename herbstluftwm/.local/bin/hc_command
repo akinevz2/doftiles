@@ -10,8 +10,9 @@
 # and flags before the real submit.
 #
 # Selection handling:
-#   Shift-Return (kb-custom-1)  -> hc_launch "<selection>" — runs it in
-#                                  a temporary terminal (see hc_launch)
+#   Shift-Return (kb-custom-1)  -> launch_alacritty "<selection>" — runs
+#                                  it in a temporary terminal (see
+#                                  launch_alacritty)
 #   Return                      -> run silently: detached, output
 #                                  discarded (deliberately NOT via
 #                                  `hc spawn` — that applies window
@@ -42,7 +43,8 @@ herbctl first, then every PATH executable starting with: rofi_, hc_, hlwm
 
 Keymap:
   Return              run the selection silently (detached)
-  Shift-Return        run in a temporary floated terminal (hc_launch)
+  Shift-Return        run in a temporary floated terminal
+                      (launch_alacritty)
   Ctrl-Shift-Return   same, with --help appended to the command
   Ctrl-Return, Tab    complete the selection into the input
   Escape              cancel
@@ -94,17 +96,43 @@ list_commands() {
     # $HOME/.local/bin is ALWAYS scanned (prepended, then the PATH
     # dirs, deduped): the WM spawn env may lack it (systemd default
     # PATH), which left the palette permanently empty.
-    local dirs
-    dirs=$(printf '%s\n' "$HOME/.local/bin" ${PATH//:/ } | sort -u | tr '\n' ' ')
-    find -L ${dirs} -maxdepth 1 -type f -executable \
-        "${expr[@]}" -printf '%f\n' 2>/dev/null | sort -u
+    #
+    # PATH is split on colon ONLY (IFS=:): entries contain spaces
+    # ("Program Files"), and the old ${PATH//:/ } word-split shredded
+    # them into find errors.
+    #
+    # /mnt/* (the WSL interop Windows dirs systemd puts on every PATH)
+    # are SKIPPED: they are 9P-mounted, enumerating them stalls find
+    # for tens of seconds, and rofi_*/hc_*/hlwm* helpers can never live
+    # there. sort buffers until EOF, so one slow dir starves the whole
+    # pipeline — the palette opened showing only the pinned herbctl
+    # while find crawled /mnt/c (and every new Windows PATH entry made
+    # the crawl longer — this "broke again" twice).
+    local -a scandirs=()
+    local dir IFS=:
+    for dir in $PATH; do
+        [ -n "$dir" ] || continue      # empty element: find would scan CWD
+        case $dir in /mnt/*) continue ;; esac
+        scandirs+=("$dir")
+    done
+    local -a alldirs=()
+    mapfile -t alldirs < <(printf '%s\n' "$HOME/.local/bin" "${scandirs[@]}" | sort -u)
+    find -L "${alldirs[@]}" -maxdepth 1 -type f -executable \
+        "${expr[@]}" -printf '%f\n' 2>/dev/null | sort -u 2>/dev/null
+    # sort's stderr is discarded: when rofi exits early (Tab-complete,
+    # cancel) the pipe closes under a still-running sort — GNU sort
+    # traps the SIGPIPE and prints 'write failed: Standard output:
+    # Broken pipe', which hlwm's spawn surfaced as a dunst error. The
+    # enumeration side's fate is deliberately not counted (see below).
 }
 
 # --- the palette ---------------------------------------------------------
 # Keymap (rofi 2.0):
 #   Return              accept entry (or typed text) -> silent run
-#   Shift-Return        kb-custom-1                  -> hc_launch --floating
-#   Ctrl-Shift-Return   kb-custom-2                  -> hc_launch + --help
+#   Shift-Return        kb-custom-1                  -> launch_alacritty
+#                                                    --floating
+#   Ctrl-Shift-Return   kb-custom-2                  -> launch_alacritty
+#                                                    + --help
 #   Tab, Ctrl-Return    kb-custom-3/4                -> COMPLETE: re-open
 #                       the palette with the input pre-filled from the
 #                       highlighted entry, so arguments can be appended
@@ -153,10 +181,10 @@ while :; do
             ;;
         10)  # Shift-Return: run in the temporary terminal — floated, so
              # the palette's command output never disturbs the layout
-            exec hc_launch --floating "$sel"
+            exec launch_alacritty --floating "$sel"
             ;;
         11)  # Ctrl-Shift-Return: same, with --help appended
-            exec hc_launch --floating "$sel --help"
+            exec launch_alacritty --floating "$sel --help"
             ;;
         0)   # Return: run silently, detached, output discarded
             printf 'hc_command: %s\n' "$sel" >> "$LOG" 2>/dev/null || true
