@@ -34,6 +34,12 @@ ONDEPLOY_BIN    := $(HOME)/.local/bin/on-deploy
 # this Makefile and the on-deploy verbs it drives resolve bun/rustup
 # through the standard user toolchain dirs FIRST
 export PATH := $(HOME)/.bun/bin:$(HOME)/.cargo/bin:$(PATH)
+# the stow-deployed user bins belong on PATH for the checks: `missing()`
+# in on-deploy resolves on PATH only — ~/.local/bin must come first, or
+# every stow-deployed artifact (polyframes... the WM helper scripts)
+# reports MISSING and the platform resolver dead-ends (a SOURCE package
+# never resolves through <target>.deploy)
+export PATH := $(HOME)/.local/bin:$(PATH)
 ONDEPLOY_SUBMOD := $(CURDIR)/depends/.local/share/on-deploy# manifests (read by on-deploy, not by this Makefile)
 WM_PACKAGES_FILE := stows.required
 WM_PACKAGES      := $(shell grep -vi '^#' $(WM_PACKAGES_FILE))
@@ -47,7 +53,7 @@ F := $(if $(filter 1,$(FORCE)),-f,)
 DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 	.local/state/depends/$(1).Makefile
 
-.PHONY: depends bootstrap trust toolchain submodules bun rustup clean-upgrade configure \
+.PHONY: depends bootstrap trust toolchain submodules bun rustup clean-upgrade configure livereload \
 	depends-% \
 	on-deploy \
 	install all stow wm \
@@ -156,6 +162,7 @@ help:
 	@echo "  clean-upgrade  pull + submodule re-anchor + healing clean + rebuild + stow"
 	@echo "  install    configure + preserve + packages install (wm.required)"
 	@echo "  configure  the reconfiguration gate: TUI menu on a tty, else FORCE=1 or error"
+	@echo "  livereload restow unit pkgs, daemon-reload, per-unit reload"
 	@echo "  all/stow/wm/restow  stow the wm.required stack"
 	@echo "  stow-<pkg>/unstow-<pkg>  per-package stow/unstow (stow-depends...)"
 	@echo "  depends-<pkg>  ONE submodule: toolchain check + scoped walk"
@@ -337,6 +344,44 @@ depends-%:
 		exit 2; \
 	fi
 	$(ONDEPLOY_BIN) depends --install --only "$*" $(F)
+
+# herbst (Alias=x-window-manager) is a bulletproof reload: the WM binary
+# MUST NOT restart (only clean-upgrade may) — the reconfig goes through
+# herbstclient reload. dunst has ExecReload (dunstctl); compton and
+# hc_send-error-daemon only reload by restart; check-x-server is an
+# X-probe — never touched live.
+# NOTE systemd re-reads herbst/dunst ExecReload only after a reload of
+# the unit files — the restow + daemon-reload below happens BEFORE any
+# service reload.
+livereload: on-deploy
+	@$(ONDEPLOY_RUN) check
+	@units=$$(sed -e 's/#.*//' -e '/^[[:space:]]*$$/d' $(CURDIR)/services.required | tr -s ' \t' '\n' | grep -v '^$$'); \
+	pkgs=""; \
+	for u in $$units; do \
+		p=""; \
+		for t in $(CURDIR)/*/.config/systemd/user/$$u.service; do \
+			[ -e "$$t" ] || continue; \
+			d=$${t#$(CURDIR)/}; p=$${d%%/*}; \
+		done; \
+		[ -n "$$p" ] && pkgs="$$pkgs $$p" || echo "livereload: no unit $$u"; \
+	done; \
+	pkgs=$$(tr ' ' '\n' <<< "$$pkgs" | sort -u | tr '\n' ' '); \
+	echo "livereload: restow $$pkgs"; \
+	$(ONDEPLOY_RUN) stow --only "$$pkgs" || exit 1; \
+	systemctl --user daemon-reload 2>/dev/null || true; \
+	for u in $$units; do \
+		case $$u in \
+			herbst) \
+				DISPLAY=$${DISPLAY:-localhost:0.0} herbstclient reload 2>/dev/null \
+					&& echo "herbst: reloaded (binary kept)" \
+					|| echo "herbst: no WM? reload FAIL" >&2;; \
+			check-x-server) :;; \
+			*) \
+				systemctl --user try-reload-or-restart --no-block $$u 2>/dev/null \
+					&& echo "$$u: reload" \
+					|| echo "$$u: reload FAIL" >&2;; \
+		esac; \
+	done
 
 # on-deploy housekeeping verbs stay one call away:
 #   $(ONDEPLOY_BIN) preserve <pkg> ...   conflict-safe restow

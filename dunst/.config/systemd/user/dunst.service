@@ -17,6 +17,9 @@ UnsetEnvironment=WAYLAND_DISPLAY
 ExecStart=/usr/bin/dunst
 Restart=on-failure
 RestartSec=3
+# dunstctl reload (SIGHUP successor): dunst re-reads its config in
+# process — the daemon keeps its D-Bus name and notifications queue
+ExecReload=/usr/bin/dunstctl reload
 
 [Install]
 WantedBy=default.target

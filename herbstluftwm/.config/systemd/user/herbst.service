@@ -23,6 +23,11 @@ ExecStart=/usr/bin/herbstluftwm
 Restart=on-failure
 RestartSec=3
 
+# the WM reload doctrine: `herbstclient reload` re-reads the autostart
+# IN PROCESS — the binary (and every client window) survives; a binary
+# restart belongs to clean-upgrade only
+ExecReload=/bin/sh -c 'exec /usr/bin/herbstclient reload'
+
 [Install]
 WantedBy=default.target
 # PROVIDES x-window-manager.service (alias pattern, see
