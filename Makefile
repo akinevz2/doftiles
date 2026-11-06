@@ -250,23 +250,34 @@ status: on-deploy
 	fi
 
 # update — the safe pull directly in the repo: fetch + fast-forward
-# (fallback --rebase --autostash), submodule sync, then UNCONDITIONALLY
-# rebuild + install the binary from the freshly pulled submodule (a
-# stale installed binary may predate the `depends` verb; also, a pull
-# must land a fresh binary), and finally the per-package depends
-# Makefiles — with the on-deploy artifact SKIPPED in them (already
-# fresh; SKIP_ONDEPLOY is understood by the package Makefiles).
+# (fallback --rebase --autostash), submodule sync, then the BOOTSTRAP
+# chain (it reaches bat through the toolchain recipes — an update on a
+# machine where bun/rustup dropped out or rustup lost its default
+# toolchain can no longer dead-end mid-walk: bun/rustup recipes ensure
+# them first, the same way `make bootstrap` does). SKIP_ONDEPLOY=1 in
+# the walk keeps the on-deploy artifact out of the adapters (already
+# fresh from the unconditional rebuild).
 update:
 	git fetch
 	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
 	git submodule sync
 	git submodule update --init --recursive
+	# toolchain assurance ONLY when the check says missing: the recipes'
+	# sudo prerequisite is skipped entirely on a healthy machine (a
+	# headless update must not demand a root grant for a no-op)
+	@$(ONDEPLOY_BIN) toolchain --bun --check || $(SELF) bun FORCE=$(FORCE)
+	@$(ONDEPLOY_BIN) toolchain --rustup --check || $(SELF) rustup FORCE=$(FORCE)
 	$(SELF) on-deploy
 	@SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(F) || { \
 		if [ -n "$(F)" ]; then \
 			echo "update: FORCE=1 — repo stow failed; unstowing before retry"; \
-			$(ONDEPLOY_BIN) unstow $(F); \
+			$(ONDEPLOY_RUN) unstow $(F); \
+			systemctl --user daemon-reload 2>/dev/null || true; \
+			echo "update: the daemon reloaded over the unstow — the user units (herbst|compton|dunst...) leave the manager until the retry restows them; NOTHING is restarted here (the running session must survive a deploy)"; \
 			SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(F); \
+			systemctl --user daemon-reload 2>/dev/null || true; \
+			units=$$(sed -e 's/#.*//' -e '/^[[:space:]]*$$/d' $(CURDIR)/services.required | tr -s ' \t' '\n' | grep -v '^$$'); \
+			for u in $$units; do systemctl --user enable --no-block "$$u" 2>/dev/null || true; done; \
 		else \
 			echo "update: stow failed — rerun with FORCE=1 to unstow and retry" >&2; \
 			exit 1; \
