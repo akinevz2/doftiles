@@ -159,11 +159,14 @@ depends`); `services.required` (unit start order).
   `check-x-server.service` carries StartLimitIntervalSec/Burst so a
   missing X server cannot spin its Restart=on-failure probe loop
   forever.
-- `make update` — the safe pull directly in the repo: fetch +
+- `make update` — the SAFE PULL, pinned-local (2026-11 revision): fetch +
   fast-forward (fallback `git pull --rebase --autostash`), submodule
-  sync, then `on-deploy depends --install` — which rebuilds the
-  on-deploy binary UNCONDITIONALLY as its first artifact, so a pulled
-  submodule always lands a fresh binary.
+  sync + update (RECORDED pins, no `--remote`), toolchain check, then
+  the on-deploy binary rebuild (unconditional — a pulled submodule must
+  land a fresh binary). It does NOT run the per-submodule installs:
+  the checkouts come local, artifacts untouched — so a chained
+  `make update install` runs the install step EXACTLY ONCE. For a
+  pull-with-install: `make update install` (two make goals, sequential).
 
 ## The per-package depends Makefile scheme (2026-11)
 
@@ -239,7 +242,11 @@ the relevant unit.
   --install` never confirm; `make install` gates nothing on a tty —
   the TUI wizard branch stays TTY-only (non-interactive runs keep the
   recorded config and apply it), preserve auto-keeps conflicts,
-  per-package rules run straight.
+  per-package rules run straight. `make install` opens the configure
+  wizard ONLY on a clean-install, when a required file is
+  modified/conflicting post-rebase, or when `doftiles.conf` carries
+  changes (the RECONFIGURE_REASON gate) — otherwise the recorded
+  config is applied and configure prints `skipped`.
 - **The honest exception**: anything shelling through sudo or a
   platform `<target>.deploy` script needs passwordless sudo (or an
   interactive TTY) — inherent to system-package installation, not an

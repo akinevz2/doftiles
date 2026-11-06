@@ -48,6 +48,21 @@ WM_PACKAGES      := $(shell grep -vi '^#' $(WM_PACKAGES_FILE))
 # recovers from stow conflicts (repo unstow, then retry)
 F := $(if $(filter 1,$(FORCE)),-f,)
 
+# WHEN CONFIGURE RUNS (the install target): only on a CLEAN-INSTALL (no
+# recorded doftiles.conf yet), when a required manifest/recorded-conf
+# file is modified or conflicting (post-rebase UU/DD noise included),
+# or when a rebase is still mid-flight. Otherwise the recorded
+# configuration suffices and configure is SKIPPED (the wizard would
+# otherwise re-open on every install).
+RECONFIGURE_REASON := $(shell cd "$(CURDIR)" && \
+	if [ ! -f "$$HOME/.config/doftiles.conf" ]; then \
+		echo clean-install; \
+	elif [ -n "$$(git status --porcelain -- stows.required wm.required system.required services.required depends/.config/doftiles.conf)" ]; then \
+		echo required-files-modified-or-conflicting; \
+	elif [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then \
+		echo rebase-in-progress; \
+	fi)
+
 # the per-package depends Makefile of a stow package (make -f; the
 # 2026-11 scheme) — run from the package directory
 DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
@@ -203,7 +218,13 @@ submodules:
 #   make depends bootstrap install
 install: on-deploy
 	@set -e; \
-	ONDEPLOY_INSTALL_CHAIN=1 $(ONDEPLOY_BIN) configure; \
+	reason='$(RECONFIGURE_REASON)'; \
+	if [ -n "$$reason" ]; then \
+		echo "install: configure ($$reason)"; \
+		ONDEPLOY_INSTALL_CHAIN=1 $(ONDEPLOY_BIN) configure; \
+	else \
+		echo "install: configure skipped (config recorded; manifests clean — 'on-deploy configure' to edit)"; \
+	fi; \
 	rc=$$?; \
 	if [ $$rc -eq 130 ]; then exit 130; elif [ $$rc -ne 0 ]; then echo "install: configure FAILED — continuing (recorded config kept)"; fi; \
 	$(ONDEPLOY_BIN) preserve --only "$(WM_PACKAGES)"; \
@@ -269,27 +290,17 @@ update:
 	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
 	git submodule sync
 	git submodule update --init --recursive
+	# NO submodule installs here (pinned checkouts only): modules get
+	# synced/local, nothing is built or deployed — so a chained
+	# `make update install` does not run the install step twice. The
+	# on-deploy binary IS rebuilt (fresh source must land a fresh
+	# binary); everything else installs via the explicit targets.
 	# toolchain assurance ONLY when the check says missing: the recipes'
 	# sudo prerequisite is skipped entirely on a healthy machine (a
 	# headless update must not demand a root grant for a no-op)
 	@$(ONDEPLOY_BIN) toolchain --bun --check || $(SELF) bun FORCE=$(FORCE)
 	@$(ONDEPLOY_BIN) toolchain --rustup --check || $(SELF) rustup FORCE=$(FORCE)
 	$(SELF) on-deploy
-	@SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(F) || { \
-		if [ -n "$(F)" ]; then \
-			echo "update: stow failed; unstow+retry"; \
-			$(ONDEPLOY_RUN) unstow $(F); \
-			systemctl --user daemon-reload 2>/dev/null || true; \
-			echo "update: unstow done; units reload; no restart"; \
-			SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(F); \
-			systemctl --user daemon-reload 2>/dev/null || true; \
-			units=$$(sed -e 's/#.*//' -e '/^[[:space:]]*$$/d' $(CURDIR)/services.required | tr -s ' \t' '\n' | grep -v '^$$'); \
-			for u in $$units; do systemctl --user enable --no-block "$$u" 2>/dev/null || true; done; \
-		else \
-			echo "update: stow failed; rerun FORCE=1" >&2; \
-			exit 1; \
-		fi; \
-	}
 
 # clean-upgrade — the LAYOUT-HEAL upgrade (2026-11): the full sequence for
 # a machine whose on-disk deployment predates the CURRENT layout (the
