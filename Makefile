@@ -73,7 +73,7 @@ DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 	on-deploy \
 	install all stow wm \
 	restow unstow clean status services-check services-start \
-	services-stop restart update help
+	services-stop restart update help add-packages
 
 # ── depends ────────────────────────────────────────────────────────────
 # PHASE 1 of the bootstrap: submodules at their recorded pins, then the
@@ -123,18 +123,18 @@ bootstrap: depends bun rustup
 # UPFRONT (a clean TTY before anything runs) and ERRORS OUT (never
 # hangs) when it cannot be obtained — sudo-via-make fails on purpose.
 bun:
-	@$(SELF) sudo
 	@if $(ONDEPLOY_BIN) toolchain --bun --check; then \
 		echo "bun: present (skip)"; \
 	else \
+		$(SELF) sudo || exit 1; \
 		$(ONDEPLOY_BIN) toolchain --bun --yes $(F); \
 	fi
 
 rustup:
-	@$(SELF) sudo
 	@if $(ONDEPLOY_BIN) toolchain --rustup --check; then \
 		echo "rustup: present (skip)"; \
 	else \
+		$(SELF) sudo || exit 1; \
 		$(ONDEPLOY_BIN) toolchain --rustup --yes $(F); \
 	fi
 
@@ -143,21 +143,6 @@ rustup:
 # logic lives in the herbstutil adapter (it owns the artifact).
 trust:
 	@$(MAKE) $(call DEPS_MAKEFILE,herbstutil) trust-local trust-global
-
-# credentials — regenerate the env exports ARTIFACT
-# (dots/shell/.my-credentials-env, gitignored; deployed to $HOME by
-# stowing the shell package) from the persistent ~/.my-credentials
-# (the last stage of bootstrap). Reminds instead of hard-failing when
-# the persistent file is missing — a fresh machine bootstraps without
-# an identity until configure-credentials runs interactively.
-credentials:
-	@if [ -f "$$HOME/.my-credentials" ]; then \
-		$(HOME)/.local/bin/configure-credentials --regen || exit 1; \
-		$(HOME)/.local/bin/load-credentials || true; \
-		$(SELF) stow-shell; \
-	else \
-		echo "credentials: $$HOME/.my-credentials missing — run 'configure-credentials' in a terminal to set up name/email"; \
-	fi
 
 # toolchain — the language toolchains alone (the migrated flow: run
 # after make depends): composed of the per-toolchain verbs, BOTH
@@ -192,7 +177,6 @@ help:
 	@echo "  rustup     ensure the rustup toolchain: --check query first, sudo-gated"
 	@echo "      install when absent"
 	@echo "  trust      the bun postinstall policy steps (herbstutil package)"
-	@echo "  credentials  regenerate the env artifact + apply the git identity"
 	@echo "  toolchain  depends + both toolchain recipes (each --check first)"
 	@echo "  configure  the reconfiguration gate: TUI menu on a tty, else"
 	@echo "      FORCE=1 or error"
@@ -218,8 +202,18 @@ help:
 	@echo "  services-start  on-deploy services start"
 	@echo "  services-stop  on-deploy services stop"
 	@echo "  restart    on-deploy services restart"
+	@echo "  add-packages  the wm.required binary walk: verify + install the"
+	@echo "      missing (YES=1 headless; sudo grant on a tty)"
 	@echo "knobs:"
 	@echo "  FORCE=1    the non-interactive + fail-safe knob (retry after unstow)"
+
+# add-packages — the wm.required requirement walk: verify every binary,
+# install the MISSING ones through the <target>.deploy protocol (the
+# package resolution is the deploy script's; sudo prompts on a tty).
+# Headless: YES=1 installs without confirmations (still needs the sudo
+# grant); without it the walk fails fast listing the missing binaries.
+add-packages:
+	@$(ONDEPLOY_BIN) install $(if $(YES),--yes)
 
 # ── on-deploy itself ──────────────────────────────────────────────────
 # on-deploy — ALWAYS rebuilds dots/on-deploy/.local/bin/on-deploy from the
@@ -370,7 +364,6 @@ clean-upgrade:
 	@$(SELF) on-deploy
 	@$(SELF) configure
 	@$(SELF) stow
-	@$(SELF) credentials
 
 # depends-% — ONE submodule package install (make depends-bat,
 # depends-herbctl, depends-herbstutil, depends-polyframes — any

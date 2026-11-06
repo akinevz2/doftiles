@@ -14,6 +14,14 @@ if [ "$1" == "install" ]; then
     BINARY_NAME="$2"
 fi
 
+# binary -> apt-package aliases: the PACKAGE name may differ from the
+# BINARY name it ships — the apt-cache substring heuristic below can
+# never find those (no package is a substring of the short binary
+# name), so map them explicitly. rg ships in 'ripgrep'.
+case "$BINARY_NAME" in
+    rg) BINARY_NAME="ripgrep" ;;
+esac
+
 # b) Find the package that contains the binary using apt-cache
 # We need to read lines as complete entities, not split on whitespace
 PKGS=()
