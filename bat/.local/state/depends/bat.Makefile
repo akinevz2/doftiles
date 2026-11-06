@@ -85,7 +85,7 @@ link:
 
 # ── toolchain (defer) ───────────────────────────────────────────────────
 toolchain:
-	@$(ONDEPLOY) toolchain --rustup
+	@$(ONDEPLOY) toolchain --rustup --check || $(ONDEPLOY) toolchain --rustup $(if $(FORCE),--yes,) $(if $(FORCE),-f,)
 
 # ── the upstream release route (package-specific steps) ────────────────
 install-release: release-tag release-fetch release-extract release-link
