@@ -163,9 +163,13 @@ up to date — `herbctl`/`polyframes` `compile` (standalone recompiles,
 + `bunli.config.ts`; `polyframes` `bun-hooks` skips when
 `node_modules/bun/bin/bun.exe` already exists; `herbstutil` `link-src`
 skips the global `bun add -g` when the globally installed version
-matches the checkout's. `FORCE=1` forces every one of them. bun.lock
-is deliberately excluded from the freshness sets (bun install touches
-its mtime on no-change runs).
+matches the checkout's; the `depends` bootstrap build skips when the
+on-deploy artifact is fresher than the checkout (a pull updates source
+mtimes, so pulled changes still land a fresh binary). `FORCE=1` forces
+every one of them. bun.lock is deliberately excluded from the
+freshness sets (bun install touches its mtime on no-change runs).
+Wall-clock effect: `make install` 35.7 s → 10.3 s, `make status`
+13.3 s → 3.1 s.
 
 ## Deployment doctrine
 

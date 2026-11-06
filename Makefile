@@ -228,13 +228,13 @@ add-packages:
 	@$(ONDEPLOY_BIN) install $(if $(YES),--yes)
 
 # ── on-deploy itself ──────────────────────────────────────────────────
-# on-deploy — ALWAYS rebuilds dots/on-deploy/.local/bin/on-deploy from the
-# submodule checkout (dots/on-deploy/.local/share/on-deploy; bun through
-# npm when bun itself is missing),
-# then DEPLOYS the depends package (a pull must land a fresh binary
-# even when a stale one is installed).
+# on-deploy — rebuilds dots/on-deploy/.local/bin/on-deploy from the
+# submodule checkout WHEN THE CHECKOUT IS FRESHER than the artifact
+# (a pull updates the source mtimes, so pulled changes always land a
+# fresh binary; FORCE=1 forces). The depends package hosts the
+# bootstrap build; the adapter build + stow ride on every invocation.
 on-deploy:
-	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile install FORCE=1
+	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile install FORCE=$(FORCE)
 	@# the omitted recipe was stow-on-deploy: on a fresh clone (the
 	@# force-upgrade flow) nothing is stowed yet — the fresh binary sits
 	@# at dots/on-deploy/.local/bin/on-deploy with NO ~/.local/bin link;

@@ -62,11 +62,19 @@ deps-install: deps-dir
 	@env TMPDIR="$(SUB_DIR)/node_modules/.tmp" bun install --cwd "$(SUB_DIR)"
 
 compile:
-	@cd "$(SUB_DIR)" && bun x bunli build --targets linux-x64 --minify
+	@if [ "$(FORCE)" = "1" ] || [ ! -x "$(ARTIFACT)" ] || \
+	   find "$(SUB_DIR)/src" "$(SUB_DIR)/package.json" "$(SUB_DIR)/bunli.config.ts" \
+	        -newer "$(ARTIFACT)" 2>/dev/null | grep -q .; then \
+		cd "$(SUB_DIR)" && bun x bunli build --targets linux-x64 --minify; \
+	else \
+		echo "on-deploy: up to date (FORCE=1 to rebuild)"; \
+	fi
 
 rename-artifact:
-	@mv -f "$(SUB_DIR)/dist/index" "$(SUB_DIR)/dist/on-deploy"
-	@rm -f "$(SUB_DIR)/dist/index.js.map"
+	@if [ -f "$(SUB_DIR)/dist/index" ]; then \
+		mv -f "$(SUB_DIR)/dist/index" "$(SUB_DIR)/dist/on-deploy"; \
+		rm -f "$(SUB_DIR)/dist/index.js.map"; \
+	fi
 
 link:
 	@mkdir -p "$(LINK)"
