@@ -369,10 +369,13 @@ livereload: on-deploy
 	echo "livereload: restow $$pkgs"; \
 	$(ONDEPLOY_RUN) stow --only "$$pkgs" || exit 1; \
 	systemctl --user daemon-reload 2>/dev/null || true; \
+	DISP=$$($(ONDEPLOY_RUN) detect-server --dry-run 2>/dev/null || true); \
+	DISP=$${DISP:-localhost:0.0}; \
+	export DISPLAY=$$DISP; \
 	for u in $$units; do \
 		case $$u in \
 			herbst) \
-				DISPLAY=$${DISPLAY:-localhost:0.0} herbstclient reload 2>/dev/null \
+				herbstclient reload 2>/dev/null \
 					&& echo "herbst: reloaded (binary kept)" \
 					|| echo "herbst: no WM? reload FAIL" >&2;; \
 			check-x-server) :;; \
