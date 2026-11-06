@@ -22,6 +22,9 @@ REPO_URL := https://github.com/sharkdp/bat
 ASSET_ARCH := x86_64-unknown-linux-gnu
 ONDEPLOY := $(SYSBIN)/on-deploy
 
+TOOLCHAIN_BINDIR := $(HOME)/.cargo/bin
+export PATH := $(TOOLCHAIN_BINDIR):$(PATH)
+
 FORCE ?=
 DRY   ?=
 M     ?=
@@ -57,7 +60,9 @@ uninstall:
 	@rm -f "$(ARTIFACT)"
 
 # ── the source route composed through steps (GNU make: deps chain) ─────
-install-source: build link
+# ── the source route composed through steps (the toolchain includes
+# ── itself: install-source brings the rust toolchain via on-deploy) ────
+install-source: toolchain build link
 
 build: sync checkout pull compile
 
@@ -75,8 +80,9 @@ compile:
 	@cd "$(SUB_DIR)" && cargo build --release --locked --quiet
 
 link:
-	@install -m 755 "$(SUB_DIR)/target/release/bat" "$(ARTIFACT)"; \
-	echo "bat: linked $(ARTIFACT)"
+	@mkdir -p "$(LINK)"
+	@ln -f "$(SUB_DIR)/target/release/bat" "$(ARTIFACT)"
+	@echo "bat: linked $(ARTIFACT)"
 
 # ── toolchain (defer) ───────────────────────────────────────────────────
 toolchain:
@@ -113,7 +119,7 @@ release-extract:
 	@cd "$(RELEASE)" && rm -rf bat-v* && tar -xzf bat.tar.gz && rm -f bat.tar.gz
 
 release-link:
-	@install -m 755 "$(RELEASE)/bat-v*/bat" "$(ARTIFACT)"; \
+	@ln -f "$(RELEASE)/bat-v*/bat" "$(ARTIFACT)"; \
 	echo "bat: linked $(ARTIFACT)"
 
 # ── the package metadata: one config item per recipe (value only!), ────

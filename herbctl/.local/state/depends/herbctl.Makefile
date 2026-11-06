@@ -17,6 +17,9 @@ ARTIFACT := $(LINK)/herbctl
 SYSBIN   := $(HOME)/.local/bin
 ONDEPLOY := $(SYSBIN)/on-deploy
 
+TOOLCHAIN_BINDIR := $(HOME)/.bun/bin
+export PATH := $(TOOLCHAIN_BINDIR):$(PATH)
+
 FORCE ?=
 DRY   ?=
 M     ?=
@@ -69,7 +72,7 @@ rename-artifact:
 
 link:
 	@mkdir -p "$(LINK)"
-	@install -m 755 "$(SUB_DIR)/dist/herbctl" "$(ARTIFACT)"
+	@ln -f "$(SUB_DIR)/dist/herbctl" "$(ARTIFACT)"
 	@echo "herbctl: linked $(ARTIFACT)"
 
 # ── toolchain (defer) ───────────────────────────────────────────────────

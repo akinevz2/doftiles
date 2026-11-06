@@ -19,6 +19,9 @@ ARTIFACT := $(LINK)/polyframes
 SYSBIN   := $(HOME)/.local/bin
 ONDEPLOY := $(SYSBIN)/on-deploy
 
+TOOLCHAIN_BINDIR := $(HOME)/.bun/bin
+export PATH := $(TOOLCHAIN_BINDIR):$(PATH)
+
 FORCE ?=
 DRY   ?=
 M     ?=
@@ -73,7 +76,7 @@ compile:
 
 link:
 	@mkdir -p "$(LINK)"
-	@install -m 755 "$(SUB_DIR)/dist/polyframes" "$(ARTIFACT)"
+	@ln -f "$(SUB_DIR)/dist/polyframes" "$(ARTIFACT)"
 	@echo "polyframes: linked $(ARTIFACT)"
 
 # ── toolchain (defer) ───────────────────────────────────────────────────

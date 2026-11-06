@@ -5,7 +5,7 @@
 	path = herbstutil/.local/share/herbstutil
 	url = https://github.com/akinevz2/herbstutil
 [submodule "depends/.local/share/on-deploy"]
-	path = on-deploy/.local/share/on-deploy
+	path = depends/.local/share/on-deploy
 	url = https://github.com/akinevz2/on-deploy.git
 [submodule "depends/.local/share/herbctl"]
 	path = herbctl/.local/share/herbctl

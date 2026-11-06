@@ -6,5 +6,4 @@
 bat bat/.local/share/bat-src
 herbctl herbctl/.local/share/herbctl
 herbstutil herbstutil/.local/share/herbstutil
-on-deploy on-deploy/.local/share/on-deploy
 polyframes polyframes/.local/share/polyframes

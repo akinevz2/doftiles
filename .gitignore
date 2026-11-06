@@ -8,7 +8,7 @@ shell/.cache/
 herbctl/.local/bin/herbctl
 polyframes/.local/bin/polyframes
 bat/.local/bin/bat
-on-deploy/.local/bin/on-deploy
+depends/.local/bin/on-deploy
 herbstutil/.local/bin/
 vim/.vim/bundle/
 vim/.vim/.netrwhist

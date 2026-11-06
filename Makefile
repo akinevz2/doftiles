@@ -1,15 +1,16 @@
 # dots — delegation-only Makefile.
 #
 # Every target here is a SHORT sequence of on-deploy commands (the
-# exceptions build the on-deploy binary itself — it cannot exist before
-# it runs: `_build-on-deploy` (the unconditional rebuild) and
-# `_bootstrap-on-deploy` (install it only when missing)). All procedural
-# deployment logic lives in the on-deploy binary
-# (depends/.local/share/on-deploy, installed to ~/.local/bin/on-deploy);
-# installing the SUBMODULES is a package concern: each stow package with
-# submodules owns its recipes in
+# exception builds the on-deploy binary itself — it cannot exist before
+# it runs: the depends PACKAGE hosts the bootstrap deployable
+# (dots/depends/.local/state/depends/depends.Makefile; the adapter's
+# bun-ensure goes through npm and the source route runs entirely
+# locally). All procedural deployment logic lives in the on-deploy
+# binary (built from depends/.local/share/on-deploy, installed to
+# ~/.local/bin/on-deploy); installing the SUBMODULES is a package
+# concern: each stow package owns its recipes in
 # dots/<pkg>/.local/state/depends/<pkg>.Makefile, driven by
-# `on-deploy depends --build|--install` (the `deps` target).
+# `on-deploy depends --build|--install` (the `depends` target).
 #
 # The verbs (on-deploy --help):
 #   check search install pkg configure packages
@@ -23,7 +24,7 @@ MAKE   := make
 SELF   := $(MAKE) --no-print-directory
 
 ONDEPLOY_BIN    := $(HOME)/.local/bin/on-deploy
-ONDEPLOY_SUBMOD := $(CURDIR)/on-deploy/.local/share/on-deploy# manifests (read by on-deploy, not by this Makefile)
+ONDEPLOY_SUBMOD := $(CURDIR)/depends/.local/share/on-deploy# manifests (read by on-deploy, not by this Makefile)
 WM_PACKAGES_FILE := stows.required
 WM_PACKAGES      := $(shell grep -vi '^#' $(WM_PACKAGES_FILE))
 
@@ -36,35 +37,26 @@ Y := $(if $(filter 1,$(FORCE)),-y,)
 DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 	.local/state/depends/$(1).Makefile
 
-.PHONY: bootstrap trust toolchain deps submodules \
-	_bootstrap-on-deploy _build-on-deploy \
+.PHONY: depends trust toolchain submodules \
+	build-on-deploy \\
 	install all stow wm \
 	restow unstow clean status services-check services-start \
 	services-stop restart update
 
-# ── bootstrap ─────────────────────────────────────────────────────────
-# DEPLOY ON-DEPLOY TO THE SYSTEM, nothing else — the delegation seed:
-#   submodules            the dependency checkouts, at their remote tips
-#   _bootstrap-on-deploy  install the binary when missing (fresh
-#                         systems; bun is bootstrapped through npm
-#                         inside the build when neither bun nor the
-#                         platform provide it)
-#   stow depends          the package lands in $HOME (the on.deploy
-#                         shim + the install/ deploy scripts the
-#                         binary's own machinery needs)
-#   trust                 the bun-submodule trust steps (delegates to
-#                         the depends package Makefile)
-# A FULL deployment is the explicit chain now:
-#   make bootstrap toolchain deps install
-bootstrap: submodules
-	@$(SELF) _bootstrap-on-deploy
+# ── depends ────────────────────────────────────────────────────────────
+# THE bootstrap + deps chain, merged: submodules at their recorded
+# pins -> the bootstrap deployable (depends.Makefile: bun-ensure
+# through npm + build + link; the router swaps + stows the depends
+# package) -> the configured system.required walk (sync at pins +
+# per-package Makefiles) -> the bun trust steps.
+depends: submodules
 	@command -v stow >/dev/null 2>&1 || { \
-		echo "bootstrap: GNU stow missing — install stow (pacman -S stow / apt install stow)" >&2; \
+		echo "depends: GNU stow missing — install stow (pacman -S stow / apt install stow)" >&2; \
 		exit 2; \
 	}
-	stow -R -t "$(HOME)" depends
+	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile install FORCE=1
 	@$(SELF) trust
-	@echo "bootstrap: on-deploy deployed (full deploy: 'make toolchain deps install')"
+	$(ONDEPLOY_BIN) depends --install $(Y)
 
 # trust — the bun postinstall policy steps for every checked-out bun
 # submodule: per-checkout local trust + the global untrusted set. The
@@ -73,52 +65,17 @@ trust:
 	@$(MAKE) $(call DEPS_MAKEFILE,herbstutil) trust-local trust-global
 
 # toolchain — the language toolchains: on-deploy installs the tools the
-# per-package Makefiles build with (bun here for starters) and
-# everything else the `deps` flow needs is delegation now.
-toolchain: bootstrap
+# per-package Makefiles build with (bun here for starters).
+toolchain: depends
 	$(ONDEPLOY_BIN) toolchain --bun $(Y)
 
-# deps — the manifests must exist, then on-deploy drives the per-package
-# depends Makefiles: `depends --install` = sync the submodules, build,
-# and install (on-deploy depends --build for sync+build only).
-deps: toolchain
-	@if ! ls -l $(WM_PACKAGES_FILE) wm.required system.required services.required; then \
-		exit 1; \
-	fi
-	$(ONDEPLOY_BIN) depends --install $(Y)
-
 # ── on-deploy itself ──────────────────────────────────────────────────
-# _build-on-deploy — ALWAYS rebuilds ~/.local/bin/on-deploy from the
-# submodule checkout (bun through npm when bun itself is missing), then
-# installs the binary. `_bootstrap-on-deploy` skips it when the binary
-# already exists; the depends Makefile's on-deploy artifact calls it
-# UNCONDITIONALLY (a submodule pull must land a fresh binary even when
-# a stale one is installed).
-_build-on-deploy:
-	@if [ ! -f "$(ONDEPLOY_SUBMOD)/src/index.ts" ]; then \
-		echo "on-deploy: submodule checkout missing — run 'make submodules' first" >&2; \
-		exit 1; \
-	fi; \
-	if ! command -v bun >/dev/null 2>&1; then \
-		if ! command -v npm >/dev/null 2>&1; then \
-			echo "on-deploy: neither bun nor npm found — install node/npm first (arch: pacman -S npm)" >&2; \
-			exit 1; \
-		fi; \
-		echo "on-deploy: bun missing — installing through npm"; \
-		npm install --global bun; \
-	fi; \
-	$(MAKE) -C "$(CURDIR)/on-deploy" --no-print-directory \
-		-f .local/state/depends/on-deploy.Makefile install FORCE=1
-
-# _bootstrap-on-deploy — the delegation target seeded by bootstrap:
-# installs the binary ONLY when missing (fresh systems), leaving the
-# pull-refresh rebuilds to the depends Makefile's on-deploy artifact.
-_bootstrap-on-deploy:
-	@if [ -x "$(ONDEPLOY_BIN)" ]; then \
-		echo "on-deploy: $(ONDEPLOY_BIN) deployed already — skipping"; \
-		exit 0; \
-	fi; \
-	$(SELF) _build-on-deploy
+# build-on-deploy — ALWAYS rebuilds ~/.local/bin/on-deploy from the
+# submodule checkout (bun through npm when bun itself is missing),
+# then installs it: a pull must land a fresh binary even when a stale
+# one is installed.
+build-on-deploy:
+	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile install FORCE=1
 
 # submodules — ensure every dependency subrepo is initialized AND at
 # its remote tip (--remote): the depends components build and the
@@ -134,7 +91,7 @@ submodules:
 # ONLY the packages manifested in wm.required. The SUBMODULES are
 # deployed by `deps` (on-deploy depends --install) — target order:
 #   make bootstrap toolchain deps install
-install: _bootstrap-on-deploy
+install: build-on-deploy
 	@set -e; \
 	$(ONDEPLOY_BIN) configure; \
 	rc=$$?; \
@@ -144,28 +101,28 @@ install: _bootstrap-on-deploy
 	$(SELF) status
 
 # all / stow / wm — restow the wm.required stack (stow -R per package)
-all stow wm restow: _bootstrap-on-deploy
+all stow wm restow: build-on-deploy
 	@$(ONDEPLOY_BIN) stow --only "$(WM_PACKAGES)"
 
 # unstow / clean — remove the links (the user's real files stay)
-unstow clean: _bootstrap-on-deploy
+unstow clean: build-on-deploy
 	@$(ONDEPLOY_BIN) unstow --only "$(WM_PACKAGES)"
 
 # ── services (the services.required manifest, driven by on-deploy) ────────
-services-check: _bootstrap-on-deploy
+services-check: build-on-deploy
 	@$(ONDEPLOY_BIN) services check
 
-services-start: _bootstrap-on-deploy
+services-start: build-on-deploy
 	@$(ONDEPLOY_BIN) services start
 
-services-stop: _bootstrap-on-deploy
+services-stop: build-on-deploy
 	@$(ONDEPLOY_BIN) services stop
 
-restart: _bootstrap-on-deploy
+restart: build-on-deploy
 	@$(ONDEPLOY_BIN) services restart
 
 # ── reporting / maintenance ───────────────────────────────────────────
-status: _bootstrap-on-deploy
+status: build-on-deploy
 	@-$(ONDEPLOY_BIN) check
 	@$(ONDEPLOY_BIN) services status
 	@if [ ! -f "$(HOME)/.my-credentials" ]; then \
@@ -184,7 +141,7 @@ update:
 	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
 	git submodule sync
 	git submodule update --init --recursive
-	$(SELF) _build-on-deploy
+	$(SELF) build-on-deploy
 	@SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(Y) || { \
 		if [ -n "$(Y)" ]; then \
 			echo "update: FORCE=1 — repo stow failed; unstowing before retry"; \
