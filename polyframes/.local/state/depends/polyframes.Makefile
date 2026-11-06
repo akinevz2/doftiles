@@ -66,17 +66,36 @@ deps-dir:
 deps-install: deps-dir
 	@env TMPDIR="$(SUB_DIR)/node_modules/.tmp" bun install --cwd "$(SUB_DIR)"
 
-# one logical operation: run the nested bun's install hook (bun skips
-# postinstalls on fresh installs; idempotent, this IS a package step)
+# bun-hooks — freshness guard: the nested bun postinstall's ENTIRE job
+# is linking the platform binary into node_modules/bun/bin/ (bun skips
+# postinstalls on fresh installs; this IS the insurance step). When
+# bun.exe is already present the hook has nothing to do — skip the
+# ~6s node/install.js run. FORCE=1 forces.
+#
 # MUST run with cwd = the checkout: bun's install.js resolves its
 # fallback paths (node_modules/@oven/...) RELATIVE TO CWD — from the
 # package root it leaks a node_modules/ there, which stow then folds
 # into $HOME (the 2026-11-06 recurrence)
 bun-hooks:
-	@cd "$(SUB_DIR)" && node node_modules/bun/install.js 2>/dev/null || { echo "polyframes: node missing — the nested bun install hook was skipped" >&2; exit 1; }
+	@if [ "$(FORCE)" = "1" ] || [ ! -x "$(SUB_DIR)/node_modules/bun/bin/bun.exe" ]; then \
+		cd "$(SUB_DIR)" && node node_modules/bun/install.js 2>/dev/null || \
+			{ echo "polyframes: node missing — the nested bun install hook was skipped" >&2; exit 1; }; \
+	else \
+		echo "polyframes: bun install hook up to date (FORCE=1 to re-run)"; \
+	fi
 
+# compile — freshness guard: skip the ~133MB standalone recompile when
+# dist/polyframes is newer than every input (src/, package.json,
+# bunli.config.ts). FORCE=1 forces. bun.lock is deliberately excluded
+# (bun install touches its mtime on no-change runs).
 compile:
-	@$(MAKE) -C "$(SUB_DIR)" --no-print-directory build
+	@if [ "$(FORCE)" = "1" ] || [ ! -x "$(SUB_DIR)/dist/polyframes" ] || \
+	   find "$(SUB_DIR)/src" "$(SUB_DIR)/package.json" "$(SUB_DIR)/bunli.config.ts" \
+	        -newer "$(SUB_DIR)/dist/polyframes" 2>/dev/null | grep -q .; then \
+		$(MAKE) -C "$(SUB_DIR)" --no-print-directory build; \
+	else \
+		echo "polyframes: up to date (FORCE=1 to rebuild)"; \
+	fi
 
 link:
 	@mkdir -p "$(LINK)"

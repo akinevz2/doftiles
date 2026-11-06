@@ -58,8 +58,25 @@ deps-install: deps-dir
 	@env TMPDIR="$(SUB_DIR)/node_modules/.tmp" bun install --cwd "$(SUB_DIR)"
 
 # one logical operation: global install straight from the checkout
+# link-src — freshness guard: the global `bun add -g` re-copies the
+# whole checkout + runs its postinstall (~4-6s) — skip when the global
+# install's version matches the checkout's package.json. FORCE=1
+# forces (dirty checkouts without a version bump included).
 link-src:
-	@bun add -g "$(SUB_DIR)"
+	@if [ "$(FORCE)" = "1" ]; then need=1; \
+	else \
+		gpkg="$(HOME)/.bun/install/global/node_modules/herbstutil/package.json"; \
+		if [ ! -f "$$gpkg" ]; then need=1; else \
+			gver=$$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$$gpkg" | head -1); \
+			lver=$$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$(SUB_DIR)/package.json" | head -1); \
+			if [ -n "$$gver" ] && [ "$$gver" = "$$lver" ]; then need=0; else need=1; fi; \
+		fi; \
+	fi; \
+	if [ "$${need:-0}" = 1 ]; then \
+		bun add -g "$(SUB_DIR)"; \
+	else \
+		echo "herbstutil: global install up to date ($$gver) (FORCE=1 to reinstall)"; \
+	fi
 
 link:
 	@echo "herbstutil: no link — the artifact is the global install (install-source)"

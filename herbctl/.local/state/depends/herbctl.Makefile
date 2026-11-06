@@ -64,11 +64,25 @@ deps-dir:
 deps-install: deps-dir
 	@env TMPDIR="$(SUB_DIR)/node_modules/.tmp" bun install --cwd "$(SUB_DIR)"
 
+# compile — freshness guard: skip the ~120MB standalone recompile when
+# dist/herbctl is newer than every input (src/, package.json,
+# bunli.config.ts). FORCE=1 forces. bun.lock is deliberately excluded
+# (bun install touches its mtime on no-change runs).
 compile:
-	@cd "$(SUB_DIR)" && bun x bunli build --targets linux-x64 --minify
+	@if [ "$(FORCE)" = "1" ] || [ ! -x "$(SUB_DIR)/dist/herbctl" ] || \
+	   find "$(SUB_DIR)/src" "$(SUB_DIR)/package.json" "$(SUB_DIR)/bunli.config.ts" \
+	        -newer "$(SUB_DIR)/dist/herbctl" 2>/dev/null | grep -q .; then \
+		cd "$(SUB_DIR)" && bun x bunli build --targets linux-x64 --minify; \
+	else \
+		echo "herbctl: up to date (FORCE=1 to rebuild)"; \
+	fi
 
+# rename-artifact — no-op when compile was skipped (dist/index only
+# exists right after a real build)
 rename-artifact:
-	@mv -f "$(SUB_DIR)/dist/index" "$(SUB_DIR)/dist/herbctl"
+	@if [ -f "$(SUB_DIR)/dist/index" ]; then \
+		mv -f "$(SUB_DIR)/dist/index" "$(SUB_DIR)/dist/herbctl"; \
+	fi
 
 link:
 	@mkdir -p "$(LINK)"
