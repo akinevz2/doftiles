@@ -28,9 +28,9 @@ ONDEPLOY_SUBMOD := $(CURDIR)/depends/.local/share/on-deploy# manifests (read by 
 WM_PACKAGES_FILE := stows.required
 WM_PACKAGES      := $(shell grep -vi '^#' $(WM_PACKAGES_FILE))
 
-# deployment knobs: FORCE=1 -> on-deploy runs without confirmations and
+# deployment knobs: FORCE=1 -> on-deploy runs without confirmations (--force -f) and
 # recovers from stow conflicts (repo unstow, then retry)
-Y := $(if $(filter 1,$(FORCE)),-y,)
+F := $(if $(filter 1,$(FORCE)),-f,)
 
 # the per-package depends Makefile of a stow package (make -f; the
 # 2026-11 scheme) — run from the package directory
@@ -80,10 +80,10 @@ sudo:
 # Explicit chain: make depends bootstrap install
 bootstrap: depends
 	@$(SELF) sudo
-	$(ONDEPLOY_BIN) toolchain --bun $(Y)
-	$(ONDEPLOY_BIN) toolchain --rustup $(Y)
+	$(ONDEPLOY_BIN) toolchain --bun $(F)
+	$(ONDEPLOY_BIN) toolchain --rustup $(F)
 	@$(SELF) trust
-	$(ONDEPLOY_BIN) depends --install $(Y)
+	$(ONDEPLOY_BIN) depends --install $(F)
 
 # trust — the bun postinstall policy steps for every checked-out bun
 # submodule: per-checkout local trust + the global untrusted set. The
@@ -94,7 +94,7 @@ trust:
 # toolchain — the language toolchains alone (the migrated flow: run
 # after make depends).
 toolchain: depends
-	$(ONDEPLOY_BIN) toolchain --bun $(Y)
+	$(ONDEPLOY_BIN) toolchain --bun $(F)
 
 # help — the recipe listing
 help:
@@ -196,11 +196,11 @@ update:
 	git submodule sync
 	git submodule update --init --recursive
 	$(SELF) on-deploy
-	@SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(Y) || { \
-		if [ -n "$(Y)" ]; then \
+	@SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(F) || { \
+		if [ -n "$(F)" ]; then \
 			echo "update: FORCE=1 — repo stow failed; unstowing before retry"; \
-			$(ONDEPLOY_BIN) unstow $(Y); \
-			SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(Y); \
+			$(ONDEPLOY_BIN) unstow $(F); \
+			SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(F); \
 		else \
 			echo "update: stow failed — rerun with FORCE=1 to unstow and retry" >&2; \
 			exit 1; \
