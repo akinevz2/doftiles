@@ -227,14 +227,15 @@ keyreg $ModCtrl-f          spawn ~/.local/bin/hc_zoom
 
 keyreg $ModShift-f spawn ~/.local/bin/herbctl fullscreen-toggle
 
-# float-unfocus (herbctl, the new Mod-x): from a focused float, un-float
+# x-family final layout: Mod-x runs hc_floatx (the old Mod-x register)
+# directly again; float-unfocus (herbctl: from a focused float, un-float
 # it into the empty focused frame (curframe_wcount = 0) or hand focus
 # back to the tiling layer; from tiling, focus the float ONLY (no
-# un-float) and center it to root. hc_floatx — the old Mod-x register —
-# moves to ModCtrl-x verbatim.
-keyreg $Mod-x               spawn ~/.local/bin/herbctl float-unfocus
-keyreg $ModShift-x          spawn ~/.local/bin/hc_floatx
-keyreg $ModCtrl-x           use_previous
+# un-float) and center it to root) moves to ModCtrl-x; ModShift-x
+# keeps use_previous.
+keyreg $Mod-x               spawn ~/.local/bin/hc_floatx
+keyreg $ModShift-x          use_previous
+keyreg $ModCtrl-x           spawn ~/.local/bin/herbctl float-unfocus
 
 
 
