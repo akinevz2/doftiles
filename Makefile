@@ -203,7 +203,7 @@ submodules:
 #   make depends bootstrap install
 install: on-deploy
 	@set -e; \
-	$(ONDEPLOY_BIN) configure; \
+	ONDEPLOY_INSTALL_CHAIN=1 $(ONDEPLOY_BIN) configure; \
 	rc=$$?; \
 	if [ $$rc -eq 130 ]; then exit 130; elif [ $$rc -ne 0 ]; then echo "install: configure FAILED — continuing (recorded config kept)"; fi; \
 	$(ONDEPLOY_BIN) preserve --only "$(WM_PACKAGES)"; \
