@@ -112,8 +112,6 @@ keyreg $ModShift-w spawn ~/.local/bin/herbctl shift-up
 
 keyreg $ModShift-s spawn ~/.local/bin/herbctl shift-down
 
-keyreg $ModShift-x use_previous
-
 keyreg $ModShift-d spawn ~/.local/bin/herbctl get-dedeck
 
 keyreg $Mod-d spawn ~/.local/bin/herbctl get-deck
@@ -235,7 +233,9 @@ keyreg $ModShift-f spawn ~/.local/bin/herbctl fullscreen-toggle
 # un-float) and center it to root. hc_floatx — the old Mod-x register —
 # moves to ModCtrl-x verbatim.
 keyreg $Mod-x               spawn ~/.local/bin/herbctl float-unfocus
-keyreg $ModCtrl-x           spawn ~/.local/bin/hc_floatx
+keyreg $ModShift-x          spawn ~/.local/bin/hc_floatx
+keyreg $ModCtrl-x           use_previous
+
 
 
 # LAUNCHERS
