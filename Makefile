@@ -162,6 +162,13 @@ help:
 # even when a stale one is installed).
 on-deploy:
 	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile install FORCE=1
+	@# the omitted recipe was stow-on-deploy: on a fresh clone (the
+	@# clean-upgrade flow) nothing is stowed yet — the fresh binary sits
+	@# at dots/on-deploy/.local/bin/on-deploy with NO ~/.local/bin link;
+	@# stow the package FIRST so the link pre-exists the binary's first
+	@# routing use (ONDEPLOY_RUN in the pattern verbs also falls back to
+	@# the package artifact for the same reason)
+	@$(SELF) stow-on-deploy
 	@$(SELF) stow-depends
 
 # submodules — the REMOTE variant (the depends components build from
@@ -195,12 +202,17 @@ all stow wm restow: on-deploy
 # unstow-herbctl...): each routes the package through on-deploy. NOTE
 # the pattern verbs do NOT pull in the on-deploy build — composition
 # with a fresh binary is explicit (the on-deploy target = adapter
-# build + stow-depends).
+# build + stow-depends). The binary is resolved THROUGH the home link
+# first, ELSE the package artifact directly: on a fresh clone (the
+# clean-upgrade flow) the ~/.local/bin link does not exist yet because
+# the on-deploy package was never stowed — the chicken-and-egg break.
+ONDEPLOY_RUN := $(shell if [ -x "$(ONDEPLOY_BIN)" ]; then echo $(ONDEPLOY_BIN); else echo $(CURDIR)/on-deploy/.local/bin/on-deploy; fi)
+
 stow-%:
-	@$(ONDEPLOY_BIN) stow --only "$*"
+	@$(ONDEPLOY_RUN) stow --only "$*"
 
 unstow-%:
-	@$(ONDEPLOY_BIN) unstow --only "$*"
+	@$(ONDEPLOY_RUN) unstow --only "$*"
 
 # unstow / clean — remove the links (the user's real files stay)
 unstow clean: on-deploy
