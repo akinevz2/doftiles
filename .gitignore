@@ -13,6 +13,7 @@ polyframes/.local/bin/
 bat/.local/bin/
 depends/.local/bin/
 herbstutil/.local/bin/
+on-deploy/.local/bin/
 
 # defensively: the build sleds (the submodules' own residues cannot leak
 # up here, but bun install can land at a package root if the cwd slips)
