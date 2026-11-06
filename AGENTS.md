@@ -26,20 +26,21 @@ this repo via the dotfiles feature and runs
 | `compton` | `.config/compton` (picom-adjacent compositor config + rofi context menu), unit |
 | `dunst` | `.config/{dunst,systemd}` (`dunstrc`, `dunst.service`), legacy `.local/share/dunst/Makefile` hook |
 | `polybar` | `.config/polybar` (config.ini + polybar.sh + polywins.sh), `.local/bin/{polyctl,ewmh_labels}`, `.local/share/polybar/Makefile` (bar control) |
-| `shell` | `.bashrcx`, `.profile`, `.aliases`, `.exports`, `.zshrc`, `.shellx.rc` (THE shell extension — see credentials doctrine), `.vim`, `.taskrc`, `.my-credentials`, `Makefile`, `.config/{aliases,exports,mimeapps.list,systemd}` (incl. `check-x-server.service`), `.local/bin/` (install/ hooks, `firefox` wrapper, `check-wsl`, `got`, `green`, `yellow`), `.local/share/applications/` |
+| `shell` | `.bashrcx`, `.profile`, `.aliases`, `.exports`, `.zshrc`, `.shellx.rc` (THE shell extension — see credentials doctrine), `.vim`, `.taskrc`, `.my-credentials`, `Makefile`, `.config/{aliases,exports,mimeapps.list,systemd}` (incl. `check-x-server.service`), `.local/bin/` (install/ hooks, `check-wsl`, `got`, `green`, `yellow`), `.local/share/applications/` |
+| `wsl` | WSL-interop metapackage: `.local/bin/firefox` — the runtime-conditional browser launcher (Windows Firefox via the interop mount when present, native fallback otherwise; decides at INVOCATION, no stow-time conditionals) — and `.config/exports.d/wsl.sh`, the opt-in WSL env fragment. **NOT in the stows manifest: machines opt in with `make stow-wsl` and configure per machine** (the generic repo auto-installs nothing WSL) |
 | `agents` | `.config/{opencode,poolside}` — OpenCode config (the `opencode-screencast` plugin is vendored as plain files; `opencode.jsonc` loads it via the relative path `./opencode-screencast` — moving it breaks plugin loading), `.local/bin/{github-mcp-wrapper,opencode-remote,opencode-remote-add}` (manual user tools) |
-| `depends` | deploy machinery remnants ONLY: `.local/bin/on.deploy` (the contract shim), `.local/bin/install/{deploy-menu,ubuntu.deploy,manjaro.deploy}`, `.config/doftiles.conf` (deploy-method state). Hosts the on-deploy bootstrap build |
+| `depends` | deploy machinery remnants ONLY: `.local/bin/install/{ubuntu.deploy,manjaro.deploy}` — the `<target>.deploy` scripts are LIVE machinery (stow-folds into `~/.local/bin/install/`; on-deploy's check/install/pkg/toolchain resolve every binary through them), `.config/doftiles.conf` (deploy-method state). Hosts the on-deploy bootstrap build |
 | `on-deploy` | submodule checkout `.local/share/on-deploy` + the built binary artifact `.local/bin/on-deploy` |
 | `herbctl` | submodule checkout + artifact (same shape) |
 | `herbstutil` | submodule checkout; deploys through the bun GLOBAL install (registry package) |
 | `polyframes` | submodule checkout + artifact (rofi menus, tile/center live as its subcommands) |
 | `bat` | submodule checkout `bat-src` + artifact |
-| `novnc`, `xvfb`, `x11vnc`, `xrdp` | individually deployable service packages (commented out of `stows.required`; enable deliberately) |
+| `novnc`, `xvfb`, `x11vnc`, `xrdp` | individually deployable service packages (commented out of the stows manifest; enable deliberately) |
 
-Repo-level files — `Makefile`, `README.md`, `AGENTS.md`,
-`stows.required`, `wm.required`, `system.required`,
-`services.required` — are **not stowed** (never put dotfiles at repo
-root). `docs/` holds misc analysis; also not stowed.
+Repo-level files — `Makefile`, `README.md`, `AGENTS.md`, the manifests
+(`*.depends` — tracked via force-add, see Manifests), — are **not
+stowed** (never put dotfiles at repo root). `docs/` holds misc
+analysis; also not stowed.
 
 ## How stow linking works
 
@@ -54,18 +55,36 @@ root). `docs/` holds misc analysis; also not stowed.
   them (an absolute hand-made symlink once blocked `make wm/update`
   with "existing target is not owned by stow").
 
-## Manifests
+## Manifests — one file each, `*.depends`, tracked via force-add
 
-- `stows.required` — the stow package list (space-separated lines, `#`
-  comments). `WM_PACKAGES` in the Makefile reads it; `make install`
-  and the stow verbs walk exactly this set.
-- `wm.required` — line 1: required BINARIES (the deploy walk resolves
-  each via the `<target>.deploy` protocol; currently ends
-  `... jq rg fzf`); line 2: the deployment session; last line: the
-  deploy target.
-- `system.required` — the SUBMODULE manifest: each line `<pkg> <path>…`;
-  the configured scope of `on-deploy depends`.
-- `services.required` — user units, enabled+started IN ORDER by
+Every manifest is ONE file (stows, wm, system, services):
+`<name>.depends`. The pattern is gitignored, so:
+
+- **Developer expansion**: edit the manifest, then
+  `git add -f <name>.depends` + commit — mainline ships. This is the
+  ONLY way manifest content enters the repo.
+- **User personalization**: machines edit the same file and hide the
+  dirtiness with `git update-index --skip-worktree <name>.depends`
+  (set once, after personalizing). `git status` stays clean forever;
+  pulls never merge-conflict on the manifests.
+- **The ritual**: upstream manifest changes would otherwise collide
+  with a skip-worktree file — `make update` / `make force-upgrade`
+  run the dance automatically (stash the flagged manifests → pull →
+  `depends` pops the stash back and re-skips). A stash-pop CONFLICT is
+  the volition point: resolve by hand (the stash is kept).
+- Fresh machines that never personalize just track the generic build
+  and receive mainline updates as normal pulls.
+
+Layer contents:
+- stows — the stow package list (space-separated lines, `#` comments);
+  `WM_PACKAGES` walks it; `make install` and the stow verbs deploy
+  exactly this set.
+- wm — line 1: required BINARIES (resolved via the `<target>.deploy`
+  protocol); line 2: the deployment session; last line: the deploy
+  target.
+- system — the SUBMODULE manifest: each line `<pkg> <path>…`; the
+  configured scope of `on-deploy depends`.
+- services — user units, enabled+started IN ORDER by
   `make services-check`.
 
 ## Makefile targets (verified 2026-11-06)
@@ -77,7 +96,7 @@ root). `docs/` holds misc analysis; also not stowed.
 - `make depends` — submodule sync + `--init --recursive` update at
   recorded pins + the on-deploy bootstrap build.
 - `make bootstrap` — depends + `bun` + `rustup` + `trust` + the FULL
-  `on-deploy depends --install` walk (system.required scope). The
+  `on-deploy depends --install` walk (the system manifest's scope). The
   walk IS the deploy of every submodule artifact.
 - `make bun` / `make rustup` — ensure a toolchain: `--check` query
   FIRST; the sudo pre-flight (`make sudo`) runs only when an install
@@ -97,11 +116,11 @@ root). `docs/` holds misc analysis; also not stowed.
   `packages install $(WM_PACKAGES)` + status. The safe headless
   deploy: `make bootstrap toolchain install YES=1` (there is no
   `make deps` — the walk lives in bootstrap).
-- `make add-packages` — the `wm.required` binary walk: verify every
+- `make add-packages` — the wm-manifest binary walk: verify every
   binary, install the MISSING ones through the `<target>.deploy`
   protocol (`on-deploy install`; `YES=1` = no confirmations; the sudo
   grant still needs a tty). This is the recipe to hand the user when
-  a `wm.required` binary is missing.
+  a wm-manifest binary is missing.
 - `make all` / `stow` / `wm` / `restow` — the same recipe: restow the
   `WM_PACKAGES` stack (one line each in `make help`; no alias
   bunching).
@@ -112,15 +131,15 @@ root). `docs/` holds misc analysis; also not stowed.
   rebase --autostash), submodule sync + update, on-deploy rebuild.
   Artifacts untouched; chain `make update install` for
   pull-with-install (install runs EXACTLY once).
-- `make clean-upgrade` — fetch + ff + submodule re-anchor + healing
+- `make force-upgrade` — fetch + ff + submodule re-anchor + healing
   clean + rebuild + configure gate + stow.
-- `make livereload` — check gate (LOUD on missing wm.required
+- `make livereload` — check gate (LOUD on missing wm-manifest
   binaries) + restow the unit packages + daemon-reload + per-unit
   reload (`herbstclient reload` keeps the WM binary).
 - `make status` — on-deploy check + services status + the
   credentials reminder.
 - `make services-check` — daemon-reload + `enable --now --no-block`
-  in services.required order. `services-start`/`services-stop`/
+  in the services manifest's order. `services-start`/`services-stop`/
   `restart` — interactive-confirm; non-interactive requires `YES=1`.
   **Never restart user services casually** (kills the WM session).
 - Knobs: `FORCE=1` (redeploy / non-interactive fail-safe), `YES=1`
@@ -151,9 +170,12 @@ method/branching logic. Artifacts land in `dots/<pkg>/.local/bin/`
   `dekineify`, the `check-msi-dirs` machinery — script, maintenance
   script, and its service file — the `check-mail` flow: `check-mail.sh`,
   `read-mail.sh`, `show-mail`, `test-stack-notify`,
-  `test-urgent-notification`, and `hlwm_launch`/`hlwm_cwds_dump`).
-  **Keep** all `hc_*` (the `$Mod-c` hlwm operation menu) and
-  `green`/`yellow` (used liberally in user scripting).
+  `test-urgent-notification`, `hlwm_launch`/`hlwm_cwds_dump`, and the
+  deploy helpers `on.deploy` + `deploy-menu` — zero callers; the
+  firefox wrapper became runtime-conditional in `dots/wsl`, so the
+  stow-time prune/relink hook died with deploy-menu). **Keep** all
+  `hc_*` (the `$Mod-c` hlwm operation menu) and `green`/`yellow`
+  (used liberally in user scripting).
 - **Credentials** (2026-11, final): `make configure` is the ONLY
   point credentials may be interacted with. `~/.my-credentials` (name
   line 1, email line 2) is tracked ON PURPOSE — never re-add it to
@@ -201,7 +223,7 @@ method/branching logic. Artifacts land in `dots/<pkg>/.local/bin/`
   -l"`; see the spawn-directory skill) and ask the user to run the
   MAKE RECIPE that implements the step — `sudo make <recipe>` (e.g.
   `sudo make bootstrap` for missing toolchains, `make add-packages`
-  for missing `wm.required` binaries) — NEVER the raw system-level
+  for missing wm-manifest binaries) — NEVER the raw system-level
   command. The recipe owns the flow (pre-flight grant, package
   resolution through the `<target>.deploy` protocol, verification);
   asking for the raw command bypasses the machinery the repo
@@ -216,12 +238,13 @@ method/branching logic. Artifacts land in `dots/<pkg>/.local/bin/`
    `127.0.0.1:0`.
 2. **Software GL is WSL-only**: `LIBGL_ALWAYS_*` live inside the
    `WS*` block of `exports`.
-3. **`BROWSER="firefox"` is intentionally unqualified** — resolves to
-   the `shell` wrapper (Windows Firefox via interop) or a real
-   firefox. `$BROWSER` alone is not enough: `xdg-mime default
-   firefox.desktop x-scheme-handler/http x-scheme-handler/https
-   text/html` wires the associations. `xdg-settings` refuses to run
-   while `$BROWSER` is exported.
+3. **`BROWSER="firefox"` is intentionally unqualified** — it resolves
+   to the `wsl` package's runtime-conditional wrapper: Windows Firefox
+   via the interop mount when present, native fallback otherwise.
+   `$BROWSER` alone is not enough: `xdg-mime default firefox.desktop
+   x-scheme-handler/http x-scheme-handler/https text/html` wires the
+   associations. `xdg-settings` refuses to run while `$BROWSER` is
+   exported.
 4. **Files end with a trailing newline** (normalized 2026-10). Keep
    it in new files.
 5. **`herbstluftwm/.config/opencode/opencode.jsonc`-style local
@@ -241,7 +264,7 @@ method/branching logic. Artifacts land in `dots/<pkg>/.local/bin/`
 9. **herbstutil is a real global npm package** (used by polyframes
    and the screencast plugin). bun's trust policy may block
    postinstalls: `bun pm trust -g herbstutil bun`.
-10. **Submodules are pinned** (`system.required`): nested assets are
+10. **Submodules are pinned** (the system manifest): nested assets are
     upstream-owned; recorded pins are the default path
     (`git submodule update --remote` bumps by hand, deliberately).
     Upstream fixes land in the submodule repo, then the pin bumps.

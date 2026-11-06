@@ -1,0 +1,27 @@
+#!/bin/bash
+# firefox — the WSL-conditional browser launcher (dots/wsl metapackage).
+#
+# Decides AT INVOCATION, never at stow time: if the Windows Firefox
+# .exe is reachable through the WSL interop mount, launch it there;
+# otherwise exec the native Linux firefox, skipping THIS wrapper while
+# resolving PATH so the fallback cannot loop back into itself. On a
+# machine with NEITHER, exit loudly. The unqualified BROWSER=firefox
+# in exports keeps resolving here either way; the old stow-time
+# prune/relink hook (deploy-menu) is gone — no post-stow machinery
+# needed on any host.
+set -u
+
+FFEXE="${FIREFOX_WINDOWS_EXE:-/mnt/c/Program Files/Mozilla Firefox/firefox.exe}"
+SELF="$(readlink -f "$0" 2>/dev/null || echo "$0")"
+
+if [ -x "$FFEXE" ]; then
+    exec "$FFEXE" "$@"
+fi
+
+for cand in $(which -a firefox 2>/dev/null); do
+    [ "$(readlink -f "$cand" 2>/dev/null)" = "$SELF" ] && continue
+    exec "$cand" "$@"
+done
+
+echo "firefox: no Windows Firefox ($FFEXE) and no native firefox on PATH" >&2
+exit 127

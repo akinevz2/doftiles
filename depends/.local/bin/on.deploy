@@ -1,6 +1,0 @@
-#!/bin/sh
-# on.deploy — SHIM. The implementation moved into the on-deploy
-# project (~/development/system/on-deploy, compiled Bun/bunli binary
-# installed at ~/.local/bin/on-deploy); this shim keeps the dots
-# Makefile's on.deploy entry point working.
-exec "$HOME/.local/bin/on-deploy" "$@"

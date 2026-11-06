@@ -17,7 +17,7 @@ anything before it exists.
   repository, but nothing is run by hand — always through the Make recipes,
   which wrap restowing with hooks, conflict resolution and service reloads)
 - repo-level files (`Makefile`, `README.md`, `AGENTS.md`, `docs/`, `scripts/`,
-  `stows.required`, `wm.required`, `system.required`) are **not** stowed
+  `stow.depends`, `wm.depends`, `system.depends`) are **not** stowed
 - the secrets produced at deploy time (`shell/.cache/*.env`) are gitignored;
   `~/.my-credentials` (name + email only) is tracked on purpose
 - the primary consumers are a WSL2 host (herbstluftwm + compton against
@@ -48,8 +48,8 @@ on-deploy binary unconditionally as its first artifact).
 | `bootstrap`      | submodule checkouts at their recorded pins (nested assets never chased per machine), the on-deploy binary when missing, `stow depends`, the bun-trust steps |
 | `toolchain`      | `on-deploy toolchain --bun` — the language toolchains the per-package Makefiles build with (`YES=1` runs non-interactively; `on-deploy toolchain --check` fails fast, installing nothing) |
 | `deps`           | `on-deploy depends --install` — sync the submodules and run each package's `build`→`install` rules (`--build` for install-less builds) |
-| `install` / `wm` / `all` | configure, conflict-safe restow (`preserve --only $(stows.required)`), the per-package rules, and `stow -R` of the `stows.required` stack |
-| `services-*`     | `services.required` unit control via `on-deploy services` (`check`/`start`/`stop`/`restart`; non-interactive runs require `YES=1`) |
+| `install` / `wm` / `all` | configure, conflict-safe restow (`preserve --only $(stow.depends)`), the per-package rules, and `stow -R` of the `stow.depends` stack |
+| `services-*`     | `services.depends` unit control via `on-deploy services` (`check`/`start`/`stop`/`restart`; non-interactive runs require `YES=1`) |
 | `status`         | the `check` + `services status` + credentials reminder                                       |
 
 ## The per-package depends scheme
@@ -83,15 +83,15 @@ on-deploy (`depends` discovers and delegates only):
 | `herbstluftwm` | `~/.config/{herbstluftwm,alacritty,rofi}`, `~/.local/bin` | the WM stack: the autostart, the theme (`reload_theme`, `winbarctl`), the whole `hc_*`/`hlwm_*` float + focus machinery, and its user services |
 | `polybar`      | `~/.config/polybar`, `~/.local/bin`, `~/.local/share/polybar` | the bar (`config.ini`, `polybar.sh`, `polywins.sh`), the control scripts (`polyctl`, `ewmh_labels`) and the bar-control Makefile |
 | `shell`        | `$HOME`                               | `.bashrcx` (sourced by the preserved `~/.bashrc`), `.profile`, `.aliases`, `.exports`, `.zshrc`, `.zprofile`, `.taskrc`, `~/.my-credentials`; the `firefox` wrapper (+ `.desktop` and `mimeapps.list`), `check-wsl`, and the `install/` hook scripts |
-| `xrdp`, `xvfb`, `x11vnc`, `novnc` | user units         | individually deployable headless / VNC / RDP stacks (not in `stows.required`; `systemctl --user` face only)          |
+| `xrdp`, `xvfb`, `x11vnc`, `novnc` | user units         | individually deployable headless / VNC / RDP stacks (not in `stow.depends`; `systemctl --user` face only)          |
 
-`stows.required` lists the stow set of bulk targets; `wm.required` the required
-binaries plus the deploy target; `services.required` the unit start order.
+`stow.depends` lists the stow set of bulk targets; `wm.depends` the required
+binaries plus the deploy target; `services.depends` the unit start order.
 
 ## Requirements
 
 Building/deploying the repository needs `git`, `make`, GNU `stow`, `bash` and
-systemd (user session). The WM stack binaries are manifested in `wm.required`
+systemd (user session). The WM stack binaries are manifested in `wm.depends`
 (herbstluftwm, herbstclient, compton, polybar, rofi, hsetroot, xset, dunst,
 notify-send): `on-deploy install` verifies each and installs the missing ones
 through the `<target>.deploy` scripts. The language toolchains install through

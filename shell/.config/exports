@@ -5,11 +5,6 @@ export MOZ_X11_EGL=1
 
 export LOCAL_BIN=~/.local/bin
 
-if [ -x "$HOME/.local/bin/check-wsl" ] && "$HOME/.local/bin/check-wsl"; then
-    export DISPLAY=$(ip route list default | awk '{print $3}'):0
-    export LIBGL_ALWAYS_INDIRECT=1
-fi
-
 # IDE viewing shortcuts 
 export GIT_EDITOR="code --wait"
 export EDITOR="vim"
@@ -17,25 +12,18 @@ export VIEW="code -r"
 export VISUAL="code --wait"
 export NEW_WINDOW="--new-window"
 
-# Set DISPLAY for WSL environments
-if [[ $(hostname) == WS* ]]; then
-    export DISPLAY=localhost:0.0
-    # VcXsrv/X11 through WSL: force indirect/software GL rendering
-    export LIBGL_ALWAYS_INDIRECT=1
-    export LIBGL_ALWAYS_SOFTWARE=true
-    # Set BROWSER to wrapper script for Windows Firefox
-    export BROWSER="firefox"
-    # Allows VS Code usage within the X11
-    export DONT_PROMPT_WSL_INSTALL=true
-fi
-# NOTE: no per-host DISPLAY override — WS* hosts use the localhost:0.0
-# convention; the old WS-MINIFRIDGE :1.0 override left a stale display
-# in every session (see on-deploy detect-server / detectDisplay — the
-# same reachable-X probe that drives DISPLAY autodetection).
-
 export BUNPATH="${HOME}/.bun/bin"
 export PATH="$LOCAL_BIN:$BUNPATH:$PATH"
 
 # Terminal preference for mail notifications
 export TERMINAL="alacritty"
 export TERMINAL_launch="$TERMINAL -e"
+
+# Opt-in env fragments: stow packages may ship ~/.config/exports.d/*.sh
+# (the wsl metapackage ships the WSL block). The generic shell knows
+# nothing about WSL — a machine opts in by stowing the wsl package;
+# no fragment, no WSL env.
+for _exports_fragment in "$HOME"/.config/exports.d/*.sh; do
+    [ -f "$_exports_fragment" ] && . "$_exports_fragment"
+done
+unset _exports_fragment

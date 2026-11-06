@@ -7,7 +7,7 @@
 # The FEATURE rules (xserver, xinitrc, nested, xrdp, greeter) hold the
 # bash implementations of the session's package-group special steps;
 # they defer the platform package-manager work to `on-deploy pkg`.
-# The deployment model (the `session =` line of wm.required,
+# The deployment model (the `session =` line of wm.depends,
 # on-deploy configure) gates the managed-X rules.
 # Run them via `on-deploy packages <rule>` or directly:
 #   make -C ~/.local/share/herbstluftwm nested
@@ -19,10 +19,10 @@
 UNITS := herbst.service
 ONDEPLOY  ?= $(HOME)/.local/bin/on-deploy
 DOTS     ?= $(HOME)/dots
-REQUIRES := $(DOTS)/wm.required
+REQUIRES := $(DOTS)/wm.depends
 
-# the deploy target = the last non-comment line of wm.required
-TARGET := $(shell grep -v '^\s*#' $(DOTS)/wm.required | tail -1)
+# the deploy target = the last non-comment line of wm.depends
+TARGET := $(shell grep -v '^\s*#' $(DOTS)/wm.depends | tail -1)
 ARCH := $(filter arch manjaro,$(TARGET))
 PKG := $(if $(ARCH),pacman,apt)
 
@@ -34,7 +34,7 @@ install:
 		echo "herbstluftwm: herbctl missing — deploy its package: 'make update' (on-deploy depends drives dots/herbctl)" >&2; \
 		exit 1; \
 	fi; \
-	echo "herbstluftwm: herbctl present — the WM artifact is the stowed stack (units via services.required)"
+	echo "herbstluftwm: herbctl present — the WM artifact is the stowed stack (units via services.depends)"
 
 start:
 	@systemctl --user start --no-block $(UNITS)

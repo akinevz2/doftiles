@@ -9,8 +9,8 @@
 # NOTE the submodule path is 2026-11-resplit: the checkout lives with its
 # own stow package — dots/on-deploy/.local/share/on-deploy — and the
 # ARTIFACT is owned by that package too (dots/on-deploy/.local/bin). The
-# depends package itself is REMNANTS ONLY (on.deploy shim + install/ +
-# conf).
+# depends package itself is REMNANTS ONLY (install/ + conf; the
+# on.deploy shim was removed 2026-11 — nothing called it).
 
 TOOLCHAIN_BINDIR := $(HOME)/.bun/bin
 export PATH := $(TOOLCHAIN_BINDIR):$(PATH)
@@ -86,7 +86,7 @@ stow:
 # recipe is the ORDERED undo:
 #   1. unstow the depends package (drops its folds — incl. dangling ones)
 #   2. remove the legacy artifact copies from package dirs EXCEPT the
-#      remnants (on.deploy shim + install/ — ../.. never touched)
+#      remnants (install/ — ../.. never touched)
 #   3. restow the remains: depends (remnants) + every owning package
 # (stow -D refuses nothing here: the folds it drops are its own links)
 LEGACY_DEPS_BINS := herbctl polyframes on-deploy

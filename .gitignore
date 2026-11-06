@@ -2,6 +2,15 @@ shell/.cache/
 *.swp
 *.un~
 
+# the MANIFESTS: *.depends are the ONE file per manifest (stows, wm,
+# system, services). The developer force-adds them when expanding the
+# software (`git add -f <name>.depends`); user machines personalize
+# the same file and hide the dirtiness with
+# `git update-index --skip-worktree` (the make update ritual automates
+# the pull dance; the pull-collision volition point is documented in
+# AGENTS.md).
+*.depends
+
 # built artifacts LINKED into the stow packages by the per-package
 # depends Makefiles (dots/<pkg>/.local/state/depends/<pkg>.Makefile) —
 # the stow packages own them, the repo does not track them

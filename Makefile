@@ -17,7 +17,7 @@
 #   stow unstow enable disable archive unarchive preserve services
 #   toolchain depends
 #
-# submodule map 2026-11 (GITMODULES.git + system.required are in step):
+# submodule map 2026-11 (GITMODULES.git + system.depends are in step):
 #   dots/on-deploy/.local/share/on-deploy | dots/herbctl/.local/share/herbctl
 #   dots/herbstutil/.local/share/herbstutil | dots/polyframes/.local/share/polyframes
 #   dots/bat/.local/share/bat-src
@@ -41,7 +41,7 @@ export PATH := $(HOME)/.bun/bin:$(HOME)/.cargo/bin:$(PATH)
 # never resolves through <target>.deploy)
 export PATH := $(HOME)/.local/bin:$(PATH)
 ONDEPLOY_SUBMOD := $(CURDIR)/depends/.local/share/on-deploy# manifests (read by on-deploy, not by this Makefile)
-WM_PACKAGES_FILE := stows.required
+WM_PACKAGES_FILE := stow.depends
 WM_PACKAGES      := $(shell grep -vi '^#' $(WM_PACKAGES_FILE))
 
 # deployment knobs: FORCE=1 -> on-deploy runs without confirmations (--force -f) and
@@ -68,7 +68,7 @@ RECONFIGURE_REASON := $(shell cd "$(CURDIR)" && \
 DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 	.local/state/depends/$(1).Makefile
 
-.PHONY: depends bootstrap trust toolchain submodules bun rustup clean-upgrade configure livereload \
+.PHONY: depends bootstrap trust toolchain submodules bun rustup force-upgrade configure livereload \
 	depends-% \
 	on-deploy \
 	install all stow wm \
@@ -81,7 +81,18 @@ DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 # even bun is missing + build + link:: the router swaps + stows the
 # depends package). ONLY on-deploy — nothing else: it cannot start the
 # platform toolchains yet.
+# depends — named after the *.depends manifests it services: restore
+# any pull-pending personal manifests (pop + re-skip — the stash half
+# runs inline in the pull targets, update / force-upgrade), then the
+# submodule sync + update at recorded pins + the on-deploy bootstrap
+# build.
 depends:
+	@if [ -s $(MANIFEST_STATE) ]; then \
+		git stash pop 2>/dev/null \
+			|| echo "depends: stash pop CONFLICTED — resolve by hand (the stash is kept)"; \
+		for m in $(MANIFESTS); do git update-index --skip-worktree $$m 2>/dev/null || true; done; \
+		rm -f $(MANIFEST_STATE); \
+	fi
 	git submodule sync
 	git submodule update --init --recursive
 	@$(SELF) on-deploy
@@ -108,7 +119,7 @@ sudo:
 # bootstrap — PHASE 2: the toolchain recipes (bun + rustup; each
 # queries through on-deploy and installs via the system package
 # manager only when absent), then the bun postinstall trust steps, and
-# the configured system.required walk (sync + build + install per
+# the configured system.depends walk (sync + build + install per
 # package Makefile). Explicit chain: make depends bootstrap install
 bootstrap: depends bun rustup
 	@$(SELF) trust
@@ -152,7 +163,7 @@ toolchain: depends
 	$(ONDEPLOY_BIN) toolchain --bun --check || $(ONDEPLOY_BIN) toolchain --bun --yes $(F)
 	$(ONDEPLOY_BIN) toolchain --rustup --check || $(ONDEPLOY_BIN) toolchain --rustup --yes $(F)
 
-# configure — the reconfiguration gate for clean-upgrade (before stow):
+# configure — the reconfiguration gate for force-upgrade (before stow):
 # on an upgrade the deployment knobs may have changed — offer the TUI
 # reconfiguration menu to the human on an INTERACTIVE terminal. A
 # non-interactive shell may only proceed with FORCE=1 (the recorded
@@ -182,18 +193,18 @@ help:
 	@echo "      FORCE=1 or error"
 	@echo "  on-deploy  rebuild the binary from its checkout + stow the package"
 	@echo "  submodules  submodule update --init --recursive --remote"
-	@echo "  install    configure + preserve + packages install (wm.required)"
-	@echo "  all        stow the wm.required stack"
-	@echo "  stow       stow the wm.required stack"
-	@echo "  wm         stow the wm.required stack"
-	@echo "  restow     stow the wm.required stack (the same recipe, restowed)"
+	@echo "  install    configure + preserve + packages install (wm.depends)"
+	@echo "  all        stow the wm.depends stack"
+	@echo "  stow       stow the wm.depends stack"
+	@echo "  wm         stow the wm.depends stack"
+	@echo "  restow     stow the wm.depends stack (the same recipe, restowed)"
 	@echo "  stow-<pkg>  ONE package: on-deploy stow --only"
 	@echo "  unstow-<pkg>  ONE package: on-deploy unstow --only"
 	@echo "  depends-<pkg>  ONE submodule: toolchain check + scoped walk"
-	@echo "  unstow     drop the wm.required stack's links"
-	@echo "  clean      drop the wm.required stack's links"
+	@echo "  unstow     drop the wm.depends stack's links"
+	@echo "  clean      drop the wm.depends stack's links"
 	@echo "  update     fetch + ff + submodule sync + on-deploy rebuild + walk"
-	@echo "  clean-upgrade  pull + submodule re-anchor + healing clean + rebuild"
+	@echo "  force-upgrade  pull + healing clean + the depends re-anchor/rebuild"
 	@echo "      + stow"
 	@echo "  livereload  restow unit pkgs, daemon-reload, per-unit reload"
 	@echo "  status     on-deploy check + services status + the credentials"
@@ -202,12 +213,12 @@ help:
 	@echo "  services-start  on-deploy services start"
 	@echo "  services-stop  on-deploy services stop"
 	@echo "  restart    on-deploy services restart"
-	@echo "  add-packages  the wm.required binary walk: verify + install the"
+	@echo "  add-packages  the wm.depends binary walk: verify + install the"
 	@echo "      missing (YES=1 headless; sudo grant on a tty)"
 	@echo "knobs:"
 	@echo "  FORCE=1    the non-interactive + fail-safe knob (retry after unstow)"
 
-# add-packages — the wm.required requirement walk: verify every binary,
+# add-packages — the wm.depends requirement walk: verify every binary,
 # install the MISSING ones through the <target>.deploy protocol (the
 # package resolution is the deploy script's; sudo prompts on a tty).
 # Headless: YES=1 installs without confirmations (still needs the sudo
@@ -224,7 +235,7 @@ add-packages:
 on-deploy:
 	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile install FORCE=1
 	@# the omitted recipe was stow-on-deploy: on a fresh clone (the
-	@# clean-upgrade flow) nothing is stowed yet — the fresh binary sits
+	@# force-upgrade flow) nothing is stowed yet — the fresh binary sits
 	@# at dots/on-deploy/.local/bin/on-deploy with NO ~/.local/bin link;
 	@# stow the package FIRST so the link pre-exists the binary's first
 	@# routing use (ONDEPLOY_RUN in the pattern verbs also falls back to
@@ -242,7 +253,7 @@ submodules:
 # install — configure FIRST (same apply; prompts for the git identity
 # when ~/.my-credentials is absent), then resolve conflicts per package
 # (preserve), then run each package's OLD-pattern dependency Makefile —
-# ONLY the packages manifested in wm.required. The SUBMODULES are
+# ONLY the packages manifested in wm.depends. The SUBMODULES are
 # deployed by the bootstrap chain (make depends bootstrap) — target order:
 #   make depends bootstrap install
 install: on-deploy
@@ -260,7 +271,7 @@ install: on-deploy
 	$(ONDEPLOY_BIN) packages install $(WM_PACKAGES); \
 	$(SELF) status
 
-# all / stow / wm — restow the wm.required stack (stow -R per package)
+# all / stow / wm — restow the wm.depends stack (stow -R per package)
 all stow wm restow: on-deploy
 	@$(ONDEPLOY_BIN) stow --only "$(WM_PACKAGES)"
 
@@ -271,7 +282,7 @@ all stow wm restow: on-deploy
 # with a fresh binary is explicit (the on-deploy target = adapter
 # build + stow-depends). The binary is resolved THROUGH the home link
 # first, ELSE the package artifact directly: on a fresh clone (the
-# clean-upgrade flow) the ~/.local/bin link does not exist yet because
+# force-upgrade flow) the ~/.local/bin link does not exist yet because
 # the on-deploy package was never stowed — the chicken-and-egg break.
 ONDEPLOY_RUN := $(shell if [ -x "$(ONDEPLOY_BIN)" ]; then echo $(ONDEPLOY_BIN); else echo $(CURDIR)/on-deploy/.local/bin/on-deploy; fi)
 
@@ -285,7 +296,7 @@ unstow-%:
 unstow clean: on-deploy
 	@$(ONDEPLOY_BIN) unstow --only "$(WM_PACKAGES)"
 
-# ── services (the services.required manifest, driven by on-deploy) ────────
+# ── services (the services.depends manifest, driven by on-deploy) ────────
 services-check: on-deploy
 	@$(ONDEPLOY_BIN) services check
 
@@ -306,6 +317,32 @@ status: on-deploy
 		echo "status: reminder — $(HOME)/.my-credentials is not set up; run 'on-deploy configure' on a tty to record your git identity"; \
 	fi
 
+# the skip-worktree dance — manifests (MANIFESTS) are tracked but users
+# hide their personal dirtiness with `git update-index --skip-worktree`;
+# a pull bringing upstream manifest changes would otherwise fight the
+# user. The STASH half runs inline in the pull targets (update /
+# force-upgrade); the RESTORE half lives in `depends` — the file-named
+# rule for the *.depends manifests — which every pull target invokes
+# right after its pull. A stash-pop CONFLICT is the volition point:
+# resolve by hand (the stash is kept for recovery).
+MANIFESTS := stow.depends wm.depends system.depends services.depends
+MANIFEST_STATE := .git/doftiles-manifest-skip
+
+define MANIFEST_STASH
+	: > $(MANIFEST_STATE); \
+	for m in $(MANIFESTS); do \
+		if git ls-files --error-unmatch $$m >/dev/null 2>&1 && \
+		   [ "$$(git ls-files -v $$m | cut -c1)" = S ]; then \
+			git update-index --no-skip-worktree $$m; \
+			if git stash push -q -m "doftiles manifest $$m" -- $$m; then \
+				echo $$m >> $(MANIFEST_STATE); \
+			else \
+				git update-index --skip-worktree $$m; \
+			fi; \
+		fi; \
+	done
+endef
+
 # update — the safe pull directly in the repo: fetch + fast-forward
 # (fallback --rebase --autostash), submodule sync, then the BOOTSTRAP
 # chain (it reaches bat through the toolchain recipes — an update on a
@@ -315,23 +352,23 @@ status: on-deploy
 # the walk keeps the on-deploy artifact out of the adapters (already
 # fresh from the unconditional rebuild).
 update:
+	$(MANIFEST_STASH)
 	git fetch
 	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
-	git submodule sync
-	git submodule update --init --recursive
+	@$(SELF) depends
 	# NO submodule installs here (pinned checkouts only): modules get
 	# synced/local, nothing is built or deployed — so a chained
 	# `make update install` does not run the install step twice. The
 	# on-deploy binary IS rebuilt (fresh source must land a fresh
-	# binary); everything else installs via the explicit targets.
+	# binary; the depends rule above owns that build); everything else
+	# installs via the explicit targets.
 	# toolchain assurance ONLY when the check says missing: the recipes'
 	# sudo prerequisite is skipped entirely on a healthy machine (a
 	# headless update must not demand a root grant for a no-op)
 	@$(ONDEPLOY_BIN) toolchain --bun --check || $(SELF) bun FORCE=$(FORCE)
 	@$(ONDEPLOY_BIN) toolchain --rustup --check || $(SELF) rustup FORCE=$(FORCE)
-	$(SELF) on-deploy
 
-# clean-upgrade — the LAYOUT-HEAL upgrade (2026-11): the full sequence for
+# force-upgrade — the LAYOUT-HEAL upgrade (2026-11): the full sequence for
 # a machine whose on-disk deployment predates the CURRENT layout (the
 # resplit doctrine: each bun submodule hosts its own stow package; depends
 # is the special meta-package — no submodule config, no artifacts, build/
@@ -355,19 +392,18 @@ update:
 #   5. make stow: the full stack restows with NO conflicts — the whole
 #      point of steps 3-4 (a conflict here means a non-owned real file
 #      sits at a link target; stow's message names it, inspect by hand)
-clean-upgrade:
+force-upgrade:
+	$(MANIFEST_STASH)
 	git fetch
 	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
-	git submodule sync
-	git submodule update --init --recursive
 	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile clean
-	@$(SELF) on-deploy
+	@$(SELF) depends
 	@$(SELF) configure
 	@$(SELF) stow
 
 # depends-% — ONE submodule package install (make depends-bat,
 # depends-herbctl, depends-herbstutil, depends-polyframes — any
-# submodule in system.required; an unknown name fails inside the walk
+# submodule in system.depends; an unknown name fails inside the walk
 # with the misconfiguration report). The bulk walk (depends --install)
 # silently assumes its prerequisites; the explicit verb honors them:
 #   1. the on-deploy binary exists (a fresh clone: `make depends` first)
@@ -386,7 +422,7 @@ depends-%:
 	$(ONDEPLOY_BIN) depends --install --only "$*" $(F)
 
 # herbst (Alias=x-window-manager) is a bulletproof reload: the WM binary
-# MUST NOT restart (only clean-upgrade may) — the reconfig goes through
+# MUST NOT restart (only force-upgrade may) — the reconfig goes through
 # herbstclient reload. dunst has ExecReload (dunstctl); compton and
 # hc_send-error-daemon only reload by restart; check-x-server is an
 # X-probe — never touched live.
@@ -395,7 +431,7 @@ depends-%:
 # service reload.
 livereload: on-deploy
 	@$(ONDEPLOY_RUN) check
-	@units=$$(sed -e 's/#.*//' -e '/^[[:space:]]*$$/d' $(CURDIR)/services.required | tr -s ' \t' '\n' | grep -v '^$$'); \
+	@units=$$(sed -e 's/#.*//' -e '/^[[:space:]]*$$/d' $(if $(wildcard services.depends),services.depends,services.required) | tr -s ' \t' '\n' | grep -v '^$$'); \
 	pkgs=""; \
 	for u in $$units; do \
 		p=""; \
