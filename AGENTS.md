@@ -291,7 +291,15 @@ Wall-clock effect: `make install` 35.7 s → 10.3 s, `make status`
     `--` — commands with flags go through `--cmd '<string>'` or a
     wrapper file.
 13. **No Python in this repo** (the last one was deleted 2026-10).
-14. **`make update` is headless out of the box**; the TUI/session
+14. **Submodule versioning — don't burn the minor on small patches**
+    (herbctl, polyframes, herbstutil, on-deploy; 2026-11): semver with
+    segments read as `0.x.0` = minor, `0.0.x` = patch. Minor bumps
+    (`v1.5.0`) are for real features/new verbs; small patches and
+    behavior tweaks bump the PATCH segment (`v1.4.1` style). Burning a
+    minor per patch churns releases for nothing (v1.5.0 + v1.6.0 both
+    went out on same-day tweaks — kept, not reverted; the doctrine
+    applies going forward).
+15. **`make update` is headless out of the box**; the TUI/session
     gates are the only real tty assumptions.
 
 ## Quick verification workflow
