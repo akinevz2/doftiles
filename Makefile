@@ -152,8 +152,9 @@ trust:
 # an identity until configure-credentials runs interactively.
 credentials:
 	@if [ -f "$$HOME/.my-credentials" ]; then \
-		$(HOME)/.local/bin/configure-credentials --regen && \
+		$(HOME)/.local/bin/configure-credentials --regen || exit 1; \
 		$(HOME)/.local/bin/load-credentials || true; \
+		$(SELF) stow-shell; \
 	else \
 		echo "credentials: $$HOME/.my-credentials missing — run 'configure-credentials' in a terminal to set up name/email"; \
 	fi
@@ -369,6 +370,7 @@ clean-upgrade:
 	@$(SELF) on-deploy
 	@$(SELF) configure
 	@$(SELF) stow
+	@$(SELF) credentials
 
 # depends-% — ONE submodule package install (make depends-bat,
 # depends-herbctl, depends-herbstutil, depends-polyframes — any
