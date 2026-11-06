@@ -33,7 +33,7 @@ install: install-source
 install-source: bun-ensure build link stow
 
 status:
-	@if [ -x "$(ARTIFACT)" ]; then echo "depends: installed ($(ARTIFACT))"; else echo "depends: MISSING — run 'make -C depends -f .local/state/depends/depends.Makefile install'" >&2; exit 1; fi
+	@if [ -x "$(ARTIFACT)" ]; then echo "depends: installed"; else echo "depends: MISSING; make install-src" >&2; exit 1; fi
 
 # uninstall: the plain reversal (no conf records; no router flows)
 uninstall:
@@ -46,10 +46,10 @@ bun-ensure:
 	@if command -v bun >/dev/null 2>&1; then \
 		echo "depends: bun present already"; \
 	elif command -v npm >/dev/null 2>&1; then \
-		echo "depends: bun missing — installing through npm"; \
+		echo "depends: bun missing; npm install"; \
 		npm install --global bun; \
 	else \
-		echo "depends: BUN IS REQUIRED to bootstrap this system — source-only, no transport carries the binary; install bun (npm install --global bun works where node/npm exists), then rerun this target" >&2; \
+		echo "depends: BUN REQUIRED; npm i -g bun" >&2; \
 		exit 2; \
 	fi
 
@@ -112,14 +112,14 @@ clean:
 	done
 	@for b in $(LEGACY_DEPS_BINS); do \
 		if [ -f "$(CURDIR)/.local/bin/$$b" ] && [ ! -e "$(DOTS)/$$b/.local/bin/$$b" ]; then \
-			echo "deps-clean: kept $(CURDIR)/.local/bin/$$b — no owner artifact at dots/$$b/.local/bin/$$b (inspect by hand; not deleted)" >&2; \
+			echo "deps-clean: kept .local/bin/$$b; no owner" >&2; \
 		else \
 			rm -f "$(CURDIR)/.local/bin/$$b"; \
 		fi; \
 	done
 	@if [ -e "$(CURDIR)/.local/share" ]; then \
 		if [ -e "$(CURDIR)/.local/share/on-deploy" ]; then \
-			echo "deps-clean: depends/.local/share/on-deploy exists — the 2026-11 layout expects the checkout at dots/on-deploy/.local/share/on-deploy; NOT deleting (inspect by hand)" >&2; \
+			echo "deps-clean: old checkout here; kept" >&2; \
 		else \
 			rmdir "$(CURDIR)/.local/share" || true; \
 		fi; \

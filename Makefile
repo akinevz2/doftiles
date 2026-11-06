@@ -77,7 +77,7 @@ sudo:
 	elif sudo -n true 2>/dev/null; then \
 		echo "sudo: cached grant present"; \
 	elif [ -t 0 ]; then \
-		echo "sudo: collecting the root grant UPFRONT (the rustup platform install needs it; no mid-run prompts)"; \
+		echo "sudo: collecting root grant; no mid-run prompts"; \
 		sudo -v || { echo "sudo: declined — rerun with: sudo make bootstrap" >&2; exit 2; }; \
 	else \
 		echo "sudo: this recipe needs root — rerun with: sudo make bootstrap" >&2; \
@@ -104,7 +104,7 @@ bootstrap: depends bun rustup
 bun:
 	@$(SELF) sudo
 	@if $(ONDEPLOY_BIN) toolchain --bun --check; then \
-		echo "bun: present — the toolchain recipe is a no-op"; \
+		echo "bun: present (skip)"; \
 	else \
 		$(ONDEPLOY_BIN) toolchain --bun --yes $(F); \
 	fi
@@ -112,7 +112,7 @@ bun:
 rustup:
 	@$(SELF) sudo
 	@if $(ONDEPLOY_BIN) toolchain --rustup --check; then \
-		echo "rustup: present — the toolchain recipe is a no-op"; \
+		echo "rustup: present (skip)"; \
 	else \
 		$(ONDEPLOY_BIN) toolchain --rustup --yes $(F); \
 	fi
@@ -141,8 +141,8 @@ configure:
 	@if [ -t 0 ] || [ -n "$(F)" ]; then \
 		$(ONDEPLOY_BIN) configure $(F); \
 	else \
-		echo "configure: non-interactive shell without FORCE=1 — refusing the reconfiguration menu" >&2; \
-		echo "  rerun with FORCE=1 to re-apply the recorded config (on-deploy configure --force)" >&2; \
+		echo "configure: non-tty, no FORCE=1" >&2; \
+		echo "  rerun: FORCE=1 make configure" >&2; \
 		exit 2; \
 	fi
 
@@ -270,7 +270,7 @@ update:
 	$(SELF) on-deploy
 	@SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(F) || { \
 		if [ -n "$(F)" ]; then \
-			echo "update: FORCE=1 — repo stow failed; unstowing before retry"; \
+			echo "update: stow failed; unstow+retry"; \
 			$(ONDEPLOY_RUN) unstow $(F); \
 			systemctl --user daemon-reload 2>/dev/null || true; \
 			echo "update: unstow done; units reload; no restart"; \
@@ -279,7 +279,7 @@ update:
 			units=$$(sed -e 's/#.*//' -e '/^[[:space:]]*$$/d' $(CURDIR)/services.required | tr -s ' \t' '\n' | grep -v '^$$'); \
 			for u in $$units; do systemctl --user enable --no-block "$$u" 2>/dev/null || true; done; \
 		else \
-			echo "update: stow failed — rerun with FORCE=1 to unstow and retry" >&2; \
+			echo "update: stow failed; rerun FORCE=1" >&2; \
 			exit 1; \
 		fi; \
 	}
@@ -333,7 +333,7 @@ depends-%:
 	@if [ ! -x "$(ONDEPLOY_BIN)" ]; then $(SELF) depends; fi
 	@tool=$$([ "$*" = bat ] && echo rustup || echo bun); \
 	if ! $(ONDEPLOY_BIN) toolchain --$$tool --check; then \
-		echo "depends-$*: the '$$tool' toolchain is missing or unusable — run 'make $$tool' first (system install, sudo-gated)" >&2; \
+		echo "depends-$*: $$tool missing — run make $$tool" >&2; \
 		exit 2; \
 	fi
 	$(ONDEPLOY_BIN) depends --install --only "$*" $(F)

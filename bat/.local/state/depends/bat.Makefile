@@ -100,7 +100,7 @@ rustup:
 	@# dies with "rustup could not choose a version of cargo to run".
 	@# USER-level (no sudo); idempotent — the download only happens once.
 	@if ! rustup show active-toolchain >/dev/null 2>&1; then \
-		echo "bat: rustup has no default toolchain — installing stable (user-level, no sudo)"; \
+		echo "bat: rustup default missing; install stable"; \
 		rustup default stable; \
 	fi
 
@@ -118,8 +118,8 @@ release-tag:
 		|| wget -qO- --tries=3 "$$url" 2>/dev/null \
 			| grep '"tag_name"' | head -n1 \
 			| sed 's/.*"tag_name": *"\([^"]*\)".*/\1/'); \
-	[ -n "$$tag" ] || { echo "bat: release tag UNRESOLVED (neither curl nor wget)" >&2; exit 2; }; \
-	echo "bat: resolved release tag: $$tag"; \
+	[ -n "$$tag" ] || { echo "bat: no tag (fetch fail)" >&2; exit 2; }; \
+	echo "bat: tag $$tag"; \
 	echo "$$tag" > "$(RELEASE)/tag"
 
 # one logical operation: fetch the release asset (curl, else wget)
