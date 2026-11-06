@@ -23,7 +23,7 @@ ASSET_ARCH := x86_64-unknown-linux-gnu
 ONDEPLOY := $(SYSBIN)/on-deploy
 
 TOOLCHAIN_BINDIR := $(HOME)/.cargo/bin
-export PATH := $(TOOLCHAIN_BINDIR):$(PATH)
+export PATH := $(TOOLCHAIN_BINDIR):$(HOME)/.bun/bin:$(PATH)
 
 FORCE ?=
 DRY   ?=
@@ -31,7 +31,7 @@ M     ?=
 export FORCE DRY M
 
 .DEFAULT_GOAL := all
-.PHONY: toolchain build sync checkout pull compile link \
+.PHONY: toolchain bun rustup build sync checkout pull compile link \
         install-source install-release install uninstall status
 
 # ── the deploy contract (one echo per key; on-deploy consults it) ──────
@@ -83,9 +83,19 @@ link:
 	@ln -f "$(SUB_DIR)/target/release/bat" "$(ARTIFACT)"
 	@echo "bat: linked $(ARTIFACT)"
 
-# ── toolchain (defer) ───────────────────────────────────────────────────
-toolchain:
-	@-$(ONDEPLOY) toolchain --rustup --check || $(ONDEPLOY) toolchain --rustup $(if $(FORCE),--yes,) $(if $(FORCE),-f,)
+# ── toolchain — split: one recipe per toolchain, toolchain composes ─────
+# (bat builds through RUST; bun is wired for the eventual JS riders but
+# stays a no-cost --check today). Each recipe: the on-deploy --check
+# query first (an installed toolchain is a cheap no-op), the install
+# only when absent — the FORCE knob feeds --yes/-f to the system
+# install walk.
+toolchain: bun rustup
+
+bun:
+	@$(ONDEPLOY) toolchain --bun --check || $(ONDEPLOY) toolchain --bun $(if $(FORCE),--yes,) $(if $(FORCE),-f,)
+
+rustup:
+	@$(ONDEPLOY) toolchain --rustup --check || $(ONDEPLOY) toolchain --rustup $(if $(FORCE),--yes,) $(if $(FORCE),-f,)
 	@# a bare rustup install leaves NO default toolchain: `cargo` then
 	@# dies with "rustup could not choose a version of cargo to run".
 	@# USER-level (no sudo); idempotent — the download only happens once.
@@ -93,6 +103,7 @@ toolchain:
 		echo "bat: rustup has no default toolchain — installing stable (user-level, no sudo)"; \
 		rustup default stable; \
 	fi
+
 
 # ── the upstream release route (package-specific steps) ────────────────
 install-release: release-tag release-fetch release-extract release-link
