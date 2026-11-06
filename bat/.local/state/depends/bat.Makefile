@@ -64,7 +64,7 @@ uninstall:
 # ── itself: install-source brings the rust toolchain via on-deploy) ────
 install-source: toolchain build link
 
-build: sync checkout pull compile
+build: sync checkout compile
 
 sync:
 	@git -C "$(DOTS)" submodule sync -- bat/.local/share/bat-src
@@ -72,10 +72,9 @@ sync:
 checkout:
 	@git -C "$(DOTS)" submodule update --init --recursive -- bat/.local/share/bat-src
 
-pull:
-	@git -C "$(SUB_DIR)" checkout -q -B main origin/main 2>/dev/null \
-		|| git -C "$(SUB_DIR)" checkout -q -B master origin/master
-
+# no pull: the checkout is FROZEN at the recorded pin — the submodule
+# update reasserts it; a bump is a manual git operation (the
+# upstream-owned nested-assets doctrine)
 compile:
 	@cd "$(SUB_DIR)" && cargo build --release --locked --quiet
 
