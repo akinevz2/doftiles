@@ -148,13 +148,14 @@ all stow wm restow: on-deploy
 
 # stow-<dots-package> / unstow-<dots-package> — the per-package pattern
 # spelling of the stow/unstow flows (make stow-depends, make
-# unstow-herbctl...): each routes the package through on-deploy after
-# the binary is fresh (a pull must land a fresh binary even when a
-# stale one is installed)
-stow-%: on-deploy
+# unstow-herbctl...): each routes the package through on-deploy. NOTE
+# the pattern verbs do NOT pull in the on-deploy build — composition
+# with a fresh binary is explicit (the on-deploy target = adapter
+# build + stow-depends).
+stow-%:
 	@$(ONDEPLOY_BIN) stow --only "$*"
 
-unstow-%: on-deploy
+unstow-%:
 	@$(ONDEPLOY_BIN) unstow --only "$*"
 
 # unstow / clean — remove the links (the user's real files stay)
