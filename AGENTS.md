@@ -77,7 +77,10 @@ also not stowed.
 
 Package manifests live in repo-level files: `stows.required` (stow
 package list), `wm.required` (required binaries — the Makefile reads only its
-**first line**; the second line `wsl-systemd` is the deployment session; the
+**first line**, INCLUDING the deploy machinery's own meta dependencies:
+`jq` rides there via the package manager, resolved by the
+`<target>.deploy` protocol on any install walk; the second line
+`wsl-systemd` is the deployment session; the
 last non-comment line `ubuntu` is the deploy target), and `system.required`
 (the SUBMODULE manifest — each line is a stow package with its
 dots-relative submodule paths, the configured scope of `on-deploy
