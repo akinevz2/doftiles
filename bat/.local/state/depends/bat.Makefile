@@ -95,13 +95,15 @@ bun:
 	@$(ONDEPLOY) toolchain --bun --check || $(ONDEPLOY) toolchain --bun $(if $(FORCE),--yes,) $(if $(FORCE),-f,)
 
 rustup:
-	@$(ONDEPLOY) toolchain --rustup --check || $(ONDEPLOY) toolchain --rustup $(if $(FORCE),--yes,) $(if $(FORCE),-f,)
-	@# a bare rustup install leaves NO default toolchain: `cargo` then
-	@# dies with "rustup could not choose a version of cargo to run".
-	@# USER-level (no sudo); idempotent — the download only happens once.
-	@if ! rustup show active-toolchain >/dev/null 2>&1; then \
-		echo "bat: rustup default missing; install stable"; \
-		rustup default stable; \
+	@# the rust chain prefers RUSTUP (user-level, no sudo) when present:
+	@# 1. rustup exists -> install the stable toolchain THROUGH it (the
+	@#    bare rustup case: no tools, no default — `rustup toolchain
+	@#    install stable` is idempotent: the download happens only once)
+	@# 2. no rustup at all -> the platform walk (sudo-gated) as fallback
+	@if command -v rustup >/dev/null 2>&1; then \
+		rustup toolchain install stable && rustup default stable; \
+	else \
+		$(ONDEPLOY) toolchain --rustup --check || $(ONDEPLOY) toolchain --rustup $(if $(FORCE),--yes,) $(if $(FORCE),-f,); \
 	fi
 
 
