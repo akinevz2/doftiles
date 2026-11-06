@@ -1,155 +1,129 @@
-# herbstutil — per-package depends Makefile (the 2026-11 scheme). The
-# submodule checkout is a REGISTRY package: the artifact is the
-# npm/bun GLOBAL install. Method knob:
-#   source (default) — global install straight from the checkout
-#   npm              — the published registry build (bun add -g herbstutil)
-# Also hosts the bun trust steps (the dots bootstrap's `make trust`
-# delegates here).
+# herbstutil — PACKAGE ADAPTER (the 2026-11 router-Makefile): one file
+# per dots submodule package (this is a REGISTRY package: the artifact
+# is the npm/bun global install, no dots binary; it also hosts the bun
+# trust steps the dots bootstrap's `make trust` delegates to).
 #
-#   make install                 ensure — method conf > source
-#   make install FORCE=1         reinstall even when present
-#   make install M=source|npm    explicit method (also recorded)
-#   make install DRY=1           print what would run, change nothing
-#   make trust-local             bun trust for every checked-out bun
-#                                submodule of the dots repo
-#   make trust-global            bun pm trust -g (global untrusted set)
+# on-deploy consumes the `metadata` contract below (one bare-value
+# recipe per item, chained) and runs ALL routing/branching itself:
+#   on-deploy managed herbstutil install|uninstall|status|<item>|...
+# The make verbs stay the interface.
+#
+# Method format: PACKAGE=source|pkg (doftiles.conf). The submodule:
+# herbstutil -> dots/herbstutil/.local/share/herbstutil.
 
 DOTS    := $(abspath $(CURDIR)/..)
 SUB_DIR := $(DOTS)/herbstutil/.local/share/herbstutil
 SYSBIN  := $(HOME)/.local/bin
-CONF    := $(HOME)/.config/doftiles.conf
+ONDEPLOY := $(SYSBIN)/on-deploy
 
 FORCE ?=
 DRY   ?=
 M     ?=
 export FORCE DRY M
 
-.PHONY: toolchain build link install uninstall status trust-local trust-global start stop enable disable
-.DEFAULT_GOAL := status
+.DEFAULT_GOAL := all
+.PHONY: toolchain deps-dir deps-install link install-source \
+        install uninstall status trust-setup trust-walk trust-report \
+        trust-local trust-global
 
-toolchain:
-	@case "$(DRY)" in 1) echo "  [dry-run] on-deploy toolchain --bun"; exit 0;; esac; \
-	[ -x "$(SYSBIN)/on-deploy" ] || { echo "herbstutil: $(SYSBIN)/on-deploy missing — run 'make bootstrap' first" >&2; exit 2; }; \
-	$(SYSBIN)/on-deploy toolchain --bun
+# ── the deploy contract (one echo per key; on-deploy consults it) ──────
+	@echo key=HERBSTUTIL
+	@echo sub_dir=herbstutil/.local/share/herbstutil
+	@echo artifact=
+	@echo stow=0
+	@echo install_name=herbstutil
+	@echo lang=bun
+	@echo transports=bun,npm
+	@echo methods=source
+	@echo source_default=source
+	@echo src_target=install-source
 
-# ── conf (the <HERBSTUTIL>=<method> record, through the stow symlink) ──
-conf-get:
-	@[ -f "$(CONF)" ] || { printf ''; exit 0; }; \
-	. "$(CONF)" 2>/dev/null || true; \
-	printf '%s' "$${HERBSTUTIL:-}"
+# ── the default: prepare the source (no artifact; make install deploys) ─
+all: deps-install
 
-conf-set:
-	@mkdir -p "$$(dirname "$(CONF)")"; \
-	touch "$(CONF)"; \
-	if grep -q '^HERBSTUTIL=' "$(CONF)"; then \
-		sed -i --follow-symlinks "s/^HERBSTUTIL=.*/HERBSTUTIL=$(value M)/" "$(CONF)"; \
-	else \
-		printf 'HERBSTUTIL=%s\n' "$(value M)" >> "$(CONF)"; \
-	fi
-
-# build/link — a registry package has no bundled artifact
-build link:
-	@echo "herbstutil: no build — the artifact is the npm/bun global install (make install)"
-
-# ── npm: the published registry build ─────────────────────────────────
-install-npm:
-	@set -e; \
-	case "$(DRY)" in 1) echo "  [dry-run] bun add -g herbstutil (npm fallback)"; exit 0;; esac; \
-	if command -v bun >/dev/null 2>&1; then bun add -g herbstutil; else npm install --global herbstutil; fi; \
-	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/herbstutil.Makefile conf-set M=npm; \
-	printf '  %-11s %s\n' herbstutil "installed from the npm registry (make install FORCE=1 redeploys)"
-
-# ── source: global install straight from the checkout ─────────────────
-install-source:
-	@set -e; \
-	[ -f "$(SUB_DIR)/package.json" ] || { echo "herbstutil: submodule checkout missing — run 'make submodules' first" >&2; exit 2; }; \
-	case "$(DRY)" in 1) echo "  [dry-run] bun add -g $(SUB_DIR) (npm fallback)"; exit 0;; esac; \
-	if command -v bun >/dev/null 2>&1; then bun add -g "$(SUB_DIR)"; else npm install --global "$(SUB_DIR)"; fi; \
-	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/herbstutil.Makefile conf-set M=source; \
-	printf '  %-11s %s\n' herbstutil "installed from the checkout ($(SUB_DIR); --force redeploys)"
-
-# method resolution: M > conf > source
+# ── install/status: deferrals (no branching here) ──────────────────────
 install:
-	@set -e; \
-	if command -v herbstutil >/dev/null 2>&1 && [ -z "$(FORCE)" ] && [ -z "$(M)" ]; then \
-		printf '  %-11s %s\n' herbstutil "global install present already"; \
-		exit 0; \
-	fi; \
-	RESOLVED="$(M)"; \
-	if [ -z "$$RESOLVED" ]; then \
-		RESOLVED="$$(make -C "$(CURDIR)" --no-print-directory -f .local/state/depends/herbstutil.Makefile conf-get)"; \
-	fi; \
-	case "$$RESOLVED" in none) RESOLVED="";; esac; \
-	if [ -z "$$RESOLVED" ]; then RESOLVED=source; fi; \
-	case "$$RESOLVED" in \
-		source) exec $(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/herbstutil.Makefile install-source;; \
-		npm) exec $(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/herbstutil.Makefile install-npm;; \
-		*) echo "herbstutil: unknown method '$$RESOLVED' (source|npm)" >&2; exit 2;; \
-	esac
-
-uninstall:
-	@set -e; \
-	case "$(DRY)" in 1) echo "  [dry-run] remove the global herbstutil; conf reset (checkout stays)"; exit 0;; esac; \
-	if command -v bun >/dev/null 2>&1; then \
-		bun remove -g herbstutil 2>/dev/null || true; \
-	else \
-		npm uninstall --global herbstutil 2>/dev/null || true; \
-	fi; \
-	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/herbstutil.Makefile conf-set M=none; \
-	echo "herbstutil: uninstalled (checkout left in place)"
-
-trust-local:
-	@set -e; \
-	if [ "$(DRY)" = 1 ]; then echo "  [dry-run] bun pm trust per bun submodule"; exit 0; fi; \
-	if ! command -v bun >/dev/null 2>&1; then \
-		echo "herbstutil: bun absent — nothing to trust locally"; exit 0; \
-	fi; \
-	pcount=0; \
-	for p in $$(git config --file "$(DOTS)/.gitmodules" --get-regexp 'submodule[^ ]*\.path$$' 2>/dev/null | cut -d' ' -f2); do \
-		dir="$(DOTS)/$$p"; \
-		if [ ! -d "$$dir" ] || [ ! -f "$$dir/package.json" ]; then continue; fi; \
-		pcount=$$((pcount + 1)); \
-		untrusted="$$(cd "$$dir" && bun pm untrusted 2>/dev/null || true)"; \
-		if [ -z "$$untrusted" ]; then continue; fi; \
-		echo "  trust: $$p"; \
-		for line in $$untrusted; do \
-			case "$$line" in node_modules/*) pkg="$${line#node_modules/}"; pkg="$${pkg%%/*}" ;; *) continue ;; esac; \
-			if (cd "$$dir" && bun pm trust "./node_modules/$$pkg" >/dev/null 2>&1); then \
-				echo "    trusted $$pkg"; \
-			else \
-				echo "    $$pkg stays blocked (lifecycle scripts)"; \
-			fi; \
-		done; \
-	done; \
-	if [ "$$pcount" -gt 0 ]; then \
-		echo "herbstutil: trust-local done on $$pcount bun submodule(s)"; \
-	else \
-		echo "herbstutil: no checked-out bun submodules to trust"; \
-	fi
-
-trust-global:
-	@set -e; \
-	if [ "$(DRY)" = 1 ]; then echo "  [dry-run] bun pm trust -g for the global untrusted set"; exit 0; fi; \
-	if ! command -v bun >/dev/null 2>&1; then \
-		echo "herbstutil: bun absent — nothing to trust globally"; exit 0; \
-	fi; \
-	untrusted="$$(bun pm untrusted -g 2>/dev/null || true)"; \
-	for pkg in polyframes herbctl herbstutil @opencode/cli bun; do \
-		if printf '%s' "$$untrusted" | grep -qF "node_modules/$$pkg"; then \
-			if bun pm trust -g "$$pkg" >/dev/null 2>&1; then \
-				echo "  trusted -g $$pkg"; \
-			else \
-				echo "  $$pkg stayed blocked"; \
-			fi; \
-		else \
-			echo "  $$pkg — trusted already or no blocked scripts"; \
-		fi; \
-	done
+	@$(ONDEPLOY) managed herbstutil install --method=$(M) --force=$(FORCE) --dry-run=$(DRY)
 
 status:
-	@st=MISSING; command -v herbstutil >/dev/null 2>&1 && st=installed; \
-	printf '  %-12s %s\n' herbstutil "$$st"; \
-	printf '  %-12s %s\n' method "$$(make -C "$(CURDIR)" --no-print-directory -f .local/state/depends/herbstutil.Makefile conf-get)"
+	@$(ONDEPLOY) managed herbstutil status
 
-start stop enable disable:
-	@echo "herbstutil: nothing to $@ — the deployed artifact is a global library"
+# ── the source route composed through steps ─────────────────────────────
+install-source: deps-install link-src
+
+deps-dir:
+	@mkdir -p "$(SUB_DIR)/node_modules/.tmp"
+
+deps-install: deps-dir
+	@env TMPDIR="$(SUB_DIR)/node_modules/.tmp" bun install --cwd "$(SUB_DIR)"
+
+# one logical operation: global install straight from the checkout
+link-src:
+	@bun add -g "$(SUB_DIR)"
+
+link:
+	@echo "herbstutil: no link — the artifact is the global install (install-source)"
+
+# ── the PLAIN uninstall step (on-deploy adds the transport removes and
+#    the conf record reset) ───────────────────────────────────────────────
+uninstall:
+	@echo "herbstutil: no artifact — registry removals are on-deploy's"
+
+# ── toolchain (defer) ───────────────────────────────────────────────────
+toolchain:
+	@$(ONDEPLOY) toolchain --bun
+
+# ── the bun trust steps (the dots bootstrap's `make trust` path) ───────
+# trust-local: for EVERY bun submodule checkout of the dots repo, ask
+# bun which dependencies have blocked lifecycle scripts and trust them
+# (bun's default trust policy blocks postinstalls; AGENTS.md quirk 17)
+
+trust-local: trust-report
+
+trust-report:
+	@pcount=0; \
+	untrusted=0; \
+	for p in $$(git config --file "$(DOTS)/.gitmodules" --get-regexp 'submodule[^ ]*\.path$$' 2>/dev/null | cut -d' ' -f2); do \
+		dir="$(DOTS)/$$p"; \
+		[ -d "$$dir" ] || continue; \
+		[ -f "$$dir/package.json" ] || continue; \
+		pcount=$$((pcount + 1)); \
+		blocked=$$(cd "$$dir" && bun pm untrusted 2>/dev/null || true); \
+		[ -n "$$blocked" ] || continue; \
+		untrusted=$$((untrusted + 1)); \
+		echo "  trust: $$p"; \
+		printf '%s\n' "$$blocked" | while read -r line; do \
+			case "$$line" in node_modules/*) pkg="$${line#node_modules/}"; pkg="$${pkg%%/*}" ;; *) continue ;; esac; \
+			(cd "$$dir" && bun pm trust "./node_modules/$$pkg" >/dev/null 2>&1) \
+				&& echo "    trusted $$pkg" \
+				|| echo "    $$pkg stayed blocked"; \
+		done; \
+	done; \
+	echo "herbstutil: trust walked $$pcount checkout(s)"
+
+trust-global:
+	@echo "herbstutil: trusting the global untrusted set"
+	@untrusted=$$(bun pm untrusted -g 2>/dev/null || true); \
+	for pkg in polyframes herbctl herbstutil @opencode/cli bun; do \
+		printf '%s' "$$untrusted" | grep -qF "node_modules/$$pkg" || continue; \
+		bun pm trust -g "$$pkg" >/dev/null 2>&1 && echo "  trusted -g $$pkg" || echo "  $$pkg stayed blocked"; \
+	done
+
+# ── the package metadata: one config item per recipe (value only!), ────
+# ── chained; the ORDER is the contract (see lib/adapters.ts) ───────────
+metadata: git_repo pkg_name methods_supported repos_pkg repos_pkg_name
+
+git_repo:
+	@echo https://github.com/akinevz2/herbstutil
+
+pkg_name:
+	@echo herbstutil
+
+methods_supported:
+	@echo source,pkg
+
+repos_pkg:
+	@echo bun,npm
+
+repos_pkg_name:
+	@echo herbstutil

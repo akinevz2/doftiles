@@ -1,136 +1,100 @@
-# polyframes — per-package depends Makefile (the 2026-11 scheme). The
-# submodule checkout builds with bun + the checkout's own make; the
-# artifact lands in dots/polyframes/.local/bin and stow ships it.
-# Method record: ~/.config/doftiles.conf polyframes
-# Method knob: doftiles.conf <POLYFRAMES>=<method> (source | npm;
-# written through the stow symlink).
+# polyframes — PACKAGE ADAPTER (the 2026-11 router-Makefile): one file
+# per dots submodule package declaring what is genuinely
+# polyframes-specific and owning only its concrete step recipes.
 #
-#   make install            ensure — method conf > source
-#   make install FORCE=1    rebuild/redeploy even when present
-#   make install PKG=true   the npm rider instead of source
-#   make install M=npm      explicit method (also recorded)
-#   make install DRY=1      print what would run, change nothing
+# on-deploy consumes the `metadata` contract below (one bare-value
+# recipe per item, chained) and runs ALL routing/branching itself:
+#   on-deploy managed polyframes install|uninstall|status|<item>|...
+# The make verbs stay the interface.
+#
+# Method format: PACKAGE=source|pkg (doftiles.conf). The submodule:
+# polyframes -> dots/polyframes/.local/share/polyframes.
+# NOTE: the nested bun package's install-hook ensure is a
+# package-specific step (bun skips postinstalls on fresh installs).
 
 DOTS     := $(abspath $(CURDIR)/..)
 SUB_DIR  := $(DOTS)/polyframes/.local/share/polyframes
 LINK     := $(CURDIR)/.local/bin
-SYSBIN   := $(HOME)/.local/bin
 ARTIFACT := $(LINK)/polyframes
-CONF     := $(HOME)/.config/doftiles.conf
+SYSBIN   := $(HOME)/.local/bin
+ONDEPLOY := $(SYSBIN)/on-deploy
 
 FORCE ?=
 DRY   ?=
 M     ?=
 export FORCE DRY M
 
-.PHONY: toolchain build link install install-polyframes-source \
-        install-polyframes-npm conf-get conf-set stow-polyframes \
-        uninstall status start stop enable disable
-.DEFAULT_GOAL := status
+.DEFAULT_GOAL := all
+.PHONY: toolchain build deps-dir deps-install bun-hooks compile link \
+        install-source install uninstall status
 
-toolchain:
-	@case "$(DRY)" in 1) echo "  [dry-run] on-deploy toolchain --bun"; exit 0;; esac; \
-	[ -x "$(SYSBIN)/on-deploy" ] || { echo "polyframes: $(SYSBIN)/on-deploy missing — run 'make bootstrap' first" >&2; exit 2; }; \
-	$(SYSBIN)/on-deploy toolchain --bun
+# ── the deploy contract (one echo per key; on-deploy consults it) ──────
+	@echo key=POLYFRAMES
+	@echo sub_dir=polyframes/.local/share/polyframes
+	@echo artifact=polyframes/.local/bin/polyframes
+	@echo install_name=polyframes
+	@echo lang=bun
+	@echo transports=bun,npm
+	@echo methods=source
+	@echo source_default=source
+	@echo src_target=install-source
 
-conf-get:
-	@[ -f "$(CONF)" ] || { printf ''; exit 0; }; \
-	. "$(CONF)" 2>/dev/null || true; \
-	printf '%s' "$${POLYFRAMES:-}"
+# ── the default: build + link ("make; make install" cadence) ───────────
+all: build link
 
-conf-set:
-	@mkdir -p "$$(dirname "$(CONF)")"; \
-	touch "$(CONF)"; \
-	if grep -q '^POLYFRAMES=' "$(CONF)"; then \
-		sed -i --follow-symlinks "s/^POLYFRAMES=.*/POLYFRAMES=$(value M)/" "$(CONF)"; \
-	else \
-		printf 'POLYFRAMES=%s\n' "$(value M)" >> "$(CONF)"; \
-	fi
-
-build:
-	@if [ ! -f "$(SUB_DIR)/Makefile" ]; then \
-		echo "polyframes: submodule checkout missing — run 'make submodules' first" >&2; exit 2; \
-	fi; \
-	case "$(DRY)" in 1) echo "  [dry-run] bun install + make build -> dist/polyframes"; exit 0;; esac; \
-	cd "$(SUB_DIR)" && mkdir -p node_modules/.tmp && \
-		TMPDIR="$$(pwd)/node_modules/.tmp" bun install; \
-	if [ -d "$(SUB_DIR)/node_modules/bun" ]; then \
-		echo "polyframes: ensuring the nested bun package's install hooks ran"; \
-		node "$(SUB_DIR)/node_modules/bun/install.js" 2>/dev/null || \
-			{ command -v node >/dev/null 2>&1 || echo "polyframes: node missing — cannot run the nested bun install hook" >&2; }; \
-	fi; \
-	$(MAKE) -C "$(SUB_DIR)" --no-print-directory build
-
-link:
-	@set -e; \
-	case "$(DRY)" in 1) echo "  [dry-run] install the built binary -> $(ARTIFACT)"; exit 0;; esac; \
-	mkdir -p "$(LINK)"; \
-	[ -f "$(SUB_DIR)/dist/polyframes" ] || { echo "polyframes: not built — make build first" >&2; exit 2; }; \
-	install -m 755 "$(SUB_DIR)/dist/polyframes" "$(ARTIFACT)"; \
-	echo "polyframes: linked $(ARTIFACT)"
-
-stow-polyframes:
-	@set -e; \
-	case "$(DRY)" in 1) echo "  [dry-run] swap a legacy REGULAR ~/.local/bin/polyframes for the package link, then stow -R polyframes"; exit 0;; esac; \
-	if [ -f "$(SYSBIN)/polyframes" ] && [ ! -L "$(SYSBIN)/polyframes" ]; then \
-		echo "polyframes: legacy regular file at $(SYSBIN)/polyframes — swapping for the package link"; \
-		rm -f "$(SYSBIN)/polyframes"; \
-	fi; \
-	cd "$(DOTS)" && stow -R -t "$(HOME)" polyframes
-
-install-polyframes-source: toolchain build link stow-polyframes
-	@set -e; \
-	case "$(DRY)" in 1) printf '  %-11s %s\n' polyframes "[dry-run] source build + link + stow"; exit 0;; esac; \
-	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/polyframes.Makefile conf-set M=source; \
-	printf '  %-11s %s\n' polyframes "built from source -> $(ARTIFACT)"
-
-install-polyframes-npm:
-	@set -e; \
-	case "$(DRY)" in 1) echo "  [dry-run] npm install --global github:akinevz2/polyframes"; exit 0;; esac; \
-	command -v npm >/dev/null 2>&1 || { echo "polyframes: npm not found (install node/npm first)" >&2; exit 2; }; \
-	echo "polyframes: via the npm rider ('release' fetches the same published artifact)"; \
-	npm install --global github:akinevz2/polyframes; \
-	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/polyframes.Makefile conf-set M=npm; \
-	printf '  %-11s %s\n' polyframes "installed via npm"
-
-# method resolution: M > conf > source (PKG=true -> npm)
+# ── install/uninstall/status: deferrals (no branching here) ────────────
 install:
-	@if [ "$(PKG)" = "true" ]; then exec $(MAKE) --no-print-directory -f .local/state/depends/polyframes.Makefile install-polyframes-npm; fi; \
-	set -e; \
-	TMP="$$(make -C "$(CURDIR)" --no-print-directory -f .local/state/depends/polyframes.Makefile conf-get)"; \
-	METHOD="$(M)"; \
-	if [ -z "$$METHOD" ]; then METHOD="$$TMP"; fi; \
-	case "$$METHOD" in none) METHOD="";; esac; \
-	if [ -z "$$METHOD" ]; then \
-		if command -v bun >/dev/null 2>&1; then METHOD=source; else METHOD=release; fi; \
-	fi; \
-	if [ -e "$(ARTIFACT)" ] && [ -L "$(SYSBIN)/polyframes" ] && [ "$(FORCE)" != 1 ] && [ -z "$(M)" ]; then \
-		printf '  %-11s %s\n' polyframes "deployed already (method=$$METHOD) — skipping (--force redeploys)"; \
-		exit 0; \
-	fi; \
-	case "$$METHOD" in \
-		source) $(MAKE) --no-print-directory -f .local/state/depends/polyframes.Makefile install-polyframes-source;; \
-		npm) $(MAKE) --no-print-directory -f .local/state/depends/polyframes.Makefile install-polyframes-npm M=$$METHOD;; \
-		*) echo "polyframes: unknown method '$$METHOD' (source|npm)" >&2; exit 2;; \
-	esac
-
-uninstall:
-	@set -e; \
-	case "$(DRY)" in 1) echo "  [dry-run] remove the polyframes artifact + links; conf reset (checkout stays)"; exit 0;; esac; \
-	rm -f "$(ARTIFACT)"; \
-	if [ -L "$(SYSBIN)/polyframes" ]; then rm -f "$(SYSBIN)/polyframes"; fi; \
-	if command -v polyframes >/dev/null 2>&1 && [ ! -L "$(SYSBIN)/polyframes" ]; then \
-		npm uninstall --global polyframes 2>/dev/null || true; \
-	fi; \
-	if grep -q '^POLYFRAMES=' "$(CONF)"; then \
-		sed -i --follow-symlinks "s/^POLYFRAMES=.*/POLYFRAMES=none/" "$(CONF)"; \
-	fi; \
-	echo "polyframes: uninstalled (checkout left in place)"
+	@$(ONDEPLOY) managed polyframes install --method=$(M) --force=$(FORCE) --dry-run=$(DRY)
 
 status:
-	@st=MISSING; [ -x "$(SYSBIN)/polyframes" ] && st=installed; \
-	printf '  %-12s %s\n' polyframes "$$st"; \
-	printf '  %-12s %s\n' method "$$([ -f "$(ARTIFACT)" ] && echo linked || echo none) ($$(make -C "$(CURDIR)" --no-print-directory -f .local/state/depends/polyframes.Makefile conf-get))"
+	@$(ONDEPLOY) managed polyframes status
 
-start stop enable disable:
-	@echo "polyframes: nothing to $@ — the deployed artifact is a plain binary"
+uninstall:
+	@rm -f "$(ARTIFACT)"
+
+# ── the source route composed through steps ─────────────────────────────
+install-source: build link
+
+build: deps-install bun-hooks compile
+
+deps-dir:
+	@mkdir -p "$(SUB_DIR)/node_modules/.tmp"
+
+deps-install: deps-dir
+	@env TMPDIR="$(SUB_DIR)/node_modules/.tmp" bun install --cwd "$(SUB_DIR)"
+
+# one logical operation: run the nested bun's install hook (bun skips
+# postinstalls on fresh installs; idempotent, this IS a package step)
+bun-hooks:
+	@node "$(SUB_DIR)/node_modules/bun/install.js" 2>/dev/null || { echo "polyframes: node missing — the nested bun install hook was skipped" >&2; exit 1; }
+
+compile:
+	@$(MAKE) -C "$(SUB_DIR)" --no-print-directory build
+
+link:
+	@mkdir -p "$(LINK)"
+	@install -m 755 "$(SUB_DIR)/dist/polyframes" "$(ARTIFACT)"
+	@echo "polyframes: linked $(ARTIFACT)"
+
+# ── toolchain (defer) ───────────────────────────────────────────────────
+toolchain:
+	@$(ONDEPLOY) toolchain --bun
+
+# ── the package metadata: one config item per recipe (value only!), ────
+# ── chained; the ORDER is the contract (see lib/adapters.ts) ───────────
+metadata: git_repo pkg_name methods_supported repos_pkg repos_pkg_name
+
+git_repo:
+	@echo https://github.com/akinevz2/polyframes
+
+pkg_name:
+	@echo polyframes
+
+methods_supported:
+	@echo source,pkg
+
+repos_pkg:
+	@echo bun,npm
+
+repos_pkg_name:
+	@echo polyframes
