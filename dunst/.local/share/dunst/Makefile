@@ -4,7 +4,7 @@
 # Deployable independently; the platform package-manager work defers
 # to on-deploy pkg.
 
-DOTS    := $$(abspath $$(CURDIR)/..)
+DOTS    := $(abspath $(CURDIR)/..)
 UNIT   := dunst.service
 BIN    := dunst
 ONDEPLOY ?= $(HOME)/.local/bin/on-deploy
@@ -13,7 +13,7 @@ install:
 	@$(ONDEPLOY) pkg install $(BIN)
 	@# self-stow FIRST: the units are stow links; a fresh deploy walks
 	@# this rule BEFORE any stow — did not happen here
-	@stow -d $$DOTS -R -t $$HOME dunst 2>/dev/null || true
+	@stow -d $(DOTS) -R -t $$HOME dunst 2>/dev/null || true
 	@if [ ! -f $$HOME/.config/systemd/user/$(UNIT) ]; then \
 		echo "dunst: unit STILL missing; SKIP"; exit 0; fi
 	@systemctl --user daemon-reload 2>/dev/null || true; \
