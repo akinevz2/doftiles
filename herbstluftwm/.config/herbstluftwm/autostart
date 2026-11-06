@@ -61,10 +61,11 @@ fi
 # ==== herbst_nav — navigation keybinds (window/tag focus, cycling, tags) ====
 
 # was $ModAlt-Tab → now Alt+Shift+`
-# ModCtrl-c: the rotate-tree complement (ModCtrl-r) on REVERSED
-# conditions: rotate BIG trees (>4 frames), cycle small ones
-# backwards (frames when >1, windows on a single frame).
-keyreg $ModCtrl-c spawn ~/.local/bin/herbctl rotate-tree-back
+# ModCtrl-c: the rotate-tree complement (ModCtrl-r) — --smart reverses
+# the rotate condition: rotate trees >= 3 frames (the exact complement
+# of the auto-mode <3 threshold), cycle BACKWARDS below it (frames
+# when >1, windows on a single frame). herbctl >= 1.3.0.
+keyreg $ModCtrl-c spawn ~/.local/bin/herbctl rotate-tree --smart
 
 # hc_command — the rofi command palette over the helper scripts
 keyreg $Mod-c       spawn ~/.local/bin/hc_command

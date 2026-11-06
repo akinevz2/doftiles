@@ -5,6 +5,9 @@
 # listed; every matching executable on PATH shows up in a rofi dmenu
 # styled like the app launcher (the dedicated command.rasi
 # clone — launcher.rasi's auto-features/icons caused stalls).
+# herbctl is PINNED at the top of the list (below): the WM-controller
+# CLI heads the palette — Tab-complete into it to append subcommands
+# and flags before the real submit.
 #
 # Selection handling:
 #   Shift-Return (kb-custom-1)  -> hc_launch "<selection>" — runs it in
@@ -35,7 +38,7 @@ ROFI_LOG=${POLYFRAMES_ROFI_LOG:-}
 usage() {
     cat <<'EOF'
 hc_command — rofi command palette over the helper scripts.
-Lists every PATH executable starting with: rofi_, hc_, hlwm
+herbctl first, then every PATH executable starting with: rofi_, hc_, hlwm
 
 Keymap:
   Return              run the selection silently (detached)
@@ -60,6 +63,18 @@ esac
 # double-press would otherwise stack two rofi windows.
 exec 9>"${TMPDIR:-/tmp}/hc_command.lock"
 flock -n 9 || exit 0
+
+# --- herbctl pinned first -------------------------------------------------
+# The WM-controller CLI heads the palette (Tab lets arguments be
+# appended before submit; Shift-Return opens its help in a terminal).
+# Listed only when it resolves — fail-soft like everything here. The
+# bare entry with plain Return is a harmless no-op (herbctl prints its
+# help and exits; output is discarded).
+list_herbctl() {
+    if command -v herbctl >/dev/null 2>&1; then
+        printf 'herbctl\n'
+    fi
+}
 
 # --- enumerate PATH executables with the declared prefixes --------------
 # ONE find pass over all PATH dirs (-L: the .local/bin entries are
@@ -113,7 +128,7 @@ while :; do
     # The negation char must be a character that can never be typed:
     # an empty string disables the option but makes rofi log 'Failed
     # to parse character string: ""' on every start.
-    sel=$(set +o pipefail; list_commands | rofi -dmenu -i -p command \
+    sel=$(set +o pipefail; { list_herbctl; list_commands; } | rofi -dmenu -i -p command \
             -theme "$HOME/.config/rofi/command.rasi" \
             -no-show-icons \
             -no-auto-select \
