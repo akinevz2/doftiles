@@ -144,11 +144,12 @@ rustup:
 trust:
 	@$(MAKE) $(call DEPS_MAKEFILE,herbstutil) trust-local trust-global
 
-# credentials — regenerate the transient ~/.my-credentials-env from the
-# persistent ~/.my-credentials (the last stage of bootstrap). Reminds
-# instead of hard-failing when the persistent file is missing — a fresh
-# machine bootstraps without an identity until configure-credentials
-# runs interactively.
+# credentials — regenerate the env exports ARTIFACT
+# (dots/shell/.my-credentials-env, gitignored; deployed to $HOME by
+# stowing the shell package) from the persistent ~/.my-credentials
+# (the last stage of bootstrap). Reminds instead of hard-failing when
+# the persistent file is missing — a fresh machine bootstraps without
+# an identity until configure-credentials runs interactively.
 credentials:
 	@if [ -f "$$HOME/.my-credentials" ]; then \
 		$(HOME)/.local/bin/configure-credentials --regen && \

@@ -334,13 +334,18 @@ the relevant unit.
    line 2) is tracked in this repo on purpose — it is non-sensitive (name +
    email, the same as every commit author field) and is the shared source of
    truth for both the WSL host and the devcontainer. It must **stay
-   tracked**; do not re-add it to `.gitignore`. The transient companion
-   `~/.my-credentials-env` (GIT_NAME/GIT_EMAIL exports) is **reproducible
-   via `make credentials`** (which runs `configure-credentials --regen`,
-   then applies git config) — it is generated on demand, chmod 600, and
-   gitignored (`**/.my-credentials-env`) so it never leaks into the repo.
-   Nothing automatically appends source lines to `.bashrc`/`.zshrc`; the
-   persistent file is the only durable artifact.
+   tracked**; do not re-add it to `.gitignore`. The env exports
+   (`GIT_NAME`/`GIT_EMAIL`) are a PACKAGE ARTIFACT per the deployment
+   doctrine: `dots/shell/.my-credentials-env` (gitignored,
+   `**/.my-credentials-env`, like the `.local/bin` builds) — BOTH
+   writers (`configure-credentials --regen` and `on-deploy configure`)
+   write the package path (derived from the stow layout, never raw
+   into `$HOME`), and stowing the `shell` package deploys
+   `~/.my-credentials-env` as a link. Reproducible via
+   `make credentials` (which runs `configure-credentials --regen`,
+   then applies git config). Nothing automatically appends source
+   lines to `.bashrc`/`.zshrc`; the persistent file is the only
+   durable tracked artifact.
 5. **No shell rc sources the env file** — the WSL host's `~/.shellx.rc`
    reads `~/.my-credentials` directly; nothing sources
    `~/.my-credentials-env` by default (the devcontainer's
