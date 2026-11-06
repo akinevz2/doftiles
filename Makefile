@@ -172,6 +172,7 @@ toolchain: depends
 configure:
 	@if [ -t 0 ] || [ -n "$(F)" ]; then \
 		$(ONDEPLOY_BIN) configure $(F); \
+		$(MANIFEST_SKIP); \
 	else \
 		echo "configure: non-tty, no FORCE=1" >&2; \
 		echo "  rerun: FORCE=1 make configure" >&2; \
@@ -331,14 +332,30 @@ MANIFEST_STATE := .git/doftiles-manifest-skip
 define MANIFEST_STASH
 	: > $(MANIFEST_STATE); \
 	for m in $(MANIFESTS); do \
-		if git ls-files --error-unmatch $$m >/dev/null 2>&1 && \
-		   [ "$$(git ls-files -v $$m | cut -c1)" = S ]; then \
-			git update-index --no-skip-worktree $$m; \
-			if git stash push -q -m "doftiles manifest $$m" -- $$m; then \
-				echo $$m >> $(MANIFEST_STATE); \
-			else \
-				git update-index --skip-worktree $$m; \
-			fi; \
+		git ls-files --error-unmatch $$m >/dev/null 2>&1 || continue; \
+		flag=$$(git ls-files -v $$m | cut -c1); \
+		[ "$$flag" = S ] || continue; \
+		git update-index --no-skip-worktree $$m; \
+		if git diff --quiet -- $$m && git diff --cached --quiet -- $$m; then \
+			continue; \
+		fi; \
+		if git stash push -q -m "doftiles manifest $$m" -- $$m; then \
+			echo $$m >> $(MANIFEST_STATE); \
+		else \
+			git update-index --skip-worktree $$m; \
+		fi; \
+	done
+endef
+
+# MANIFEST_SKIP — flag DIRTY manifests skip-worktree (after a configure
+# edit personalizes them). Clean manifests are deliberately NOT flagged:
+# an S-flagged clean file would silently block its own mainline updates.
+define MANIFEST_SKIP
+	for m in $(MANIFESTS); do \
+		git ls-files --error-unmatch $$m >/dev/null 2>&1 || continue; \
+		if ! git diff --quiet -- $$m 2>/dev/null || \
+		   ! git diff --cached --quiet -- $$m 2>/dev/null; then \
+			git update-index --skip-worktree $$m 2>/dev/null || true; \
 		fi; \
 	done
 endef
