@@ -273,7 +273,7 @@ update:
 			echo "update: FORCE=1 — repo stow failed; unstowing before retry"; \
 			$(ONDEPLOY_RUN) unstow $(F); \
 			systemctl --user daemon-reload 2>/dev/null || true; \
-			echo "update: the daemon reloaded over the unstow — the user units (herbst|compton|dunst...) leave the manager until the retry restows them; NOTHING is restarted here (the running session must survive a deploy)"; \
+			echo "update: unstow done; units reload; no restart"; \
 			SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(F); \
 			systemctl --user daemon-reload 2>/dev/null || true; \
 			units=$$(sed -e 's/#.*//' -e '/^[[:space:]]*$$/d' $(CURDIR)/services.required | tr -s ' \t' '\n' | grep -v '^$$'); \
