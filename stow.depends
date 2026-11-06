@@ -1,3 +1,13 @@
-agents bat compton depends dunst herbstluftwm polybar shell herbctl herbstutil on-deploy polyframes
-# individually deployable service packages (on-deploy packages <rule> or make <pkg>):
-# xrdp xvfb x11vnc novnc
+agents
+bat
+compton
+depends
+dunst
+herbctl
+herbstluftwm
+herbstutil
+on-deploy
+polybar
+polyframes
+shell
+wsl
