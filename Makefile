@@ -38,7 +38,7 @@ DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 	.local/state/depends/$(1).Makefile
 
 .PHONY: depends bootstrap trust toolchain submodules \
-	build-on-deploy \
+	on-deploy \
 	install all stow wm \
 	restow unstow clean status services-check services-start \
 	services-stop restart update help
@@ -52,7 +52,7 @@ DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 depends:
 	git submodule sync
 	git submodule update --init --recursive
-	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile install FORCE=1
+	@$(SELF) on-deploy
 
 # sudo — the pre-flight grant: the root-check lives here (recipes that
 # need root depend on this target). As root we just proceed; otherwise
@@ -105,17 +105,20 @@ help:
 	@echo "  update     fetch + ff + submodule sync + on-deploy rebuild + walk"
 	@echo "  install    configure + preserve + packages install (wm.required)"
 	@echo "  all/stow/wm/restow  stow the wm.required stack"
+	@echo "  stow-<pkg>/unstow-<pkg>  per-package stow/unstow (stow-depends...)"
+
 	@echo "  unstow/clean  drop the links"
 	@echo "  status / services-check|start|stop / restart"
 	@echo "  FORCE=1    the non-interactive + fail-safe knob (retry after unstow)"
 
 # ── on-deploy itself ──────────────────────────────────────────────────
-# build-on-deploy — ALWAYS rebuilds ~/.local/bin/on-deploy from the
+# on-deploy — ALWAYS rebuilds ~/.local/bin/on-deploy from the
 # submodule checkout (bun through npm when bun itself is missing),
-# then installs it: a pull must land a fresh binary even when a stale
-# one is installed.
-build-on-deploy:
+# then DEPLOYS the depends package (a pull must land a fresh binary
+# even when a stale one is installed).
+on-deploy:
 	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile install FORCE=1
+	@$(SELF) stow-depends
 
 # submodules — the REMOTE variant (the depends components build from
 # these checkouts): explicit only, the recorded-pins doctrine is the
@@ -130,7 +133,7 @@ submodules:
 # ONLY the packages manifested in wm.required. The SUBMODULES are
 # deployed by the bootstrap chain (make depends bootstrap) — target order:
 #   make depends bootstrap install
-install: build-on-deploy
+install: on-deploy
 	@set -e; \
 	$(ONDEPLOY_BIN) configure; \
 	rc=$$?; \
@@ -140,28 +143,39 @@ install: build-on-deploy
 	$(SELF) status
 
 # all / stow / wm — restow the wm.required stack (stow -R per package)
-all stow wm restow: build-on-deploy
+all stow wm restow: on-deploy
 	@$(ONDEPLOY_BIN) stow --only "$(WM_PACKAGES)"
 
+# stow-<dots-package> / unstow-<dots-package> — the per-package pattern
+# spelling of the stow/unstow flows (make stow-depends, make
+# unstow-herbctl...): each routes the package through on-deploy after
+# the binary is fresh (a pull must land a fresh binary even when a
+# stale one is installed)
+stow-%: on-deploy
+	@$(ONDEPLOY_BIN) stow --only "$*"
+
+unstow-%: on-deploy
+	@$(ONDEPLOY_BIN) unstow --only "$*"
+
 # unstow / clean — remove the links (the user's real files stay)
-unstow clean: build-on-deploy
+unstow clean: on-deploy
 	@$(ONDEPLOY_BIN) unstow --only "$(WM_PACKAGES)"
 
 # ── services (the services.required manifest, driven by on-deploy) ────────
-services-check: build-on-deploy
+services-check: on-deploy
 	@$(ONDEPLOY_BIN) services check
 
-services-start: build-on-deploy
+services-start: on-deploy
 	@$(ONDEPLOY_BIN) services start
 
-services-stop: build-on-deploy
+services-stop: on-deploy
 	@$(ONDEPLOY_BIN) services stop
 
-restart: build-on-deploy
+restart: on-deploy
 	@$(ONDEPLOY_BIN) services restart
 
 # ── reporting / maintenance ───────────────────────────────────────────
-status: build-on-deploy
+status: on-deploy
 	@-$(ONDEPLOY_BIN) check
 	@$(ONDEPLOY_BIN) services status
 	@if [ ! -f "$(HOME)/.my-credentials" ]; then \
@@ -180,7 +194,7 @@ update:
 	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
 	git submodule sync
 	git submodule update --init --recursive
-	$(SELF) build-on-deploy
+	$(SELF) on-deploy
 	@SKIP_ONDEPLOY=1 $(ONDEPLOY_BIN) depends --install $(Y) || { \
 		if [ -n "$(Y)" ]; then \
 			echo "update: FORCE=1 — repo stow failed; unstowing before retry"; \
