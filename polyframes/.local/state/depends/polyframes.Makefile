@@ -1,8 +1,9 @@
 # polyframes — per-package depends Makefile (the 2026-11 scheme). The
 # submodule checkout builds with bun + the checkout's own make; the
 # artifact lands in dots/polyframes/.local/bin and stow ships it.
-# Method record: ~/.config/doftiles.conf POLYFRAMES_METHOD
-# (source | npm | none; written through the stow symlink).
+# Method record: ~/.config/doftiles.conf polyframes
+# Method knob: doftiles.conf <POLYFRAMES>=<method> (source | npm;
+# written through the stow symlink).
 #
 #   make install            ensure — method conf > source
 #   make install FORCE=1    rebuild/redeploy even when present
@@ -33,17 +34,17 @@ toolchain:
 	$(SYSBIN)/on-deploy toolchain --bun
 
 conf-get:
-	@[ -f "$(CONF)" ] || { printf 'none'; exit 0; }; \
+	@[ -f "$(CONF)" ] || { printf ''; exit 0; }; \
 	. "$(CONF)" 2>/dev/null || true; \
-	printf '%s' "$${POLYFRAMES_METHOD:-}"
+	printf '%s' "$${POLYFRAMES:-}"
 
 conf-set:
 	@mkdir -p "$$(dirname "$(CONF)")"; \
 	touch "$(CONF)"; \
-	if grep -q '^POLYFRAMES_METHOD=' "$(CONF)"; then \
-		sed -i --follow-symlinks "s/^POLYFRAMES_METHOD=.*/POLYFRAMES_METHOD=$(value M)/" "$(CONF)"; \
+	if grep -q '^POLYFRAMES=' "$(CONF)"; then \
+		sed -i --follow-symlinks "s/^POLYFRAMES=.*/POLYFRAMES=$(value M)/" "$(CONF)"; \
 	else \
-		printf 'POLYFRAMES_METHOD=%s\n' "$(value M)" >> "$(CONF)"; \
+		printf 'POLYFRAMES=%s\n' "$(value M)" >> "$(CONF)"; \
 	fi
 
 build:
@@ -109,7 +110,7 @@ install:
 	fi; \
 	case "$$METHOD" in \
 		source) $(MAKE) --no-print-directory -f .local/state/depends/polyframes.Makefile install-polyframes-source;; \
-		release|npm) $(MAKE) --no-print-directory -f .local/state/depends/polyframes.Makefile install-polyframes-npm M=$$METHOD;; \
+		npm) $(MAKE) --no-print-directory -f .local/state/depends/polyframes.Makefile install-polyframes-npm M=$$METHOD;; \
 		*) echo "polyframes: unknown method '$$METHOD' (source|npm)" >&2; exit 2;; \
 	esac
 
@@ -121,8 +122,8 @@ uninstall:
 	if command -v polyframes >/dev/null 2>&1 && [ ! -L "$(SYSBIN)/polyframes" ]; then \
 		npm uninstall --global polyframes 2>/dev/null || true; \
 	fi; \
-	if grep -q '^POLYFRAMES_METHOD=' "$(CONF)"; then \
-		sed -i --follow-symlinks "s/^POLYFRAMES_METHOD=.*/POLYFRAMES_METHOD=none/" "$(CONF)"; \
+	if grep -q '^POLYFRAMES=' "$(CONF)"; then \
+		sed -i --follow-symlinks "s/^POLYFRAMES=.*/POLYFRAMES=none/" "$(CONF)"; \
 	fi; \
 	echo "polyframes: uninstalled (checkout left in place)"
 

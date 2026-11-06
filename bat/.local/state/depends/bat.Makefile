@@ -17,7 +17,8 @@
 #               manager (`on-deploy pkg install bat`; the apt binary
 #               lands as `batcat`, the source build keeps the name);
 #               the legacy release-download method stays reachable
-#               via M=release (recorded in doftiles.conf BAT_METHOD)
+#               via M=release; the platform package manager is also a
+#               recordable method (M=pkg, doftiles.conf <BAT>=<method>)
 #   uninstall   remove the binary + links, reset the method record
 #   status      binary / method / checkout / toolchain report
 #
@@ -58,19 +59,19 @@ export FORCE DRY PKG M
         conf-get conf-set stow-bat uninstall status start stop enable disable
 .DEFAULT_GOAL := status
 
-# ── conf (the BAT_METHOD record, through the stow symlink) ────────────
+# ── conf (the <BAT>=<method> record, through the stow symlink) ─────────
 conf-get:
-	@[ -f "$(CONF)" ] || { printf 'none'; exit 0; }; \
+	@[ -f "$(CONF)" ] || { printf ''; exit 0; }; \
 	. "$(CONF)" 2>/dev/null || true; \
-	printf '%s' "$${BAT_METHOD:-}"
+	printf '%s' "$${BAT:-}"
 
 conf-set:
 	@mkdir -p "$$(dirname "$(CONF)")"; \
 	touch "$(CONF)"; \
-	if grep -q '^BAT_METHOD=' "$(CONF)"; then \
-		sed -i --follow-symlinks "s/^BAT_METHOD=.*/BAT_METHOD=$(value M)/" "$(CONF)"; \
+	if grep -q '^BAT=' "$(CONF)"; then \
+		sed -i --follow-symlinks "s/^BAT=.*/BAT=$(value M)/" "$(CONF)"; \
 	else \
-		printf 'BAT_METHOD=%s\n' "$(value M)" >> "$(CONF)"; \
+		printf 'BAT=%s\n' "$(value M)" >> "$(CONF)"; \
 	fi
 
 # ── toolchain (rustup; the fail-fasts are on-deploy's --check contract) ──
@@ -170,14 +171,19 @@ install-release:
 	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile conf-set M=release; \
 	printf '  %-11s %s\n' bat "installed ($(BIN) (method=release; --force redeploys))"
 
-# ── main rule: PKG/method resolution + ensure/force guard ─────────────
+# ── main rule: method resolution (M/key/pkg=true) + ensure/force guard ─
+# valid bat methods: source | release | pkg — the knob is the doftiles
+# conf record <BAT>=<method>; unknown values fail FAST with the list.
 install:
 	@set -e; \
-	if [ "$(PKG)" = "true" ]; then \
-		echo "bat: platform package manager (PKG=true)"; \
+	if [ "$(PKG)" = "true" ] || [ "$(M)" = "pkg" ]; then \
+		echo "bat: platform package manager (PKG=$(PKG) M=$(M))"; \
 		if [ "$(DRY)" = 1 ]; then echo "  [dry-run] on-deploy pkg install bat"; exit 0; fi; \
 		$(SYSBIN)/on-deploy pkg install bat; \
 		printf '  %-11s %s\n' bat "installed via the platform package manager (the apt binary lands as batcat)"; \
+		if [ "$(DRY)" != 1 ]; then \
+			$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile conf-set M=pkg; \
+		fi; \
 		exit 0; \
 	fi; \
 	RECORDED="$$(make -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile conf-get)"; \
@@ -187,6 +193,10 @@ install:
 	if [ -z "$$RESOLVED" ]; then \
 		if command -v cargo >/dev/null 2>&1; then RESOLVED=source; else RESOLVED=release; fi; \
 	fi; \
+	case "$$RESOLVED" in \
+		source|release) ;; \
+		*) echo "bat: unknown method '$$RESOLVED' (source|release|pkg)" >&2; exit 2;; \
+	esac; \
 	if [ ! -e "$(BIN)" ] || [ -n "$(FORCE)" ] || [ -n "$(M)" ]; then \
 		if [ -e "$(BIN)" ] && [ -z "$(DRY)" ]; then \
 			echo "bat: $(BIN) exists — redeploying (method=$$RESOLVED)"; \
@@ -204,9 +214,9 @@ uninstall:
 	case "$$RECORDED" in \
 		none|'') echo "bat: nothing recorded in $(CONF) — nothing to uninstall"; exit 0;; \
 	esac; \
+	$(MAKE) -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile conf-set M=none; \
 	case "$(DRY)" in 1) echo "  [dry-run] remove the bat artifact + links per $$RECORDED"; exit 0;; esac; \
 	rm -f "$(ARTIFACT)" "$(BIN)"; \
-	make -C "$(CURDIR)" --no-print-directory -f .local/state/depends/bat.Makefile conf-set M=none; \
 	echo "bat: uninstalled (was $$RECORDED); the submodule checkout is left in place"
 
 # ── status: binary / method / checkout / toolchain report ─────────────
