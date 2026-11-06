@@ -1,13 +1,13 @@
-[submodule "herbst_bar/.local/share/polyframes"]
+[submodule "polyframes/.local/share/polyframes"]
 	path = polyframes/.local/share/polyframes
 	url = https://github.com/akinevz2/polyframes
-[submodule "depends/.local/share/herbstutil"]
+[submodule "herbstutil/.local/share/herbstutil"]
 	path = herbstutil/.local/share/herbstutil
 	url = https://github.com/akinevz2/herbstutil
-[submodule "depends/.local/share/on-deploy"]
-	path = depends/.local/share/on-deploy
+[submodule "on-deploy/.local/share/on-deploy"]
+	path = on-deploy/.local/share/on-deploy
 	url = https://github.com/akinevz2/on-deploy.git
-[submodule "depends/.local/share/herbctl"]
+[submodule "herbctl/.local/share/herbctl"]
 	path = herbctl/.local/share/herbctl
 	url = https://github.com/akinevz2/herbctl.git
 [submodule "bat/.local/share/bat-src"]

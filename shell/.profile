@@ -4,6 +4,12 @@
 # see /usr/share/doc/bash/examples/startup-files for examples.
 # the files are located in the bash-doc package.
 
+# the rust toolchain (bootstrap-installed; the guard keeps other machines
+# without rustup clean — AGENTS.md: machine-agnostic, never hardcode)
+if [ -f "$HOME/.cargo/env" ]; then
+    . "$HOME/.cargo/env"
+fi
+
 # the default umask is set in /etc/profile; for setting the umask
 # for ssh logins, install and configure the libpam-umask package.
 #umask 022

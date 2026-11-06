@@ -17,6 +17,11 @@
 #   stow unstow enable disable archive unarchive preserve services
 #   toolchain depends
 #
+# submodule map 2026-11 (GITMODULES.git + system.required are in step):
+#   dots/on-deploy/.local/share/on-deploy | dots/herbctl/.local/share/herbctl
+#   dots/herbstutil/.local/share/herbstutil | dots/polyframes/.local/share/polyframes
+#   dots/bat/.local/share/bat-src
+#
 # Exit codes: 2 env/precondition, 1 operational failure, 0 ok/no-op.
 
 SHELL  := /bin/bash
@@ -37,7 +42,7 @@ F := $(if $(filter 1,$(FORCE)),-f,)
 DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 	.local/state/depends/$(1).Makefile
 
-.PHONY: depends bootstrap trust toolchain submodules \
+.PHONY: depends bootstrap trust toolchain submodules bun rustup clean-upgrade configure \
 	on-deploy \
 	install all stow wm \
 	restow unstow clean status services-check services-start \
@@ -73,17 +78,38 @@ sudo:
 		exit 2; \
 	fi
 
-# bootstrap — PHASE 2: on-deploy installs the REST of the bootstrap:
-# bun (no-op when the system ships it — assumed) and rustup (bat's
-# source route), the bun postinstall trust steps, and the configured
-# system.required walk (sync + build + install per package Makefile).
-# Explicit chain: make depends bootstrap install
-bootstrap: depends
-	@$(SELF) sudo
-	$(ONDEPLOY_BIN) toolchain --bun $(F)
-	$(ONDEPLOY_BIN) toolchain --rustup $(F)
+# bootstrap — PHASE 2: the toolchain recipes (bun + rustup; each
+# queries through on-deploy and installs via the system package
+# manager only when absent), then the bun postinstall trust steps, and
+# the configured system.required walk (sync + build + install per
+# package Makefile). Explicit chain: make depends bootstrap install
+bootstrap: depends bun rustup
 	@$(SELF) trust
 	$(ONDEPLOY_BIN) depends --install $(F)
+
+# bun / rustup — the toolchain recipes (DISPENSABLE in-name file-style
+# targets: deliberately NOT in .PHONY, though no file `bun`/`rustup`
+# exists at the repo root — they re-run every make, and the --check
+# query makes an installed toolchain a cheap no-op). The install goes
+# through the system package manager (on-deploy's `<target>.deploy`
+# walk), which needs root: the sudo prerequisite collects the grant
+# UPFRONT (a clean TTY before anything runs) and ERRORS OUT (never
+# hangs) when it cannot be obtained — sudo-via-make fails on purpose.
+bun:
+	@$(SELF) sudo
+	@if $(ONDEPLOY_BIN) toolchain --bun --check; then \
+		echo "bun: present — the toolchain recipe is a no-op"; \
+	else \
+		$(ONDEPLOY_BIN) toolchain --bun --yes $(F); \
+	fi
+
+rustup:
+	@$(SELF) sudo
+	@if $(ONDEPLOY_BIN) toolchain --rustup --check; then \
+		echo "rustup: present — the toolchain recipe is a no-op"; \
+	else \
+		$(ONDEPLOY_BIN) toolchain --rustup --yes $(F); \
+	fi
 
 # trust — the bun postinstall policy steps for every checked-out bun
 # submodule: per-checkout local trust + the global untrusted set. The
@@ -96,14 +122,31 @@ trust:
 toolchain: depends
 	$(ONDEPLOY_BIN) toolchain --bun $(F)
 
+# configure — the reconfiguration gate for clean-upgrade (before stow):
+# on an upgrade the deployment knobs may have changed — offer the TUI
+# reconfiguration menu to the human on an INTERACTIVE terminal. A
+# non-interactive shell may only proceed with FORCE=1 (the recorded
+# config is applied as-is — what the remote/CI upgrades want); anything
+# else errors out instead of hanging on the TUI.
+configure:
+	@if [ -t 0 ] || [ -n "$(F)" ]; then \
+		$(ONDEPLOY_BIN) configure $(F); \
+	else \
+		echo "configure: non-interactive shell without FORCE=1 — refusing the reconfiguration menu" >&2; \
+		echo "  rerun with FORCE=1 to re-apply the recorded config (on-deploy configure --force)" >&2; \
+		exit 2; \
+	fi
+
 # help — the recipe listing
 help:
 	@echo "recipes:"
 	@echo "  depends    submodules at recorded pins + the on-deploy deploy"
-	@echo "  bootstrap  the toolchains (bun/rustup) + trust + the deps walk"
-	@echo "  toolchain  bun alone (make depends first)"
+	@echo "  bootstrap  bun + rustup recipes + trust + the deps walk"
+	@echo "  bun/rustup toolchain recipes: --check query, system install, sudo-gated"
 	@echo "  update     fetch + ff + submodule sync + on-deploy rebuild + walk"
+	@echo "  clean-upgrade  pull + submodule re-anchor + healing clean + rebuild + stow"
 	@echo "  install    configure + preserve + packages install (wm.required)"
+	@echo "  configure  the reconfiguration gate: TUI menu on a tty, else FORCE=1 or error"
 	@echo "  all/stow/wm/restow  stow the wm.required stack"
 	@echo "  stow-<pkg>/unstow-<pkg>  per-package stow/unstow (stow-depends...)"
 
@@ -112,8 +155,9 @@ help:
 	@echo "  FORCE=1    the non-interactive + fail-safe knob (retry after unstow)"
 
 # ── on-deploy itself ──────────────────────────────────────────────────
-# on-deploy — ALWAYS rebuilds ~/.local/bin/on-deploy from the
-# submodule checkout (bun through npm when bun itself is missing),
+# on-deploy — ALWAYS rebuilds dots/on-deploy/.local/bin/on-deploy from the
+# submodule checkout (dots/on-deploy/.local/share/on-deploy; bun through
+# npm when bun itself is missing),
 # then DEPLOYS the depends package (a pull must land a fresh binary
 # even when a stale one is installed).
 on-deploy:
@@ -206,6 +250,40 @@ update:
 			exit 1; \
 		fi; \
 	}
+
+# clean-upgrade — the LAYOUT-HEAL upgrade (2026-11): the full sequence for
+# a machine whose on-disk deployment predates the CURRENT layout (the
+# resplit doctrine: each bun submodule hosts its own stow package; depends
+# is the special meta-package — no submodule config, no artifacts, build/
+# link delegate into dots/on-deploy). Exactly what a resplit half-landed
+# system needs, in order:
+#   1. the pull (fetch + ff-only, fallback rebase --autostash) so the new
+#      .gitmodules + Makefiles + package files ARE here
+#   2. submodule sync + re-init: both WORKING COPIES and the absorbed
+#      module gitdirs get re-anchored at the new paths (git rm --cached +
+#      moved worktrees leave the gitlinks at the old paths; a stale
+#      core.worktree silently serves the dead checkout)
+#   3. the healing clean (depends.Makefile): unstow the depends package,
+#      sweep the stale residue plain stow -D cannot match (folded/per-file
+#      links into dots/depends/.local/share/<pkg> and dangling
+#      ~/.local/{bin,share} links for the moved artifacts), drop the
+#      legacy artifact copies from dots/depends/.local/bin (it refuses on
+#      any file without an owner artifact), restow depends (remnants) +
+#      every owning package
+#   4. the binary: rebuild + redeploy dots/on-deploy/.local/bin/on-deploy
+#      from the freshly anchored checkout (master `on-deploy` target)
+#   5. make stow: the full stack restows with NO conflicts — the whole
+#      point of steps 3-4 (a conflict here means a non-owned real file
+#      sits at a link target; stow's message names it, inspect by hand)
+clean-upgrade:
+	git fetch
+	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
+	git submodule sync
+	git submodule update --init --recursive
+	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile clean
+	@$(SELF) on-deploy
+	@$(SELF) configure
+	@$(SELF) stow
 
 # on-deploy housekeeping verbs stay one call away:
 #   $(ONDEPLOY_BIN) preserve <pkg> ...   conflict-safe restow

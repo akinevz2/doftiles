@@ -34,3 +34,5 @@ opencode/.config/opencode/opencode.jsonc
 # personal identity ships only on personal branches (kine) — never main
 shell/.my-credentials
 **/*.env
+# the on-deploy artifact home (2026-11 resplit: the binary lives with its
+# own stow package; the depends meta-package stays REMNANTS ONLY)
