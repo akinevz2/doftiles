@@ -4,17 +4,21 @@
 # Deployable independently of the WM; the platform package-manager
 # work defers to on-deploy pkg.
 
+DOTS    := $$(abspath $$(CURDIR)/..)
 UNIT   := compton.service
 BIN    := compton
 ONDEPLOY ?= $(HOME)/.local/bin/on-deploy
 
 install:
 	@$(ONDEPLOY) pkg install $(BIN)
+	@# self-stow FIRST: the units are stow links; a fresh deploy walks
+	@# this rule BEFORE any stow — did not happen here
+	@stow -d $$DOTS -R -t $$HOME compton 2>/dev/null || true
 	@if [ ! -f $$HOME/.config/systemd/user/$(UNIT) ]; then \
-		echo "compton: WARNING user unit missing — stow the compton package (units not restarted here)"; exit 0; fi
+		echo "compton: unit STILL missing; SKIP"; exit 0; fi
 	@systemctl --user daemon-reload 2>/dev/null || true; \
 	if ! systemctl --user enable --now $(UNIT) 2>/dev/null; then \
-		echo "compton: WARNING could not enable $(UNIT) (its Requires= chain — check-x-server? — is missing; stow the shell package)"; \
+		echo "compton: unit not enabled; the chain is absent? Check the shell package."; \
 	else \
 		echo "compton: $(UNIT) enabled"; \
 	fi
