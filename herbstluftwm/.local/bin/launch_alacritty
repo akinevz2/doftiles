@@ -15,22 +15,19 @@
 # rules apply to exactly this terminal — scoped by class pattern
 # derived from $TERMINAL (a criterion-free once-rule floats the next
 # attach of ANY class; maxage bounds the arm):
-#   --floating     the terminal window floats AND is centered in the
-#                  monitor once it attached and took focus (suppressed
-#                  by --no-distract)
+#   --floating     the terminal window floats when it attaches —
+#                  floating is owned ENTIRELY by the once-rule below;
+#                  there is NO post-attach machinery (the old
+#                  jumpto + hc_center sequence floated the FOCUSED
+#                  window — hc_center turns clients.<focus>.floating
+#                  on by design — so any focus race floated the
+#                  caller's current window instead)
 #   --urgent       the terminal raises the urgent hint (tag marker)
-#   --no-distract  the terminal does NOT take focus on attach and
-#                  keeps its DEFAULT position (no centering)
+#   --no-distract  the terminal does NOT take focus on attach
 # Several switches combine into one rule.
 #
 # Spawned through `herbstclient spawn` (detached, WM-managed) — NOT
 # through `hc spawn` rules machinery: that is for graphical apps.
-#
-# The spawn + centering sequence runs under a hlwm lock: the window
-# then appears at its final (centered) position in ONE repaint instead
-# of attaching at the default float position and jumping. The EXIT
-# trap guarantees the unlock on every path — a leaked lock freezes
-# the WM (the reload_theme lesson).
 
 set -euo pipefail
 
@@ -52,9 +49,9 @@ closes.
 Usage: launch_alacritty [--floating] [--urgent] [--no-distract] "<command>"
 
 Options:
-  --floating     float AND center the terminal once it attaches
+  --floating     float the terminal once it attaches (rule-owned)
   --urgent       raise the urgent hint (tag marker)
-  --no-distract  no focus steal, default position (no centering)
+  --no-distract  no focus steal on attach
   -h, --help     show this help and exit
 
 Takes a command string — not a window-scoped tool.
@@ -64,13 +61,11 @@ EOF
 esac
 
 rule=()
-floating=0
-nodistract=0
 while [ "${1:-}" = "--floating" ] || [ "${1:-}" = "--urgent" ] || [ "${1:-}" = "--no-distract" ]; do
     case $1 in
-        --floating)    rule+=(floating=on); floating=1 ;;
+        --floating)    rule+=(floating=on) ;;
         --urgent)      rule+=(urgent=on) ;;
-        --no-distract) rule+=(focus=off); nodistract=1 ;;
+        --no-distract) rule+=(focus=off) ;;
     esac
     shift
 done
@@ -107,36 +102,9 @@ INNER="__rc=0; eval $QUOTED; __rc=\$?; echo; echo \"[exit \$__rc] press any key 
 # the rules apply to exactly this terminal.
 [ ${#rule[@]} -gt 0 ] && hc rule once maxage=5 class~"$classpat" "${rule[@]}" 2>/dev/null || true
 
-# The `before` snapshot MUST precede the spawn — the window can attach
-# within the first poll tick.
-before=$(hc list_clients 2>/dev/null | sort | tr '\n' ' ')
-
-hc lock
-trap 'hc unlock' EXIT
-
+# No lock, no post-attach sequence: the rule is armed strictly before
+# the spawn (sequential herbstclient calls), and the attach-side
+# behavior — floating, urgency, focus — is entirely rule-owned. A user
+# who wants the window centered does it on demand
+# ($Mod-f $Mod-c center).
 hc spawn "$TERMINAL" -e bash -ic "$INNER"
-
-# --floating centers the window as part of the locked sequence: wait
-# for the attach, then jumpto (focus it explicitly — a freshly spawned
-# client cannot be relied on to hold focus) and center. No polling on
-# focus: the old focus-settle loop burned its whole timeout whenever
-# hlwm left focus on the previous window, delaying the unlock (the
-# first paint) by seconds and skipping the centering.
-if [ "$floating" = 1 ] && [ "$nodistract" = 0 ]; then
-    new=""
-    for i in $(seq 1 50); do
-        sleep 0.1
-        after=$(hc list_clients 2>/dev/null | sort | tr '\n' ' ')
-        for w in $after; do
-            case " $before " in *" $w "*) ;; *) new=$w; break ;; esac
-        done
-        [ -n "$new" ] && break
-    done
-    if [ -n "$new" ]; then
-        hc jumpto "$new" 2>/dev/null || true
-        "$HOME/.local/bin/hc_center" root || true
-    fi
-fi
-
-hc unlock
-trap - EXIT
