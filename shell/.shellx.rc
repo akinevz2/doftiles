@@ -52,26 +52,7 @@ done
 unset _secrets_file
 
 # ─── get/got: quick view + search over files and directories ────────────────
-# `got` (~/.local/bin/got) holds all the logic; `get` is the thin shell
-# wrapper that can cd first ("-": previous dir, or a leading directory).
-# Both shells source this file, so the same function works everywhere.
-get() {
-    if [ $# -gt 0 ]; then
-        if [ "$1" = "-" ]; then
-            cd - || return 1
-            shift
-        elif [ -d "$1" ]; then
-            cd -- "$1" || return 1
-            shift
-            # Re-entering the current directory explicitly, so `got`
-            # lists it and can `find` the remaining names beneath it.
-            if [ $# -gt 0 ]; then
-                got "." "$@"
-                return $?
-            fi
-            got
-            return $?
-        fi
-    fi
-    got "$@"
-}
+# The implementation lives upstream (github.com/akinevz2/got-source) and
+# is deployed by the dots `get` package: `got` at ~/.local/bin/got, the
+# get() wrapper at ~/.local/share/got/get.sh. Source it when present.
+[ -f "$HOME/.local/share/got/get.sh" ] && . "$HOME/.local/share/got/get.sh"

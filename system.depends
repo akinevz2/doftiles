@@ -7,3 +7,4 @@ bat bat/.local/share/bat-src
 herbctl herbctl/.local/share/herbctl
 herbstutil herbstutil/.local/share/herbstutil
 polyframes polyframes/.local/share/polyframes
+get get/.local/share/got-source

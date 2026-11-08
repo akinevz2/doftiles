@@ -47,3 +47,7 @@ shell/.my-credentials
 **/*.env
 # the on-deploy artifact home (2026-11 resplit: the binary lives with its
 # own stow package; the depends meta-package stays REMNANTS ONLY)
+
+# the get package: the got artifact + the deployed get.sh staging
+get/.local/bin/
+get/.local/share/got/
