@@ -366,7 +366,7 @@ herb set snap_gap 5
 
 herb set mouse_recenter_gap 5
 herb set focus_follows_mouse off
-herb set focus_stealing_prevention off
+herb set focus_stealing_prevention on
 herb set focus_crosses_monitor_boundaries off
 herb set gapless_grid on
 herb set pseudotile_center_threshold 25
