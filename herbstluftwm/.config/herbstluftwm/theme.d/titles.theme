@@ -5,10 +5,12 @@
 herb attr theme.active.title_height 15
 herb attr theme.active.title_depth 4
 herb attr theme.title_color '#eeeeee'
+# root writes reset descendants — re-assert the urgent red AFTER this line
 herb attr theme.normal.title_color '#eeeeee'
 herb attr theme.normal.title_height 15
 herb attr theme.normal.title_depth 4
 herb attr theme.floating.title_color '#eeeeee'
+herb attr theme.urgent.title_color '#eb4d4b'
 herb attr theme.floating.title_height 24
 herb attr theme.floating.title_depth 5
 herb attr theme.floating.title_when always

@@ -83,10 +83,10 @@ herb attr theme.floating.padding_bottom 5
 herb attr theme.floating.border_width 2
 
 #= URGENT (unfocused, demand-attention) =#
-# mirrored from the dunst critical palette: alacritty magenta border
-# (#a55eea) and red text (#eb4d4b) over a #333333 inner background
-# (was uniformly alacritty bright magenta / earlier #AA0033)
-herb attr theme.urgent.color '#eb4d4b'
+# red title text (#eb4d4b) over #333333 inner background and border,
+# magenta outer border kept (was white-on-red: #eeeeee text, #eb4d4b color)
+herb attr theme.urgent.color '#333333'
+herb attr theme.urgent.title_color '#eb4d4b'
 herb attr theme.urgent.inner_color '#333333'
 herb attr theme.urgent.outer_color '#a55eea'
 
