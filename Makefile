@@ -99,6 +99,16 @@ depends:
 	# level — bat's deep nested submodules are skipped (they take a
 	# very long time to update every time).
 	git submodule update --init --remote
+	# REATTACH TO main: --remote leaves detached HEADs (the checkout
+	# is at the branch tip, but the submodule HEAD is not a branch) —
+	# attach each submodule's HEAD to `main` (the tracked branch of
+	# this repo's own submodules; the upstream's branch is the
+	# default branch of the remote — resolved via the remote HEAD) so
+	# the next commit/push inside the checkout lands on the branch,
+	# not a detached HEAD. Only the FIRST-level submodules are touched
+	# (the deep nested ones stay detached — upstream's asset
+	# submodules).
+	git submodule foreach --quiet 'b=$(git config -f .gitmodules --get submodule."$displaypath".branch 2>/dev/null); [ -n "$b" ] || b=main; git checkout -q -B "$b" 2>/dev/null; true'
 	@$(SELF) on-deploy
 
 # sudo — the pre-flight grant: the root-check lives here (recipes that
