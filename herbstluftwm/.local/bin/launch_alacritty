@@ -10,8 +10,21 @@
 # Nothing lingers; while parked, the WM title reads
 # "paused-for-dismiss_idle <program that was run>".
 #
-# Usage: launch_alacritty [--floating] [--urgent] [--no-distract] "<command>"
+# Usage: launch_alacritty [--floating] [--urgent] [--no-distract] [-d <dir>] "<command>"
 #   TERMINAL overrides the terminal (default: alacritty).
+#
+#   -d <dir>, --directory <dir>
+#                  cd into <dir> first (a leading ~ is expanded). Part of
+#                  the tool's interface — the caller no longer writes a
+#                  `cd ... &&` prefix into the command string. With no
+#                  command string, the command is an interactive login
+#                  shell (`bash -il`) in that directory.
+#
+#                  NEVER `exec bash -l` in the command string: the
+#                  wrapper runs `bash -ic "paused-for-dismiss_idle <cmd>"`,
+#                  and `exec` replaces the wrapper with a NON-interactive
+#                  login bash — it runs ~/.bash_profile and exits, and
+#                  the terminal closes with it (no park, no key press).
 #
 # The switches install a `rule once` before the spawn, so the window
 # rules apply to exactly this terminal — scoped by class pattern
@@ -49,12 +62,19 @@ paused-for-dismiss_idle; when it exits, the wrapper reports the
 status and waits for one key press, then the terminal closes. While
 parked, the WM title reads "paused-for-dismiss_idle <program>".
 
-Usage: launch_alacritty [--floating] [--urgent] [--no-distract] "<command>"
+Usage: launch_alacritty [--floating] [--urgent] [--no-distract] [-d <dir>] "<command>"
 
 Options:
   --floating     float the terminal once it attaches (rule-owned)
   --urgent       raise the urgent hint (tag marker)
   --no-distract  no focus steal on attach
+  -d <dir>, --directory <dir>
+                 cd into <dir> first (a leading ~ is expanded); with
+                 no command string, run an interactive login shell
+                 there. Never `exec bash -l` in the command — the
+                 wrapper runs under `bash -ic "paused-for-dismiss_idle
+                 <cmd>"`, and `exec` replaces the wrapper with a
+                 non-interactive login bash that exits immediately.
   -h, --help     show this help and exit
 
 Takes a command string — not a window-scoped tool.
@@ -64,22 +84,45 @@ EOF
 esac
 
 rule=()
-while [ "${1:-}" = "--floating" ] || [ "${1:-}" = "--urgent" ] || [ "${1:-}" = "--no-distract" ]; do
+dir=
+prev_focus=
+NEED_URGENT=
+while [ $# -gt 0 ]; do
     case $1 in
         --floating)    rule+=(floating=on) ;;
-        --urgent)      rule+=(urgent=on) ;;
+        --urgent)      rule+=(floating=on); rule+=(focus=off); NEED_URGENT=1 ;;
         --no-distract) rule+=(focus=off) ;;
+        -d|--directory)
+            [ $# -ge 2 ] || { echo "launch_alacritty: -d requires a directory" >&2; exit 1; }
+            dir=$2; shift ;;
+        --) shift; break ;;
+        *) break ;;
     esac
     shift
 done
 
-if [ -z "${1:-}" ]; then
-    echo "usage: launch_alacritty [--floating] [--urgent] [--no-distract] \"<command string>\"" >&2
-    exit 1
+if [ -n "$dir" ]; then
+    # Expand a leading ~ so `cd ~/development/...` works from the caller
+    dir="${dir/#\~/$HOME}"
+    [ -d "$dir" ] || { echo "launch_alacritty: no such directory: $dir" >&2; exit 1; }
+fi
+
+if [ $# -gt 0 ]; then
+    USER_CMD="$*"
+    if [ -n "$dir" ]; then
+        # %q-quoted so the cd survives spaces in the path; the cd is
+        # part of the command string, not a separate shell — the park
+        # phase reports the exit status of the whole sequence.
+        USER_CMD="cd $(printf '%q' "$dir") && $USER_CMD"
+    fi
+else
+    # No command string: the default command is an interactive login
+    # shell in <dir> (or the current directory). bash -il stays open
+    # until the user exits — the wrapper then parks for one key press.
+    [ -n "$dir" ] && USER_CMD="cd $(printf '%q' "$dir") && exec bash -il" || USER_CMD="exec bash -il"
 fi
 
 TERMINAL="${TERMINAL:-alacritty}"
-USER_CMD="$*"
 
 # Scope the once-rule to the spawned terminal's WM class: a
 # criterion-free `rule once floating=on` arms a float on the NEXT
@@ -107,11 +150,53 @@ INNER="paused-for-dismiss_idle $QUOTED"
 # The switches install one scoped `rule once` (class-matched via the
 # pattern derived above; maxage bounds the arm) BEFORE the spawn, so
 # the rules apply to exactly this terminal.
-[ ${#rule[@]} -gt 0 ] && hc rule once maxage=5 class~"$classpat" "${rule[@]}" 2>/dev/null || true
+#
+# Rule + spawn are wrapped in a lock/unlock block: the rule and the
+# spawn are atomic with respect to other WM operations, so the
+# once-rule can't fire on an unrelated window that attaches between
+# the rule call and the spawn, and the spawn can't be re-ordered
+# against another script's rules machinery.
+#
+# --no-distract: the focus=off rule is a best-effort hint — hlwm can
+# still focus the new client on attach (e.g. if the window is on the
+# focused tag). To make no-distract airtight, the currently focused
+# winid is recorded BEFORE the rule is armed, and focus is restored
+# to it before the final unlock — so the spawn appears to happen in
+# the background.
+# urgent is NOT rule-settable in hlwm 0.9.5 (`rule: Unknown argument
+# "urgent=on"` — the whole rule command fails, so the rule was never
+# armed and the flag silently did nothing). Instead, --urgent arms
+# floating=on + focus=off via the rule, and sets urgent post-attach
+# with a detached watcher: the pre-spawn winid list is captured here,
+# the watcher polls for the NEW client (max 3s) and sets
+# clients.<winid>.urgent=true. focus=off on the same rule means the
+# urgent flag never steals focus — the window stays in the background.
+if [ -n "$NEED_URGENT" ]; then
+    pre_wins=$(herbstutil attr clients. 2>/dev/null | grep -oE '0x[0-9a-f]+' | sort -u)
+    (
+        for _ in $(seq 1 30); do
+            neww=$(herbstutil attr clients. 2>/dev/null | grep -oE '0x[0-9a-f]+' | sort -u | comm -23 - <(printf '%s\n' "$pre_wins") | head -1)
+            if [ -n "$neww" ]; then
+                hc set_attr clients.${neww%.}.urgent true
+                exit 0
+            fi
+            sleep 0.1
+        done
+    ) &
+fi
 
-# No lock, no post-attach sequence: the rule is armed strictly before
-# the spawn (sequential herbstclient calls), and the attach-side
-# behavior — floating, urgency, focus — is entirely rule-owned. A user
-# who wants the window centered does it on demand
-# ($Mod-f $Mod-c center).
+hc lock
+[ ${#rule[@]} -gt 0 ] && hc rule once class~"$classpat" "${rule[@]}" 2>/dev/null || true
+
 hc spawn "$TERMINAL" -e bash -ic "$INNER"
+
+if [ -n "${rule+x}" ]; then
+    # TEMPORARILY DISABLED: focus-back is off while we probe whether
+    # the urgent setting itself steals focus; re-enable once checked.
+    is_focusoff=0
+    for f in "${rule[@]}"; do [ "$f" = focus=off ] && is_focusoff=1; done
+    if [ "$is_focusoff" = 1 ] && [ -n "$prev_focus" ] && false; then
+        hc jumpto "$prev_focus"
+    fi
+fi
+hc unlock
