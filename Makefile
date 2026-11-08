@@ -94,7 +94,11 @@ depends:
 		rm -f $(MANIFEST_STATE); \
 	fi
 	git submodule sync
-	git submodule update --init --recursive
+	# ALWAYS LATEST, ONE LEVEL ONLY: --remote pulls each submodule's
+	# branch tip; the bare (non-recursive) update stops at the first
+	# level — bat's deep nested submodules are skipped (they take a
+	# very long time to update every time).
+	git submodule update --init --remote
 	@$(SELF) on-deploy
 
 # sudo — the pre-flight grant: the root-check lives here (recipes that
@@ -196,9 +200,10 @@ help:
 	@echo "  submodules  submodule update --init --recursive --remote"
 	@echo "  install    configure + preserve + packages install (wm.depends)"
 	@echo "  all        stow the wm.depends stack"
-	@echo "  stow       stow the wm.depends stack"
+	@echo "  stow       stow the wm.depends stack (the submodule build first)"
 	@echo "  wm         stow the wm.depends stack"
 	@echo "  restow     stow the wm.depends stack (the same recipe, restowed)"
+	@echo "  build      compile the binary-deployed submodules from source"
 	@echo "  stow-<pkg>  ONE package: on-deploy stow --only"
 	@echo "  unstow-<pkg>  ONE package: on-deploy unstow --only"
 	@echo "  depends-<pkg>  ONE submodule: toolchain check + scoped walk"
@@ -248,7 +253,7 @@ on-deploy:
 # these checkouts): explicit only, the recorded-pins doctrine is the
 # default path.
 submodules:
-	git submodule update --init --recursive --remote
+	git submodule update --init --remote
 
 # ── stowing ───────────────────────────────────────────────────────────
 # install — configure FIRST (same apply; prompts for the git identity
@@ -273,8 +278,30 @@ install: on-deploy
 	$(SELF) status
 
 # all / stow / wm — restow the wm.depends stack (stow -R per package)
-all stow wm restow: on-deploy
+# WITH the submodule build first: the binary-deployed submodules (herbctl)
+# ship their compiled artifact as the package bin — a fresh checkout
+# (make update / depends) only reaches the system when the build runs
+# and re-folds the binary into the package's .local/bin. stow therefore
+# depends on the build step, so `make stow` deploys the latest source.
+all stow wm restow: on-deploy build
 	@$(ONDEPLOY_BIN) stow --only "$(WM_PACKAGES)"
+
+# build — compile each binary-deployed submodule from its checkout into
+# the package bin (the committed artifact is the deployable): a fresh
+# checkout (make update / depends) only reaches the system when the
+# build runs and re-folds the binary into the package's .local/bin.
+# The per-package router-Makefiles (.local/state/depends/<pkg>.Makefile)
+# own the concrete steps (deps-install, compile, rename-artifact, link);
+# this target just walks them — on-deploy's own build lives in the
+# on-deploy target (the bootstrap).
+build: on-deploy update
+	@for m in $(wildcard */.local/state/depends/*.Makefile); do \
+		[ -f "$$m" ] || continue; \
+		pkg=$(subst .local/state/depends/,,$(subst .Makefile,,$$m)); \
+		[ -f "$$pkg/.local/state/depends/$$pkg.Makefile" ] || continue; \
+		echo "==$$pkg build"; \
+		$(MAKE) -C "$$pkg" --no-print-directory -f ".local/state/depends/$$pkg.Makefile" build || exit 1; \
+	done
 
 # stow-<dots-package> / unstow-<dots-package> — the per-package pattern
 # spelling of the stow/unstow flows (make stow-depends, make
