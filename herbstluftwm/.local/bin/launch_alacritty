@@ -172,10 +172,10 @@ INNER="paused-for-dismiss_idle $QUOTED"
 # clients.<winid>.urgent=true. focus=off on the same rule means the
 # urgent flag never steals focus — the window stays in the background.
 if [ -n "$NEED_URGENT" ]; then
-    pre_wins=$(herbstutil attr clients. 2>/dev/null | grep -oE '0x[0-9a-f]+' | sort -u)
+    pre_wins=$(herbstutil attr clients. 2>/dev/null | grep -oE '0x[0-9a-f]+' | sort -u || true)
     (
         for _ in $(seq 1 30); do
-            neww=$(herbstutil attr clients. 2>/dev/null | grep -oE '0x[0-9a-f]+' | sort -u | comm -23 - <(printf '%s\n' "$pre_wins") | head -1)
+            neww=$({ herbstutil attr clients. 2>/dev/null | grep -oE '0x[0-9a-f]+' | sort -u || true; } | comm -23 - <(printf '%s\n' "$pre_wins") | head -1)
             if [ -n "$neww" ]; then
                 hc set_attr clients.${neww%.}.urgent true
                 exit 0
