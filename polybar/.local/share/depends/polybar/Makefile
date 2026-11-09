@@ -30,7 +30,9 @@ install:
 		exit 1; \
 	fi; \
 	echo "polybar: polyframes present"
-	@$(MAKE) --no-print-directory theme
+	@# -f is NOT propagated through MAKEFLAGS (make strips -C/-f/-o/-W),
+	@# so the recursive call re-states the adapter makefile explicitly
+	@$(MAKE) --no-print-directory -f $(firstword $(MAKEFILE_LIST)) theme
 
 start:
 	~/.local/bin/polyctl up
