@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# hc_detect-resolution — detect the X server's actual screen resolution
+# and compare it against herbstluftwm's monitor geometry.
+#
+# Background: on WSL2 the Windows display scaling changes the X screen
+# size out from under the WM (e.g. Windows 125% scaling shows a 1504x1002
+# image on a 1920x1200 display). This tool makes the mismatch visible:
+#   hc_detect-resolution              -> human-readable report
+#   hc_detect-resolution --notify     -> also send a dunstify notification
+#   hc_detect-resolution --raw        -> print "WxH" only (scriptable)
+#   hc_detect-resolution --json       -> xrandr + monitor + dpi lines
+#   hc_detect-resolution --apply      -> resync herbst monitor to xrandr
+#                                        (herbstclient detect_monitors)
+#   hc_detect-resolution --check      -> exit 0 when xrandr == monitor,
+#                                        exit 1 on mismatch (silent)
+
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+usage() {
+    cat <<'EOF'
+hc_detect-resolution — detect the X server screen resolution and
+compare it with herbstluftwm's monitor geometry.
+
+Usage: hc_detect-resolution [OPTION]
+
+Options:
+  (none)      human-readable report (xrandr screen, monitor rect, dpi)
+  --notify    also send a dunstify notification with the report
+  --raw       print "WxH" only (for scripts)
+  --json      one line per fact: xrandr=, monitor=, dpi=
+  --apply     resync herbst monitors to the detected size
+              (herbstclient detect_monitors)
+  --check     exit 0 when xrandr matches the monitor rect, 1 otherwise
+  -h, --help  show this help and exit
+
+Note: when the X screen size changes, the WM usually needs a
+`herbstclient detect_monitors` (or --apply here) to pick it up.
+EOF
+}
+
+xrandr_resolution() {
+    # "current 1504 x 1002" line from xrandr; cut keeps it awk-free.
+    xrandr 2>/dev/null | grep -F 'current' | head -1 \
+        | cut -d' ' -f8,9,10 | tr -d ',' | tr -d ' '
+}
+
+monitor_rect() {
+    herbstclient monitor_rect 2>/dev/null || true
+}
+
+monitor_wxh() {
+    # "0 0 1504 1002" -> "1504x1002"
+    monitor_rect | cut -d' ' -f3,4 | tr ' ' 'x'
+}
+
+dpi() {
+    xdpyinfo 2>/dev/null | grep -o 'resolution:.*' | head -1 \
+        | tr -s ' ' | cut -d' ' -f2
+}
+
+err() {
+    echo "hc_detect-resolution: $*" >&2
+    exit 2
+}
+
+case "${1:-}" in
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    --raw)
+        res=$(xrandr_resolution) || err "cannot read xrandr resolution"
+        [ -n "$res" ] || err "xrandr reported no resolution"
+        echo "$res"
+        exit 0
+        ;;
+    --json)
+        res=$(xrandr_resolution) || err "cannot read xrandr resolution"
+        [ -n "$res" ] || err "xrandr reported no resolution"
+        echo "xrandr=$res"
+        if mon=$(monitor_wxh); then
+            echo "monitor=$mon"
+        fi
+        if d=$(dpi); then
+            echo "dpi=$d"
+        fi
+        exit 0
+        ;;
+    --check)
+        res=$(xrandr_resolution) || err "cannot read xrandr resolution"
+        [ -n "$res" ] || err "xrandr reported no resolution"
+        mon=$(monitor_wxh) || err "cannot read herbst monitor rect"
+        [ -n "$mon" ] || err "no herbst monitors found"
+        if [ "$res" = "$mon" ]; then
+            exit 0
+        fi
+        echo "hc_detect-resolution: mismatch: xrandr=$res monitor=$mon" >&2
+        exit 1
+        ;;
+    --apply)
+        res=$(xrandr_resolution) || err "cannot read xrandr resolution"
+        [ -n "$res" ] || err "xrandr reported no resolution"
+        herbstclient detect_monitors
+        echo "hc_detect-resolution: monitors resynced to $res"
+        exit 0
+        ;;
+    --notify)
+        notify=1
+        ;;
+    '')
+        notify=0
+        ;;
+    *)
+        err "unknown option: $1 (try --help)"
+        ;;
+esac
+
+res=$(xrandr_resolution) || err "cannot read xrandr resolution"
+[ -n "$res" ] || err "xrandr reported no resolution"
+mon=$(monitor_wxh) || true
+d=$(dpi) || true
+
+report="X screen: $res"
+if [ -n "$mon" ]; then
+    report+=$'\n'"herbst monitor: $mon"
+    if [ "$res" = "$mon" ]; then
+        report+=$'\n'"match: yes"
+    else
+        report+=$'\n'"match: NO — run 'herbstclient detect_monitors' or hc_detect-resolution --apply"
+    fi
+else
+    report+=$'\n'"herbst monitor: none"
+fi
+if [ -n "$d" ]; then
+    report+=$'\n'"dpi: $d"
+fi
+
+echo "$report"
+
+if [ "$notify" = 1 ]; then
+    dunstify -a "hc_detect-resolution" "X resolution: $res" "$report"
+fi
