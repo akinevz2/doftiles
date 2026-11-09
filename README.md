@@ -75,7 +75,9 @@ on-deploy (`depends` discovers and delegates only):
 
 | Package        | Stows into `$HOME`                    | Contents                                                                                                          |
 | -------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `agents`       | `~/.config/opencode`, `~/.config/poolside`, `~/.local/bin` | OpenCode + poolside configuration (the `opencode-screencast` plugin is vendored as plain tracked files) |
+| `agents`       | `~/.local/bin` | OpenCode helper tools (`github-mcp-wrapper`, `opencode-remote(-add)`) |
+| `opencode`     | `~/.config/opencode` | OpenCode configuration + the vendored `opencode-screencast` plugin; the CLI itself is the bun global `@opencode/cli` (registry metapackage) |
+| `poolside`     | `~/.config/poolside` | poolside assistant configuration (its own package since the agents split) |
 | `bat`          | —                                     | the rust package: the `sharkdp/bat` submodule (`bat/.local/share/bat-src`) and its per-package depends Makefile    |
 | `compton`      | `~/.config/compton`, units            | compositor configuration and its user service                                                                     |
 | `depends`      | `~/.local/bin/on.deploy`, `~/.local/bin/install/`, `~/.config/doftiles.conf` | the deployment machinery: the four bun submodules (`on-deploy`, `herbstutil`, `herbctl`, `polyframes`) at `.local/share/`, the per-package depends Makefile, the `on.deploy` shim and the `<target>.deploy` scripts |

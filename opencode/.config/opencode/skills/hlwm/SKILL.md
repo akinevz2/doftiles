@@ -114,7 +114,7 @@ wait, clamps).
 
 Live helpers live in `~/dots/herbst/.local/bin` (stow — edit the repo
 file, then `stow -R -t $HOME herbst`); skill things under
-`~/dots/agents/.config/opencode/skills/…` need `stow -R -t $HOME agents`.
+`~/dots/opencode/.config/opencode/skills/…` need `stow -R -t $HOME opencode`.
 The binary itself is rebuilt from its repo (`make install`), never
 edited in place. Rebuild + `polyctl reload` for bar studies. No
 bicycling between live edits and repo edits — one source of truth.

@@ -1062,5 +1062,5 @@ The plugin provides a unique and powerful capability for narrating herbstluftwm 
 ---
 
 *Analysis conducted on: Sat Oct 31 2026*
-*Repository: ~/dots/agents/.config/opencode/opencode-screencast*
+*Repository: ~/dots/opencode/.config/opencode/opencode-screencast*
 *Total Lines: 1,758 (excluding comments and blank lines)*
