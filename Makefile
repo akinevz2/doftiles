@@ -3,7 +3,7 @@
 # Every target here is a SHORT sequence of on-deploy commands (the
 # exception builds the on-deploy binary itself — it cannot exist before
 # it runs: the depends PACKAGE hosts the bootstrap deployable
-# (dots/depends/.local/share/depends/depends/Makefile; the adapter's
+# (dots/depends/.local/share/depends/on-deploy/Makefile; the adapter's
 # bun-ensure goes through npm and the source route runs entirely
 # locally). All procedural deployment logic lives in the on-deploy
 # binary (built from depends/.local/share/on-deploy, installed to
@@ -77,7 +77,7 @@ DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 
 # ── depends ────────────────────────────────────────────────────────────
 # PHASE 1 of the bootstrap: submodules at their recorded pins, then the
-# bootstrap deployable (depends.Makefile: bun-ensure through npm when
+# bootstrap deployable (the Makefile: bun-ensure through npm when
 # even bun is missing + build + link:: the router swaps + stows the
 # depends package). ONLY on-deploy — nothing else: it cannot start the
 # platform toolchains yet.
@@ -249,7 +249,7 @@ add-packages:
 # fresh binary; FORCE=1 forces). The depends package hosts the
 # bootstrap build; the adapter build + stow ride on every invocation.
 on-deploy:
-	@$(MAKE) -C depends --no-print-directory -f .local/share/depends/depends/Makefile install FORCE=$(FORCE)
+	@$(MAKE) -C depends --no-print-directory -f .local/share/depends/on-deploy/Makefile install FORCE=$(FORCE)
 	@# the omitted recipe was stow-on-deploy: on a fresh clone (the
 	@# force-upgrade flow) nothing is stowed yet — the fresh binary sits
 	@# at dots/on-deploy/.local/bin/on-deploy with NO ~/.local/bin link;
@@ -434,7 +434,7 @@ update:
 #      module gitdirs get re-anchored at the new paths (git rm --cached +
 #      moved worktrees leave the gitlinks at the old paths; a stale
 #      core.worktree silently serves the dead checkout)
-#   3. the healing clean (depends.Makefile): unstow the depends package,
+#   3. the healing clean (Makefile): unstow the depends package,
 #      sweep the stale residue plain stow -D cannot match (folded/per-file
 #      links into dots/depends/.local/share/<pkg> and dangling
 #      ~/.local/{bin,share} links for the moved artifacts), drop the
@@ -450,7 +450,7 @@ force-upgrade:
 	$(MANIFEST_STASH)
 	git fetch
 	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
-	@$(MAKE) -C depends --no-print-directory -f .local/share/depends/depends/Makefile clean
+	@$(MAKE) -C depends --no-print-directory -f .local/share/depends/on-deploy/Makefile clean
 	@$(SELF) depends
 	@$(SELF) configure
 	@$(SELF) stow
