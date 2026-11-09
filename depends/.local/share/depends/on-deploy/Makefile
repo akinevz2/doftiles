@@ -8,8 +8,13 @@
 #
 # NOTE the submodule path is 2026-11-resplit: the checkout lives with its
 # own stow package — dots/on-deploy/.local/share/on-deploy — and the
-# ARTIFACT is owned by that package too (dots/on-deploy/.local/bin). The
-# depends package itself is REMNANTS ONLY (install/ + conf; the
+# ARTIFACT is owned by that package too: dots/on-deploy/.local/bin/on-deploy
+# is a TRACKED RELATIVE SYMLINK into the build output
+# (../share/on-deploy/dist/on-deploy) — committed repo content, created
+# once, NEVER by a recipe: no hardcoded ln/cp placement; the build writes
+# only the checkout's dist/ and the deployment to $HOME is stow-managed
+# exclusively (the stow recipe below -R-restows the on-deploy package).
+# The depends package itself is REMNANTS ONLY (install/ + conf; the
 # on.deploy shim was removed 2026-11 — nothing called it).
 
 TOOLCHAIN_BINDIR := $(HOME)/.bun/bin
@@ -17,20 +22,19 @@ export PATH := $(TOOLCHAIN_BINDIR):$(PATH)
 
 DOTS     := $(abspath $(CURDIR)/..)
 SUB_DIR  := $(DOTS)/on-deploy/.local/share/on-deploy
-LINK     := $(DOTS)/on-deploy/.local/bin
-ARTIFACT := $(LINK)/on-deploy
+ARTIFACT := $(DOTS)/on-deploy/.local/bin/on-deploy
 
 .DEFAULT_GOAL := all
 .PHONY: all bun-ensure deps-dir deps-install compile rename-artifact \
-        link stow install-source install uninstall status heal clean
+        stow install-source install uninstall status heal clean
 
-# ── the default: build + link ("make; make install" cadence) ───────────
-all: build link
+# ── the default: build + stow (the artifact symlink is committed) ──────
+all: build stow
 
 # ── the operational verbs (no routing, no metadata) ───────────────────
 install: install-source
 
-install-source: bun-ensure build link stow
+install-source: bun-ensure build stow
 
 status:
 	@if [ -x "$(ARTIFACT)" ]; then echo "depends: installed"; else echo "depends: MISSING; make install-src" >&2; exit 1; fi
@@ -76,13 +80,11 @@ rename-artifact:
 		rm -f "$(SUB_DIR)/dist/index.js.map"; \
 	fi
 
-link:
-	@mkdir -p "$(LINK)"
-	@ln -f "$(SUB_DIR)/dist/on-deploy" "$(ARTIFACT)"
-	@echo "depends: linked $(ARTIFACT)"
-
+# stow — THE deployment verb: -R-restow the on-deploy package (the
+# artifact symlink's owner); the fresh build reaches ~/.local/bin
+# through this stow fold and nothing else
 stow:
-	@stow -d "$(DOTS)" -R -t "$(HOME)" depends
+	@stow -d "$(DOTS)" -R -t "$(HOME)" on-deploy
 
 # clean — the 2026-11 healing recipe (run after a resplit/migration or a
 # system upgrade to heal the layout): the resplit moved each bun submodule
