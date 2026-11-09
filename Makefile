@@ -213,6 +213,9 @@ help:
 	@echo "  submodules  submodule update --init --recursive --remote"
 	@echo "  install    configure + the wm.depends binary walk + preserve +"
 	@echo "      packages install (wm.depends)"
+	@echo "  live re-install recipe: make sudo update install YES=1 (the"
+	@echo "      root grant collected UPFRONT, then pull + full deploy;"
+	@echo "      follow with 'make livereload' to reload hlwm in place)"
 	@echo "  all        stow the wm.depends stack"
 	@echo "  stow       stow the wm.depends stack (the submodule build first)"
 	@echo "  wm         stow the wm.depends stack"
@@ -438,6 +441,8 @@ endef
 # submodule sync/update/reattach flows never chase a path outside it,
 # so a package dropped from the manifests is dropped from every
 # machine flow (its checkout stays as-is on disk, untouched)
+DEPS_SUBMODULES := $(shell awk '!/^#/ && NF > 1 { for (i = 2; i <= NF; i++) print $$i }' $(CURDIR)/system.depends 2>/dev/null)
+
 # update — the safe pull directly in the repo: fetch + fast-forward
 # (fallback --rebase --autostash), submodule sync, then the BOOTSTRAP
 # chain (pkg-only packages like bat need no toolchain — an update on a
