@@ -244,15 +244,15 @@ keyreg $ModShift-f spawn ~/.local/bin/herbctl fullscreen-toggle
 
 # x-family final layout: Mod-x runs hc_floatx (the layer-focus
 # toggle / yanker: from tiling, focus a float, un-float into an empty
-# frame, or yank; from a focused float — quadrant-pin). ModCtrl-x is
-# the register split: on an ALREADY-FLOATING window it shrinks the
-# float to the top-left quadrant of the monitor and pins it there
-# (polyframes corner, v2.3.0); from tiling it keeps the
-# focus-a-float / un-float-into-empty-frame / yank / tidying machine.
-# ModShift-x keeps use_previous.
+# frame, or yank; from a focused float — UN-FLOAT into the frame
+# below). ModCtrl-x runs the same script in `corner` mode: on an
+# ALREADY-FLOATING window it resizes the float to the top-left
+# quadrant of the monitor and pins it there (polyframes corner,
+# v2.3.1); from tiling it delegates to herbctl float-unfocus (the
+# companion-float / recall machine). ModShift-x keeps use_previous.
 keyreg $Mod-x               spawn ~/.local/bin/hc_floatx
 keyreg $ModShift-x          use_previous
-keyreg $ModCtrl-x           spawn ~/.local/bin/herbctl float-unfocus
+keyreg $ModCtrl-x           spawn ~/.local/bin/hc_floatx corner
 
 
 

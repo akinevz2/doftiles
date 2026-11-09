@@ -56,7 +56,7 @@ uninstall:
 # ── the source route composed through steps ─────────────────────────────
 install-source: build link
 
-build: deps-install compile rename-artifact
+build: deps-install compile rename-artifact link
 
 deps-dir:
 	@mkdir -p "$(SUB_DIR)/node_modules/.tmp"

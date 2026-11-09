@@ -58,7 +58,7 @@ uninstall:
 # ── the source route composed through steps ─────────────────────────────
 install-source: build link
 
-build: deps-install bun-hooks compile
+build: deps-install bun-hooks compile link
 
 deps-dir:
 	@mkdir -p "$(SUB_DIR)/node_modules/.tmp"

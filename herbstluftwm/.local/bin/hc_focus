@@ -17,7 +17,7 @@
 #   h) when floating_focused was TRUE (a floating window has focus):
 #      focus the TILING layer — the float stays floating; no
 #      un-float, no focus chasing (un-float happens from the TILING
-#      side: an empty focused frame — Mod-f or ModCtrl-x pulls the
+#      side: an empty focused frame — Mod-f or Mod-x pulls the
 #      first float into the frame below).
 #
 # No script-level lock: the helpers (polyframes center/fit, hc_tile)

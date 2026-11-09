@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # hc_floatx — Mod-x: the layer-focus toggle / yanker. FINAL semantics:
+# (`hc_floatx corner` — ModCtrl-x's register: on a focused float,
+# pin it to the top-left quadrant via polyframes corner; from
+# tiling, delegate to herbctl float-unfocus.)
 #
 #   floating_focused FALSE (tiling layer owns focus):
 #     1. TRY focusing a float (floating_focused on; it fails when no
@@ -24,18 +27,19 @@
 #                                     max layout, or use_previous).
 #
 #   floating_focused TRUE (a float holds the layer focus):
-#     QUADRANT-PIN the focused float — shrink it to the top-left
-#     quadrant of the monitor's work area and pin it there
-#     (polyframes corner: shrink-only, deco-aware, size-hint
-#     reconciled). NO un-float and NO layer change: the float stays
-#     floating and focused. Un-float happens from the TILING side —
-#     an empty focused frame makes this key (and Mod-f) pull the
-#     first float into the frame below.
+#     UN-FLOAT the focused float — the register chain folds the flags
+#     and re-tiles the window into the focused frame below whatever
+#     it holds (populated or empty frame, one frame or many: every
+#     former sub-case unified) — then ATTEMPT to re-focus the tiling
+#     layer: floating_focused off as a SEPARATE follow-up write (hlwm
+#     tracks the register on un-float; a defensive write INSIDE the
+#     chain raced it — the follow-up is an idempotent no-op when it
+#     already handed focus back).
 #
 # Floating-status writes (clients.<wid>.floating on/off) exist ONLY in
-# the yank (float ON) and the float-into-empty-frame register; every
-# other path is a pure layer-focus (floating_focused) toggle or a
-# geometry-only action (the corner pin). Un-float chains
+# the yank (float ON) and the two un-float paths (the float-focused
+# press and the float-into-empty-frame register); every other path is
+# a pure layer-focus (floating_focused) toggle. Un-float chains
 # intentionally contain NO floating_focused off — hlwm tracks the
 # register on un-float; the re-focus attempt runs AFTER the chain as
 # a separate idempotent write. Standalone register writes (re-entry
@@ -122,6 +126,22 @@ for c in $(hc list_clients --tag="$tag" 2>/dev/null); do
     fi
 done
 
+# corner MODE (ModCtrl-x's register): on an ALREADY-FLOATING window,
+# resize it to the top-left quadrant of the monitor's work area and
+# pin it there (polyframes corner: the size BECOMES the quadrant,
+# deco-aware, size-hint reconciled) — no un-float, no layer change.
+# From the TILING layer, delegate to herbctl float-unfocus (the
+# companion-float / recall machine, unchanged). NOT exec: hc_floatx
+# holds the WM lock and the EXIT trap must fire to release it.
+if [ "${1:-}" = "corner" ]; then
+    if [ "$ff" = "true" ]; then
+        [ -n "$orig" ] && "$HOME/.local/bin/polyframes" corner root || true
+        exit 0
+    fi
+    "$HOME/.local/bin/herbctl" float-unfocus
+    exit 0
+fi
+
 unfloat_wid() {  # $1 = float wid: fold flags, un-float, focus it.
     hc chain , attr "clients.$1.fullscreen" off \
        , attr "clients.$1.pseudotile" off \
@@ -148,15 +168,16 @@ unfloat_into_frame_below() {  # $1 = float wid
 }
 
 if [ "$ff" = "true" ]; then
-    # Called on a FLOATING window: shrink it to the TOP-LEFT QUADRANT
-    # of the monitor's work area and pin it there (polyframes corner:
-    # shrink-only, deco-aware, size-hint reconciled). NO layer change
-    # and NO un-float — un-float happens from the TILING side (an
-    # empty focused frame makes this key and Mod-f pull the first
-    # float into the frame below).
+    # Called on a FLOATING window (float session): UN-FLOAT the
+    # focused float — the register chain folds the flags and re-tiles
+    # the window into the focused frame below whatever it holds —
+    # then ATTEMPT to re-focus the tiling layer (see the header: the
+    # floating_focused off write is a separate follow-up, not part of
+    # the chain).
     if [ -n "$orig" ]; then
-        "$HOME/.local/bin/polyframes" corner root || true
+        unfloat_wid "$orig"
     fi
+    hc attr tags.focus.floating_focused off 2>/dev/null || true
     exit 0
 fi
 
