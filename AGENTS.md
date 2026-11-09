@@ -57,25 +57,31 @@ analysis; also not stowed.
   them (an absolute hand-made symlink once blocked `make wm/update`
   with "existing target is not owned by stow").
 
-## Manifests — one file each, `*.depends`, tracked via force-add
+## Manifests — one file each, tracked on the USER BRANCH
 
 Every manifest is ONE file (stows, wm, system, services):
-`<name>.depends`. The pattern is gitignored, so:
+`<name>.depends`. The pattern is gitignored; the branches carry it:
 
-- **Developer expansion**: edit the manifest, then
-  `git add -f <name>.depends` + commit — mainline ships. This is the
-  ONLY way manifest content enters the repo.
-- **User personalization**: machines edit the same file and hide the
-  dirtiness with `git update-index --skip-worktree <name>.depends`
-  (set once, after personalizing). `git status` stays clean forever;
-  pulls never merge-conflict on the manifests.
-- **The ritual**: upstream manifest changes would otherwise collide
-  with a skip-worktree file — `make update` / `make force-upgrade`
-  run the dance automatically (stash the flagged manifests → pull →
-  `depends` pops the stash back and re-skips). A stash-pop CONFLICT is
-  the volition point: resolve by hand (the stash is kept).
+- **Developer expansion**: edit the manifest on `main`, then
+  `git add -f <name>.depends` + commit — mainline ships the GENERIC
+  content. This is the only way manifest content enters main.
+- **User personalization — the user branch** (2026-11, replaces the
+  skip-worktree dance): a machine that personalizes the manifests
+  lives on a branch named after its unix username (`id -un`,
+  honoring SUDO_USER). `configure` creates the branch on the first
+  personalization (from the current HEAD), stages the config files
+  (`add -f --sparse` — the pattern is gitignored) and COMMITS every
+  config change to it; `managed conf-set` tracks doftiles.conf the
+  same way. The working tree stays CLEAN — no skip-worktree flags,
+  no stash dances, no phantom dirtiness for the reconfigure gate.
+  Push the user branch like any other (`git push origin <user>`).
+- **The update flow**: `make update` / `make force-upgrade` fetch,
+  then — user branch exists → REBASE it onto origin/main; not → the
+  plain mainline fast-forward (fallback rebase --autostash). A rebase
+  CONFLICT is the volition point: resolve by hand, `git rebase
+  --continue`.
 - Fresh machines that never personalize just track the generic build
-  and receive mainline updates as normal pulls.
+  on main and receive mainline updates as normal pulls.
 
 Layer contents:
 - stows — the stow package list (space-separated lines, `#` comments);
@@ -310,7 +316,8 @@ Wall-clock effect: `make install` 35.7 s → 10.3 s, `make status`
     went out on same-day tweaks — kept, not reverted; the doctrine
     applies going forward).
 15. **`make update` is headless out of the box**; the TUI/session
-    gates are the only real tty assumptions.
+    gates are the only real tty assumptions. The pull rebases the
+    user branch onto origin/main when one exists (see Manifests).
 
 ## Quick verification workflow
 

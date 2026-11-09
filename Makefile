@@ -89,12 +89,6 @@ DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 # submodule sync + update to each tracked-branch tip + the on-deploy
 # bootstrap build.
 depends:
-	@if [ -s $(MANIFEST_STATE) ]; then \
-		git stash pop 2>/dev/null \
-			|| echo "depends: stash pop CONFLICTED — resolve by hand (the stash is kept)"; \
-		for m in $(MANIFESTS); do git update-index --skip-worktree $$m 2>/dev/null || true; done; \
-		rm -f $(MANIFEST_STATE); \
-	fi
 	# MANIFEST-SCOPED: system.depends is the source of truth — only the
 	# configured submodule paths are synced/updated; a package dropped
 	# from the manifests is not chased here (its checkout stays local
@@ -196,7 +190,6 @@ toolchain: depends
 configure:
 	@if [ -t 0 ] || [ -n "$(F)" ]; then \
 		$(ONDEPLOY_BIN) configure $(F); \
-		$(MANIFEST_SKIP); \
 	else \
 		echo "configure: non-tty, no FORCE=1" >&2; \
 		echo "  rerun: FORCE=1 make configure" >&2; \
@@ -415,55 +408,36 @@ status:
 		echo "status: reminder — $(HOME)/.my-credentials is not set up; run 'on-deploy configure' on a tty to record your git identity"; \
 	fi
 
-# the skip-worktree dance — manifests (MANIFESTS) are tracked but users
-# hide their personal dirtiness with `git update-index --skip-worktree`;
-# a pull bringing upstream manifest changes would otherwise fight the
-# user. The STASH half runs inline in the pull targets (update /
-# force-upgrade); the RESTORE half lives in `depends` — the file-named
-# rule for the *.depends manifests — which every pull target invokes
-# right after its pull. A stash-pop CONFLICT is the volition point:
-# resolve by hand (the stash is kept for recovery).
+# the USER-BRANCH model — manifests (MANIFESTS) are tracked on a branch
+# named after the machine's unix username: `configure` commits config
+# changes there (lib/userBranch.ts in on-deploy), so the working tree
+# is CLEAN and no skip-worktree flags exist. Update completes the
+# model: when the user branch exists, the pull REBASES it onto
+# origin/main (a rebase conflict is the volition point — resolve by
+# hand); when it does not, the machine is mainline and the plain
+# fetch + ff-only (fallback rebase --autostash) applies.
 MANIFESTS := stow.depends wm.depends system.depends services.depends
-MANIFEST_STATE := .git/doftiles-manifest-skip
+
+# USER_BRANCH_FLOW — the shared pull body of update / force-upgrade:
+# fetch, then rebase the user branch when it exists, else fast-forward
+# main (fallback rebase --autostash for a dirty mainline tree)
+define USER_BRANCH_FLOW
+	git fetch origin; \
+	u=$$(id -un 2>/dev/null); \
+	if [ -n "$$u" ] && git show-ref --verify --quiet refs/heads/$$u; then \
+		echo "update: user branch '$$u' found — rebasing onto origin/main"; \
+		git rebase origin/main; \
+	else \
+		echo "update: no user branch — mainline fast-forward"; \
+		git merge --ff-only origin/main 2>/dev/null || git pull --rebase --autostash; \
+	fi
+endef
 
 # the CONFIGURED submodule scope: system.depends is the submodule
 # manifest (`<pkg> <path>...` per line) and the SOURCE OF TRUTH — the
 # submodule sync/update/reattach flows never chase a path outside it,
 # so a package dropped from the manifests is dropped from every
 # machine flow (its checkout stays as-is on disk, untouched)
-DEPS_SUBMODULES := $(shell awk '!/^#/ && NF > 1 { for (i = 2; i <= NF; i++) print $$i }' $(CURDIR)/system.depends 2>/dev/null)
-
-define MANIFEST_STASH
-	: > $(MANIFEST_STATE); \
-	for m in $(MANIFESTS); do \
-		git ls-files --error-unmatch $$m >/dev/null 2>&1 || continue; \
-		flag=$$(git ls-files -v $$m | cut -c1); \
-		[ "$$flag" = S ] || continue; \
-		git update-index --no-skip-worktree $$m; \
-		if git diff --quiet -- $$m && git diff --cached --quiet -- $$m; then \
-			continue; \
-		fi; \
-		if git stash push -q -m "doftiles manifest $$m" -- $$m; then \
-			echo $$m >> $(MANIFEST_STATE); \
-		else \
-			git update-index --skip-worktree $$m; \
-		fi; \
-	done
-endef
-
-# MANIFEST_SKIP — flag DIRTY manifests skip-worktree (after a configure
-# edit personalizes them). Clean manifests are deliberately NOT flagged:
-# an S-flagged clean file would silently block its own mainline updates.
-define MANIFEST_SKIP
-	for m in $(MANIFESTS); do \
-		git ls-files --error-unmatch $$m >/dev/null 2>&1 || continue; \
-		if ! git diff --quiet -- $$m 2>/dev/null || \
-		   ! git diff --cached --quiet -- $$m 2>/dev/null; then \
-			git update-index --skip-worktree $$m 2>/dev/null || true; \
-		fi; \
-	done
-endef
-
 # update — the safe pull directly in the repo: fetch + fast-forward
 # (fallback --rebase --autostash), submodule sync, then the BOOTSTRAP
 # chain (pkg-only packages like bat need no toolchain — an update on a
@@ -473,9 +447,7 @@ endef
 # the walk keeps the on-deploy artifact out of the adapters (already
 # fresh from the unconditional rebuild).
 update:
-	$(MANIFEST_STASH)
-	git fetch
-	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
+	$(USER_BRANCH_FLOW)
 	@$(SELF) depends
 	# NO submodule installs here (branch-tracked checkouts only): modules get
 	# synced/local, nothing is built or deployed — so a chained
@@ -514,9 +486,7 @@ update:
 #      point of steps 3-4 (a conflict here means a non-owned real file
 #      sits at a link target; stow's message names it, inspect by hand)
 force-upgrade:
-	$(MANIFEST_STASH)
-	git fetch
-	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
+	$(USER_BRANCH_FLOW)
 	@$(MAKE) -C depends --no-print-directory -f .local/share/depends/on-deploy/Makefile clean
 	@$(SELF) depends
 	@$(SELF) configure
