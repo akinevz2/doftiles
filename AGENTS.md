@@ -324,10 +324,28 @@ Wall-clock effect: `make install` 35.7 s → 10.3 s, `make status`
 ```sh
 cd ~/dots
 make install YES=1       # full non-interactive deploy
+make sudo update install YES=1  # live re-install: grant first, pull, deploy
+make livereload          # optional: restow units + herbstclient reload (the
+                         # WM binary is NEVER restarted by this path)
 make status              # check + services + credentials reminder
 make services-check      # daemon-reload + enable --now (ordered)
 journalctl --user -u herbst.service -u compton.service -b --since "2 min ago" --no-pager
 ```
+
+The LIVE-SYSTEM re-install candidate is `make sudo update install
+YES=1`: the `sudo` target collects the root grant UPFRONT (a clean
+TTY, before anything runs), `update` pulls (user branch rebased onto
+origin/main when one exists, else the mainline fast-forward), and
+`install YES=1` deploys headless — the batched binary walk, preserve,
+packages, status, with the configure gate applying the recorded
+config instead of opening the menu. The upfront grant is what makes
+it the most likely candidate to succeed on a live system: the
+mid-flight sudo prompts (the requirement walk's system packages, e.g.
+batcat→apt bat) are exactly what a headless or busy terminal cannot
+answer. Follow with `make livereload` when the units or the herbst
+config changed: it restows the unit packages, daemon-reloads, and
+`herbstclient reload`s — the WM binary itself is never restarted
+(only `make force-upgrade` may do that).
 
 Known journal noise: polybar tray deprecation warnings and arandr
 `gdk_atom_intern` assertion failures (upstream GTK quirk).
