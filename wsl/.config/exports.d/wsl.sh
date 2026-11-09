@@ -6,8 +6,11 @@
 # host that opted in anyway stays clean.
 if [ -x "$HOME/.local/bin/check-wsl" ] && "$HOME/.local/bin/check-wsl"; then
     export DISPLAY=localhost:0.0
-    # VcXsrv/X11 through WSL: force indirect/software GL rendering
-    export LIBGL_ALWAYS_INDIRECT=1
+    # VcXsrv/X11 through WSL: force software GL rendering.
+    # LIBGL_ALWAYS_INDIRECT deliberately NOT set: indirect GLX through
+    # VcXsrv segfaults wgpu/glutin and WebKit GL paths (alacritty and
+    # luakit die with SIGSEGV at startup). LIBGL_ALWAYS_SOFTWARE alone
+    # routes through llvmpipe and works.
     export LIBGL_ALWAYS_SOFTWARE=true
     # BROWSER -> the runtime-conditional wrapper (dots/wsl)
     export BROWSER="firefox"
