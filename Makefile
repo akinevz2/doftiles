@@ -76,7 +76,8 @@ DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 	services-stop restart update help add-packages
 
 # ── depends ────────────────────────────────────────────────────────────
-# PHASE 1 of the bootstrap: submodules at their recorded pins, then the
+# PHASE 1 of the bootstrap: submodules at their tracked-branch tips
+# (branch = main/master in .gitmodules), then the
 # bootstrap deployable (the Makefile: bun-ensure through npm when
 # even bun is missing + build + link:: the router swaps + stows the
 # depends package). ONLY on-deploy — nothing else: it cannot start the
@@ -84,8 +85,8 @@ DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 # depends — named after the *.depends manifests it services: restore
 # any pull-pending personal manifests (pop + re-skip — the stash half
 # runs inline in the pull targets, update / force-upgrade), then the
-# submodule sync + update at recorded pins + the on-deploy bootstrap
-# build.
+# submodule sync + update to each tracked-branch tip + the on-deploy
+# bootstrap build.
 depends:
 	@if [ -s $(MANIFEST_STATE) ]; then \
 		git stash pop 2>/dev/null \
@@ -410,7 +411,7 @@ update:
 	git fetch
 	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
 	@$(SELF) depends
-	# NO submodule installs here (pinned checkouts only): modules get
+	# NO submodule installs here (branch-tracked checkouts only): modules get
 	# synced/local, nothing is built or deployed — so a chained
 	# `make update install` does not run the install step twice. The
 	# on-deploy binary IS rebuilt (fresh source must land a fresh

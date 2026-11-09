@@ -93,8 +93,9 @@ Layer contents:
   recipe per line (never bunch aliases like `all/stow/wm/restow`),
   wrapped description continuations indent TWO MORE spaces than the
   command column, ≤80 columns, knobs listed separately.
-- `make depends` — submodule sync + `--init --recursive` update at
-  recorded pins + the on-deploy bootstrap build.
+- `make depends` — submodule sync + `--init --remote` update to each
+  tracked branch tip (bat's nested layers skipped) + the on-deploy
+  bootstrap build.
 - `make bootstrap` — depends + `bun` + `rustup` + `trust` + the FULL
   `on-deploy depends --install` walk (the system manifest's scope). The
   walk IS the deploy of every submodule artifact.
@@ -127,7 +128,7 @@ Layer contents:
 - `make stow-<pkg>` / `unstow-<pkg>` / `depends-<pkg>` — ONE package
   through on-deploy (`depends-<pkg>` honors toolchain checks loudly).
 - `make unstow` / `clean` — drop the WM_PACKAGES links.
-- `make update` — SAFE PULL (pinned-local): fetch + ff (fallback
+- `make update` — SAFE PULL (branch-local): fetch + ff (fallback
   rebase --autostash), submodule sync + update, on-deploy rebuild.
   Artifacts untouched; chain `make update install` for
   pull-with-install (install runs EXACTLY once).
@@ -282,10 +283,12 @@ Wall-clock effect: `make install` 35.7 s → 10.3 s, `make status`
 9. **herbstutil is a real global npm package** (used by polyframes
    and the screencast plugin). bun's trust policy may block
    postinstalls: `bun pm trust -g herbstutil bun`.
-10. **Submodules are pinned** (the system manifest): nested assets are
-    upstream-owned; recorded pins are the default path
-    (`git submodule update --remote` bumps by hand, deliberately).
-    Upstream fixes land in the submodule repo, then the pin bumps.
+10. **Submodules track their upstream branches** (.gitmodules, 2026-11):
+    each submodule declares `branch = main` (bat: `master`), so
+    `git submodule update --remote` follows the upstream branch rather
+    than a frozen SHA. `make update` still fast-forwards only when
+    upstream advanced; nested assets (bat) stay untouched by routine
+    flows unless deliberately bumped.
 11. **polyframes owns the rofi menus** (`tags`, `hidden`, `windows`,
     `launch`, `switcher-menu`, `window-menu` subcommands). `hc_tile`/
     `hc_center` remain two-line shims — dots-side callers depend on

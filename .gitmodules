@@ -1,18 +1,24 @@
 [submodule "polyframes/.local/share/polyframes"]
 	path = polyframes/.local/share/polyframes
 	url = https://github.com/akinevz2/polyframes
+	branch = main
 [submodule "herbstutil/.local/share/herbstutil"]
 	path = herbstutil/.local/share/herbstutil
 	url = https://github.com/akinevz2/herbstutil
+	branch = main
 [submodule "on-deploy/.local/share/on-deploy"]
 	path = on-deploy/.local/share/on-deploy
 	url = https://github.com/akinevz2/on-deploy.git
+	branch = main
 [submodule "herbctl/.local/share/herbctl"]
 	path = herbctl/.local/share/herbctl
 	url = https://github.com/akinevz2/herbctl.git
+	branch = main
 [submodule "bat/.local/share/bat-src"]
 	path = bat/.local/share/bat-src
 	url = https://github.com/sharkdp/bat
+	branch = master
 [submodule "get/.local/share/got-source"]
 	path = get/.local/share/got-source
 	url = https://github.com/akinevz2/got-source.git
+	branch = main

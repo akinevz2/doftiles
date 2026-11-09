@@ -45,7 +45,7 @@ on-deploy binary unconditionally as its first artifact).
 
 | Recipe           | Effect                                                                                       |
 | ---------------- | -------------------------------------------------------------------------------------------- |
-| `bootstrap`      | submodule checkouts at their recorded pins (nested assets never chased per machine), the on-deploy binary when missing, `stow depends`, the bun-trust steps |
+| `bootstrap`      | submodule checkouts tracking their upstream branches (`branch = main`/`master` in .gitmodules; bat and other nested assets are never chased per machine), the on-deploy binary when missing, `stow depends`, the bun-trust steps |
 | `toolchain`      | `on-deploy toolchain --bun` — the language toolchains the per-package Makefiles build with (`YES=1` runs non-interactively; `on-deploy toolchain --check` fails fast, installing nothing) |
 | `deps`           | `on-deploy depends --install` — sync the submodules and run each package's `build`→`install` rules (`--build` for install-less builds) |
 | `install` / `wm` / `all` | configure, conflict-safe restow (`preserve --only $(stow.depends)`), the per-package rules, and `stow -R` of the `stow.depends` stack |
