@@ -230,8 +230,9 @@ keyreg $ModCtrl-t           spawn ~/.local/bin/polyframes tile
 
 # quick float toggle for the focused window: floated windows are
 # centered inside their focused frame (visual float indicator);
-# pressing again focuses the tiling layer — no un-float (the
-# un-float register is ModCtrl-x / hc_floatx)
+# pressing again focuses the tiling layer — no un-float (un-float
+# happens from the tiling side: an empty focused frame pulls the
+# first float in)
 keyreg $Mod-f               spawn ~/.local/bin/hc_focus
 
 # zoom: 3-state toggle for the focused window — float the focused
@@ -241,12 +242,14 @@ keyreg $ModCtrl-f          spawn ~/.local/bin/hc_zoom
 
 keyreg $ModShift-f spawn ~/.local/bin/herbctl fullscreen-toggle
 
-# x-family final layout: Mod-x runs hc_floatx (the old Mod-x register)
-# directly again; float-unfocus (herbctl: from a focused float, un-float
-# it into the empty focused frame (curframe_wcount = 0) or hand focus
-# back to the tiling layer; from tiling, focus the float ONLY (no
-# un-float) and center it to root) moves to ModCtrl-x; ModShift-x
-# keeps use_previous.
+# x-family final layout: Mod-x runs hc_floatx (the layer-focus
+# toggle / yanker: from tiling, focus a float, un-float into an empty
+# frame, or yank; from a focused float — quadrant-pin). ModCtrl-x is
+# the register split: on an ALREADY-FLOATING window it shrinks the
+# float to the top-left quadrant of the monitor and pins it there
+# (polyframes corner, v2.3.0); from tiling it keeps the
+# focus-a-float / un-float-into-empty-frame / yank / tidying machine.
+# ModShift-x keeps use_previous.
 keyreg $Mod-x               spawn ~/.local/bin/hc_floatx
 keyreg $ModShift-x          use_previous
 keyreg $ModCtrl-x           spawn ~/.local/bin/herbctl float-unfocus
