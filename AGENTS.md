@@ -131,6 +131,10 @@ Layer contents:
   rebase --autostash), submodule sync + update, on-deploy rebuild.
   Artifacts untouched; chain `make update install` for
   pull-with-install (install runs EXACTLY once).
+- **AGENTS rule — submodule sources**: whenever working with the
+  sources of a dots submodule, run `make update` (to update to the
+  latest) and `make stow` (to deploy the latest) after the changes —
+  the stowed binaries are only as fresh as the last `make stow`.
 - `make force-upgrade` — fetch + ff + submodule re-anchor + healing
   clean + rebuild + configure gate + stow.
 - `make livereload` — check gate (LOUD on missing wm-manifest
