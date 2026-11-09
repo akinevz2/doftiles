@@ -1,10 +1,12 @@
 # compton — package dependency Makefile (the dots/<pkg>/.local/share/<pkg>
-# pattern). This package owns the compositor: its stowed user unit
+# pattern — the depends scheme:
+# dots/<pkg>/.local/share/depends/<pkg>/Makefile). This package owns
+# the compositor: its stowed user unit
 # (compton.service, BindsTo the WM session) and the compton binary.
 # Deployable independently of the WM; the platform package-manager
 # work defers to on-deploy pkg.
 
-DOTS    := $(abspath $(CURDIR)/..)
+DOTS    := $(abspath $(CURDIR))
 UNIT   := compton.service
 BIN    := compton
 ONDEPLOY ?= $(HOME)/.local/bin/on-deploy

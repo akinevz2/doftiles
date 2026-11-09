@@ -1,8 +1,8 @@
-# herbstluftwm — package dependency Makefile (the dots/<pkg>/
-# .local/share/<pkg> pattern). The WM stack's binary dependency is
-# herbctl (the keybind state machines); it is built and installed by
-# the depends package PACKAGE.s `components` command, so the standard
-# rules defer to it.
+# herbstluftwm — package dependency Makefile (the depends scheme:
+# dots/<pkg>/.local/share/depends/<pkg>/Makefile). The WM stack's binary
+# dependency is herbctl (the keybind state machines); it is built and
+# installed by the depends package PACKAGE.s `components` command, so
+# the standard rules defer to it.
 #
 # The FEATURE rules (xserver, xinitrc, nested, xrdp, greeter) hold the
 # bash implementations of the session's package-group special steps;
@@ -10,7 +10,7 @@
 # The deployment model (the `session =` line of wm.depends,
 # on-deploy configure) gates the managed-X rules.
 # Run them via `on-deploy packages <rule>` or directly:
-#   make -C ~/.local/share/herbstluftwm nested
+#   make -C ~/dots/herbstluftwm -f .local/share/depends/herbstluftwm/Makefile nested
 #
 # The WM services themselves (herbst/compton) are owned by the dots
 # Makefile service.order flow; start/stop/enable/disable here act on
@@ -92,7 +92,7 @@ xinitrc:
 # only chains their install for convenience.
 nested:
 	@for pkg in xvfb x11vnc novnc; do \
-		$(MAKE) --no-print-directory -C $(DOTS)/$$pkg/.local/share/$$pkg install || exit 1; \
+		$(MAKE) --no-print-directory -C $(DOTS)/$$pkg -f .local/share/depends/$$pkg/Makefile install || exit 1; \
 	done
 
 # greeter — a display manager is inherently SYSTEM-level (it owns the

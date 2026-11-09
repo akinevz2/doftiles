@@ -1,10 +1,10 @@
-# dunst — package dependency Makefile (the dots/<pkg>/.local/share/<pkg>
-# pattern). This package owns the notification daemon: its config
-# (~/.config/dunst, stowed) and the stowed user unit (dunst.service).
-# Deployable independently; the platform package-manager work defers
-# to on-deploy pkg.
+# dunst — package dependency Makefile (the depends scheme:
+# dots/<pkg>/.local/share/depends/<pkg>/Makefile). This package owns
+# the notification daemon: its config (~/.config/dunst, stowed) and
+# the stowed user unit (dunst.service). Deployable independently; the
+# platform package-manager work defers to on-deploy pkg.
 
-DOTS    := $(abspath $(CURDIR)/..)
+DOTS    := $(abspath $(CURDIR))
 UNIT   := dunst.service
 BIN    := dunst
 ONDEPLOY ?= $(HOME)/.local/bin/on-deploy

@@ -3,13 +3,13 @@
 # Every target here is a SHORT sequence of on-deploy commands (the
 # exception builds the on-deploy binary itself — it cannot exist before
 # it runs: the depends PACKAGE hosts the bootstrap deployable
-# (dots/depends/.local/state/depends/depends.Makefile; the adapter's
+# (dots/depends/.local/share/depends/depends/Makefile; the adapter's
 # bun-ensure goes through npm and the source route runs entirely
 # locally). All procedural deployment logic lives in the on-deploy
 # binary (built from depends/.local/share/on-deploy, installed to
 # ~/.local/bin/on-deploy); installing the SUBMODULES is a package
 # concern: each stow package owns its recipes in
-# dots/<pkg>/.local/state/depends/<pkg>.Makefile, driven by
+# dots/<pkg>/.local/share/depends/<pkg>/Makefile, driven by
 # `on-deploy depends --build|--install` (the `depends` target).
 #
 # The verbs (on-deploy --help):
@@ -66,7 +66,7 @@ RECONFIGURE_REASON := $(shell cd "$(CURDIR)" && \
 # the per-package depends Makefile of a stow package (make -f; the
 # 2026-11 scheme) — run from the package directory
 DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
-	.local/state/depends/$(1).Makefile
+	.local/share/depends/$(1)/Makefile
 
 .PHONY: depends bootstrap trust toolchain submodules bun rustup force-upgrade configure livereload \
 	depends-% \
@@ -249,7 +249,7 @@ add-packages:
 # fresh binary; FORCE=1 forces). The depends package hosts the
 # bootstrap build; the adapter build + stow ride on every invocation.
 on-deploy:
-	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile install FORCE=$(FORCE)
+	@$(MAKE) -C depends --no-print-directory -f .local/share/depends/depends/Makefile install FORCE=$(FORCE)
 	@# the omitted recipe was stow-on-deploy: on a fresh clone (the
 	@# force-upgrade flow) nothing is stowed yet — the fresh binary sits
 	@# at dots/on-deploy/.local/bin/on-deploy with NO ~/.local/bin link;
@@ -300,17 +300,17 @@ all stow wm restow: on-deploy build
 # the package bin (the committed artifact is the deployable): a fresh
 # checkout (make update / depends) only reaches the system when the
 # build runs and re-folds the binary into the package's .local/bin.
-# The per-package router-Makefiles (.local/state/depends/<pkg>.Makefile)
+# The per-package router-Makefiles (.local/share/depends/<pkg>/Makefile)
 # own the concrete steps (deps-install, compile, rename-artifact, link);
 # this target just walks them — on-deploy's own build lives in the
 # on-deploy target (the bootstrap).
 build: on-deploy update
-	@for m in $(wildcard */.local/state/depends/*.Makefile); do \
+	@for m in $(wildcard */.local/share/depends/*/Makefile); do \
 		[ -f "$$m" ] || continue; \
-		pkg=$(subst .local/state/depends/,,$(subst .Makefile,,$$m)); \
-		[ -f "$$pkg/.local/state/depends/$$pkg.Makefile" ] || continue; \
+		grep -q "^build:" "$$m" || continue; \
+		pkg=$${m%%/.local/share/depends/*}; \
 		echo "==$$pkg build"; \
-		$(MAKE) -C "$$pkg" --no-print-directory -f ".local/state/depends/$$pkg.Makefile" build || exit 1; \
+		$(MAKE) -C "$$pkg" --no-print-directory -f ".local/share/depends/$$pkg/Makefile" build || exit 1; \
 	done
 
 # stow-<dots-package> / unstow-<dots-package> — the per-package pattern
@@ -450,7 +450,7 @@ force-upgrade:
 	$(MANIFEST_STASH)
 	git fetch
 	git merge --ff-only 2>/dev/null || git pull --rebase --autostash
-	@$(MAKE) -C depends --no-print-directory -f .local/state/depends/depends.Makefile clean
+	@$(MAKE) -C depends --no-print-directory -f .local/share/depends/depends/Makefile clean
 	@$(SELF) depends
 	@$(SELF) configure
 	@$(SELF) stow

@@ -148,8 +148,8 @@ Layer contents:
 ## The per-package depends Makefile scheme
 
 `on-deploy depends` drives every stow package shipping
-`.local/state/depends/<pkg>.Makefile` (legacy fallback
-`.local/share/<pkg>/Makefile`; dunst keeps a legacy one). Standard
+`.local/share/depends/<pkg>/Makefile` (the uniform layout, the
+2026-11 resplit). Standard
 rules: `toolchain`, `build`, `link`, `install`, `uninstall`,
 `status`; a `metadata` contract (five bare `key=value` echoes) is
 consumed by `on-deploy managed <pkg>` — the router owns ALL

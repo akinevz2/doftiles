@@ -15,12 +15,12 @@
 #   dots/get/.local/share/got/get.sh -> ~/.local/share/got/get.sh
 #   (the latter is sourced by shell/.shellx.rc)
 
-# Paths derive from THIS Makefile's location (dots/get/.local/state/
-# depends/), so the adapter behaves under `make -C dots/get -f ...`
+# Paths derive from THIS Makefile's location (dots/get/.local/share/
+# depends/get/), so the adapter behaves under `make -C dots/get -f ...`
 # (the on-deploy consult) and bare `make -f ...` from the dots root.
 MAKEFILE_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
-DOTS_GET := $(abspath $(MAKEFILE_DIR)/../../..)
-DOTS     := $(abspath $(MAKEFILE_DIR)/../../../..)
+DOTS_GET := $(abspath $(MAKEFILE_DIR)/../../../..)
+DOTS     := $(abspath $(MAKEFILE_DIR)/../../../../..)
 SUB_DIR  := $(DOTS_GET)/.local/share/got-source
 LINK     := $(DOTS_GET)/.local/bin
 SHARE    := $(DOTS_GET)/.local/share/got

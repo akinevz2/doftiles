@@ -40,6 +40,7 @@ export FORCE DRY M
 
 # ── the default: prepare the source (no artifact; make install deploys) ─
 all: deps-install
+build: deps-install
 
 # ── install/status: deferrals (no branching here) ──────────────────────
 install:
