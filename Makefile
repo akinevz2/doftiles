@@ -258,6 +258,16 @@ add-packages:
 # fresh binary; FORCE=1 forces). The depends package hosts the
 # bootstrap build; the adapter build + stow ride on every invocation.
 on-deploy:
+	@# the checkout update is BOOTSTRAP-OWNED: on-deploy is deliberately
+	@# OUTSIDE the configured system.depends scope (the manifest-scoped
+	@# submodule flows never chase it), so the bootstrap syncs+updates
+	@# JUST its own checkout here — at the tracked branch tip, like
+	@# every other submodule, then attaches the branch (see depends)
+	@git submodule sync -- on-deploy/.local/share/on-deploy && \
+		git submodule update --init --remote -- on-deploy/.local/share/on-deploy && \
+		b=$$(git config -f .gitmodules --get submodule.on-deploy/.local/share/on-deploy.branch 2>/dev/null); \
+		[ -n "$$b" ] || b=main; \
+		git -C on-deploy/.local/share/on-deploy checkout -q -B "$$b" 2>/dev/null || true
 	@$(MAKE) -C depends --no-print-directory -f .local/share/depends/on-deploy/Makefile install FORCE=$(FORCE)
 	@# the omitted recipe was stow-on-deploy: on a fresh clone (the
 	@# force-upgrade flow) nothing is stowed yet — the fresh binary sits
