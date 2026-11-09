@@ -15,9 +15,9 @@
 #      The lift keeps the window's size (hc_center frame + hc_fit_to
 #      frame) and enters the float session (floating_focused on).
 #   h) when floating_focused was TRUE (a floating window has focus):
-#      the frame below is empty -> un-float the focused float into it;
-#      the frame below is not empty -> hc_tile "$wid" (it creates the
-#      new empty frame, brings the float, and un-floats it there).
+#      focus the TILING layer — the float stays floating; no
+#      un-float, no focus chasing (the un-float register is
+#      ModCtrl-x / hc_floatx).
 #
 # No script-level lock: the helpers (polyframes center/fit, hc_tile)
 # take and release their own reference-counted WM locks.
@@ -112,17 +112,9 @@ if [ "$ff" != "true" ]; then
     exit 0
 fi
 
-# h) floating_focused TRUE: a floating window has focus. Un-float it
-#    into the frame below when that frame is empty; otherwise let
-#    hc_tile make the new empty frame and un-float into it.
-wid=$(hc attr clients.focus.winid 2>/dev/null || true)
-[ -n "$wid" ] || wid=$float_wid
-[ -n "$wid" ] || exit 0
-fcc=$(hc attr tags.focus.tiling.focused_frame.client_count \
-      2>/dev/null || echo 0)
-# Direct un-float — NO hc_tile (hc_tile is Mod-x's register; the
-# window re-tiles into the frame below whatever it holds).
-hc chain , attr "clients.$wid.fullscreen" off \
-   , attr "clients.$wid.pseudotile" off \
-   , attr "clients.$wid.floating" off 2>/dev/null || true
+# h) floating_focused TRUE: a floating window has focus — focus the
+#    TILING layer (no un-float: hc_floatx / ModCtrl-x owns the
+#    un-float register; the float keeps floating, focus hands back
+#    to the focused frame below).
+hc attr tags.focus.floating_focused off 2>/dev/null || true
 exit 0

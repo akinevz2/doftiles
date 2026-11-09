@@ -230,7 +230,8 @@ keyreg $ModCtrl-t           spawn ~/.local/bin/polyframes tile
 
 # quick float toggle for the focused window: floated windows are
 # centered inside their focused frame (visual float indicator);
-# pressing again re-unfloats — no focus chasing (hc_focus)
+# pressing again focuses the tiling layer — no un-float (the
+# un-float register is ModCtrl-x / hc_floatx)
 keyreg $Mod-f               spawn ~/.local/bin/hc_focus
 
 # zoom: 3-state toggle for the focused window — float the focused
