@@ -54,6 +54,19 @@ if ! herbstclient getenv PATH | tr ':' '\n' | grep -qxF "$HOME/.local/bin"; then
     herb setenv PATH "$HOME/.local/bin:$(herbstclient getenv PATH)"
 fi
 
+# Software-GL vars (wsl.sh exports) only apply to login shells; apps
+# spawned BY the WM inherit the WM's env, which lacks them. On WSL the
+# /dev/dri nodes are vgem (no real GPU), so hardware GL attempts fail —
+# WebKit compositing crashes (luakit) and Firefox renders dead windows.
+# Push the software-GL flags into the WM spawn env (same pattern as the
+# PATH push above). Applied live on reload: setenv lands in the running
+# WM's env, so spawned apps inherit without a full WM restart.
+for _var in LIBGL_ALWAYS_INDIRECT LIBGL_ALWAYS_SOFTWARE; do
+    if [ -n "${!_var:-}" ]; then
+        herb setenv "$_var" "${!_var}"
+    fi
+done
+
 ### KEYBINDS — nav / focus / floating ###
 # folded back into this master autostart (2026-10): the keys.d/
 # stow-merge loop is gone; these blocks were keys.d/{nav,focus,floating}.sh
