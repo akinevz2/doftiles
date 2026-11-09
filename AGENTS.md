@@ -36,7 +36,7 @@ this repo via the dotfiles feature and runs
 | `herbctl` | submodule checkout + artifact (same shape) |
 | `herbstutil` | submodule checkout; deploys through the bun GLOBAL install (registry package) |
 | `polyframes` | submodule checkout + artifact (rofi menus, tile/center live as its subcommands) |
-| `bat` | submodule checkout `bat-src` + artifact |
+| `bat` | pkg-only adapter (`.local/share/depends/bat/Makefile`): deploys bat through the system package manager (apt package `bat`, binary `batcat`; carried in `wm.depends`) — the bat-src submodule was pruned 2026-11 |
 | `novnc`, `xvfb`, `x11vnc`, `xrdp` | individually deployable service packages (commented out of the stows manifest; enable deliberately) |
 
 Repo-level files — `Makefile`, `README.md`, `AGENTS.md`, the manifests
@@ -97,8 +97,8 @@ Layer contents:
   command column, ≤80 columns, knobs listed separately.
 - `make depends` — manifest-scoped submodule sync + `--init --remote`
   update to each tracked branch tip (system.depends is the source of
-  truth: only configured paths are chased; bat's nested layers
-  skipped) + the on-deploy bootstrap build.
+  truth: only configured paths are chased) + the on-deploy bootstrap
+  build.
 - `make bootstrap` — depends + `bun` + `rustup` + `trust` + the FULL
   `on-deploy depends --install` walk (the system manifest's scope). The
   walk IS the deploy of every submodule artifact.
@@ -287,10 +287,10 @@ Wall-clock effect: `make install` 35.7 s → 10.3 s, `make status`
    and the screencast plugin). bun's trust policy may block
    postinstalls: `bun pm trust -g herbstutil bun`.
 10. **Submodules track their upstream branches** (.gitmodules, 2026-11):
-    each submodule declares `branch = main` (bat: `master`), so
+    each submodule declares `branch = main`, so
     `git submodule update --remote` follows the upstream branch rather
     than a frozen SHA. `make update` still fast-forwards only when
-    upstream advanced; nested assets (bat) stay untouched by routine
+    upstream advanced; nested assets stay untouched by routine
     flows unless deliberately bumped.
 11. **polyframes owns the rofi menus** (`tags`, `hidden`, `windows`,
     `launch`, `switcher-menu`, `window-menu` subcommands). `hc_tile`/

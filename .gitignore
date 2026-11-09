@@ -19,7 +19,6 @@ shell/.cache/
 # the exact artifact to ~/.local/bin
 herbctl/.local/bin/
 polyframes/.local/bin/
-bat/.local/bin/
 depends/.local/bin/
 herbstutil/.local/bin/
 on-deploy/.local/bin/*
@@ -29,7 +28,6 @@ on-deploy/.local/bin/*
 # up here, but bun install can land at a package root if the cwd slips)
 polyframes/node_modules/
 herbctl/node_modules/
-bat/node_modules/
 depends/node_modules/
 herbstutil/node_modules/
 **/.on-deploy-release/

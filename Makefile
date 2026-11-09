@@ -20,7 +20,8 @@
 # submodule map 2026-11 (GITMODULES.git + system.depends are in step):
 #   dots/on-deploy/.local/share/on-deploy | dots/herbctl/.local/share/herbctl
 #   dots/herbstutil/.local/share/herbstutil | dots/polyframes/.local/share/polyframes
-#   dots/bat/.local/share/bat-src
+#   (bat's bat-src submodule was pruned 2026-11: bat deploys via the
+#   system package manager — pkg route, no sources)
 #
 # Exit codes: 2 env/precondition, 1 operational failure, 0 ok/no-op.
 
@@ -99,8 +100,8 @@ depends:
 	# from the manifests is not chased here (its checkout stays local
 	# and untouched). ALWAYS LATEST, ONE LEVEL ONLY: --remote pulls
 	# each submodule's branch tip; the bare (non-recursive) update
-	# stops at the first level — bat's deep nested submodules are
-	# skipped (they take a very long time to update every time).
+	# stops at the first level — nested submodules are skipped (they
+	# take a very long time to update every time).
 	@if [ -n "$(DEPS_SUBMODULES)" ]; then \
 		git submodule sync -- $(DEPS_SUBMODULES); \
 		git submodule update --init --remote -- $(DEPS_SUBMODULES); \
@@ -465,7 +466,7 @@ endef
 
 # update — the safe pull directly in the repo: fetch + fast-forward
 # (fallback --rebase --autostash), submodule sync, then the BOOTSTRAP
-# chain (it reaches bat through the toolchain recipes — an update on a
+# chain (pkg-only packages like bat need no toolchain — an update on a
 # machine where bun/rustup dropped out or rustup lost its default
 # toolchain can no longer dead-end mid-walk: bun/rustup recipes ensure
 # them first, the same way `make bootstrap` does). SKIP_ONDEPLOY=1 in
@@ -523,8 +524,9 @@ force-upgrade:
 
 # depends-% — ONE submodule package install (make depends-bat,
 # depends-herbctl, depends-herbstutil, depends-polyframes — any
-# submodule in system.depends; an unknown name fails inside the walk
-# with the misconfiguration report). The bulk walk (depends --install)
+# package in system.depends or the pkg-only adapters; an unknown name
+# fails inside the walk with the misconfiguration report). The bulk
+# walk (depends --install)
 # silently assumes its prerequisites; the explicit verb honors them:
 #   1. the on-deploy binary exists (a fresh clone: `make depends` first)
 #   2. the package's toolchain REALLY works — the --check query fails
@@ -534,7 +536,7 @@ force-upgrade:
 #   3. only then the scoped walk (synced, --only <pkg>, FORCE-threaded)
 depends-%:
 	@if [ ! -x "$(ONDEPLOY_BIN)" ]; then $(SELF) depends; fi
-	@tool=$$([ "$*" = bat ] && echo rustup || echo bun); \
+	@tool=bun; \
 	if ! $(ONDEPLOY_BIN) toolchain --$$tool --check; then \
 		echo "depends-$*: $$tool missing — run make $$tool" >&2; \
 		exit 2; \

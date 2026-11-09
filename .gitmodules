@@ -14,10 +14,6 @@
 	path = herbctl/.local/share/herbctl
 	url = https://github.com/akinevz2/herbctl.git
 	branch = main
-[submodule "bat/.local/share/bat-src"]
-	path = bat/.local/share/bat-src
-	url = https://github.com/sharkdp/bat
-	branch = master
 [submodule "get/.local/share/got-source"]
 	path = get/.local/share/got-source
 	url = https://github.com/akinevz2/got-source.git

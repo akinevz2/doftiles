@@ -1,162 +1,64 @@
 # bat — PACKAGE ADAPTER (the 2026-11 router-Makefile): one file per
-# dots submodule package declaring what is genuinely bat-specific and
-# owning only its concrete step recipes.
+# dots package declaring what is genuinely bat-specific and owning
+# only its concrete step recipes.
 #
 # on-deploy consumes the `metadata` contract below (one bare-value
 # recipe per item, chained) and runs ALL routing/branching itself:
 #   on-deploy managed bat install|uninstall|status|<metadata item>|...
 # The make verbs stay the interface (the depends walk calls them).
 #
-# Method format: PACKAGE=source|pkg (doftiles.conf). The submodule:
-# bat-src -> dots/bat/.local/share/bat-src.
-# NOTE: install-release's curl||wget fetcher fallback is a single
-# package-specific idiom, not router branching.
+# 2026-11 SOURCES PRUNED: the bat-src submodule was dropped from
+# .gitmodules (the cargo/release build routes with it). bat deploys
+# through the SYSTEM package manager only: the adapter's pkg route
+# installs the PACKAGE name (repos_pkg_name), and the BINARY name
+# (batcat on Debian/Ubuntu, bat on Arch) is owned by the wm.depends
+# binary walk — the <target>.deploy protocol resolves batcat ->
+# apt-cache -> package bat. doftiles.conf records BAT=pkg.
 
 DOTS     := $(abspath $(CURDIR)/..)
-SUB_DIR  := $(DOTS)/bat/.local/share/bat-src
-RELEASE  := $(SUB_DIR)/.on-deploy-release
-LINK     := $(CURDIR)/.local/bin
-ARTIFACT := $(LINK)/bat
 SYSBIN   := $(HOME)/.local/bin
-REPO_URL := https://github.com/sharkdp/bat
-ASSET_ARCH := x86_64-unknown-linux-gnu
 ONDEPLOY := $(SYSBIN)/on-deploy
-
-TOOLCHAIN_BINDIR := $(HOME)/.cargo/bin
-export PATH := $(TOOLCHAIN_BINDIR):$(HOME)/.bun/bin:$(PATH)
 
 FORCE ?=
 DRY   ?=
 M     ?=
 export FORCE DRY M
 
-.DEFAULT_GOAL := all
-.PHONY: toolchain bun rustup build sync checkout pull compile link \
-        install-source install-release install uninstall status
+.DEFAULT_GOAL := install
+.PHONY: build install-source install uninstall status
 
-# ── the deploy contract (one echo per key; on-deploy consults it) ──────
-	@echo key=BAT
-	@echo sub_dir=bat/.local/share/bat-src
-	@echo artifact=bat/.local/bin/bat
-	@echo install_name=bat
-	@echo lang=rust
-	@echo transports=apt,pacman
-	@echo methods=source,release
-	@echo source_default=source
-	@echo fallback=release
-	@echo src_target=install-source
+# build rung — the top-level `make stow/build` walk greps `^build:`;
+# a pkg-only package has nothing to compile
+build:
+	@echo "bat: pkg-only package — nothing to build (the transport owns the deploy)"
 
-# ── the default: build + link ("make; make install" cadence) ───────────
-all: build link
+# ── install: the pkg route straight through on-deploy (the metadata
+# contract drives the transport choice: apt | pacman by deploy target) ──
+install install-source:
+	@$(ONDEPLOY) managed bat install --method=pkg --force=$(FORCE) --dry-run=$(DRY)
 
-# ── install/uninstall/status: deferrals (no branching here) ────────────
-install:
-	@$(ONDEPLOY) managed bat install --method=$(M) --force=$(FORCE) --dry-run=$(DRY)
+# ── uninstall/status: deferrals (no branching here) ────────────────────
+uninstall:
+	@$(ONDEPLOY) managed bat uninstall
 
 status:
 	@$(ONDEPLOY) managed bat status
 
-uninstall:
-	@rm -f "$(ARTIFACT)"
-
-# ── the source route composed through steps (GNU make: deps chain) ─────
-# ── the source route composed through steps (the toolchain includes
-# ── itself: install-source brings the rust toolchain via on-deploy) ────
-install-source: toolchain build link
-
-build: sync checkout compile
-
-sync:
-	@git -C "$(DOTS)" submodule sync -- bat/.local/share/bat-src
-
-checkout:
-	@git -C "$(DOTS)" submodule update --init --recursive -- bat/.local/share/bat-src
-
-# no pull: the checkout is FROZEN at the recorded pin — the submodule
-# update reasserts it; a bump is a manual git operation (the
-# upstream-owned nested-assets doctrine)
-compile:
-	@cd "$(SUB_DIR)" && cargo build --release --locked --quiet
-
-link:
-	@mkdir -p "$(LINK)"
-	@ln -f "$(SUB_DIR)/target/release/bat" "$(ARTIFACT)"
-	@echo "bat: linked $(ARTIFACT)"
-
-# ── toolchain — split: one recipe per toolchain, toolchain composes ─────
-# (bat builds through RUST; bun is wired for the eventual JS riders but
-# stays a no-cost --check today). Each recipe: the on-deploy --check
-# query first (an installed toolchain is a cheap no-op), the install
-# only when absent — the FORCE knob feeds --yes/-f to the system
-# install walk.
-toolchain: bun rustup
-
-bun:
-	@$(ONDEPLOY) toolchain --bun --check || $(ONDEPLOY) toolchain --bun $(if $(FORCE),--yes,) $(if $(FORCE),-f,)
-
-rustup:
-	@# the rust chain prefers RUSTUP (user-level, no sudo) when present:
-	@# 1. rustup exists -> install the stable toolchain THROUGH it (the
-	@#    bare rustup case: no tools, no default — `rustup toolchain
-	@#    install stable` is idempotent: the download happens only once)
-	@# 2. no rustup at all -> the platform walk (sudo-gated) as fallback
-	@if command -v rustup >/dev/null 2>&1; then \
-		rustup toolchain install stable && rustup default stable; \
-	else \
-		$(ONDEPLOY) toolchain --rustup --check || $(ONDEPLOY) toolchain --rustup $(if $(FORCE),--yes,) $(if $(FORCE),-f,); \
-	fi
-
-
-# ── the upstream release route (package-specific steps) ────────────────
-install-release: release-tag release-fetch release-extract release-link
-
-# one logical operation: resolve the tag (curl, else wget)
-release-tag:
-	@mkdir -p "$(RELEASE)"; \
-	url="$(REPO_URL)/releases/latest"; \
-	tag=$$(curl -fsSL --retry 3 "$$url" 2>/dev/null \
-		| grep '"tag_name"' | head -n1 \
-		| sed 's/.*"tag_name": *"\([^"]*\)".*/\1/' \
-		|| wget -qO- --tries=3 "$$url" 2>/dev/null \
-			| grep '"tag_name"' | head -n1 \
-			| sed 's/.*"tag_name": *"\([^"]*\)".*/\1/'); \
-	[ -n "$$tag" ] || { echo "bat: no tag (fetch fail)" >&2; exit 2; }; \
-	echo "bat: tag $$tag"; \
-	echo "$$tag" > "$(RELEASE)/tag"
-
-# one logical operation: fetch the release asset (curl, else wget)
-release-fetch:
-	@tag=$$(cat "$(RELEASE)/tag"); \
-	asset="bat-$$tag-$(ASSET_ARCH).tar.gz"; \
-	curl -fSL --retry 3 -o "$(RELEASE)/bat.tar.gz" \
-		"$(REPO_URL)/releases/download/$$tag/$$asset" 2>/dev/null \
-		|| wget -qO "$(RELEASE)/bat.tar.gz" --tries=3 \
-			"$(REPO_URL)/releases/download/$$tag/$$asset"; \
-	echo "bat: fetched $$asset"
-
-release-extract:
-	@cd "$(RELEASE)" && rm -rf bat-v* && tar -xzf bat.tar.gz && rm -f bat.tar.gz
-
-release-link:
-	@ln -f "$(RELEASE)/bat-v*/bat" "$(ARTIFACT)"; \
-	echo "bat: linked $(ARTIFACT)"
-
 # ── the package metadata: one config item per recipe (value only!), ────
-# ── chained; the ORDER is the contract (see lib/adapters.ts) ───────────
+# ── chained; the ORDER is the contract (see lib/adapters.ts consult) ──
 metadata: git_repo pkg_name methods_supported repos_pkg repos_pkg_name
 
 git_repo:
 	@echo https://github.com/sharkdp/bat
 
 pkg_name:
-	@echo bat-src
+	@echo bat
 
 methods_supported:
-	@echo source,pkg
+	@echo pkg
 
 repos_pkg:
 	@echo apt
 
 repos_pkg_name:
 	@echo bat
-
