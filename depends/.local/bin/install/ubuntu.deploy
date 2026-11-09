@@ -17,9 +17,12 @@ fi
 # binary -> apt-package aliases: the PACKAGE name may differ from the
 # BINARY name it ships — the apt-cache substring heuristic below can
 # never find those (no package is a substring of the short binary
-# name), so map them explicitly. rg ships in 'ripgrep'.
+# name), so map them explicitly. rg ships in 'ripgrep'; herbstclient
+# ships in 'herbstluftwm' (the search DOES return it, but the package
+# name contains none of the binary name's substrings).
 case "$BINARY_NAME" in
     rg) BINARY_NAME="ripgrep" ;;
+    herbstclient) BINARY_NAME="herbstluftwm" ;;
 esac
 
 # b) Find the package that contains the binary using apt-cache
@@ -39,25 +42,37 @@ if [ ${#PKGS[@]} -eq 0 ]; then
     exit 1
 fi
 
-# Track the package with the longest substring match of BINARY_NAME
+# Track the package with the longest substring match of BINARY_NAME.
+# PERF: the match test is PURE BASH (case, no forks) — the previous
+# form spawned echo+grep per suffix per package; apt-cache search can
+# return hundreds of rows for short binary names, and thousands of
+# process spawns made one resolution cost 1.5-4s (check resolves EVERY
+# missing binary through this script — that was the `make status` hog).
 LONGEST_PKG=""
 LONGEST_MATCH_LENGTH=0
 
 for pkg in "${PKGS[@]}"; do
+    # fast path: exact package-name match is the best possible answer
+    if [ "$pkg" = "$BINARY_NAME" ]; then
+        LONGEST_PKG="$pkg"
+        break
+    fi
     # Find all substrings of BINARY_NAME that exist in pkg
     # We iterate through all possible suffixes of BINARY_NAME and check if they match a substring in pkg
     for (( i=0; i <= ${#BINARY_NAME}; i++ )); do
         CURRENT_SUBSTRING="${BINARY_NAME:i}"
-        if echo "$CURRENT_SUBSTRING" | grep -Fq "${pkg}"; then
-            CURRENT_MATCH_LENGTH=${#CURRENT_SUBSTRING}
-            # Save if this is the longest match so far
-            if [ $CURRENT_MATCH_LENGTH -gt $LONGEST_MATCH_LENGTH ]; then
-                LONGEST_MATCH_LENGTH=$CURRENT_MATCH_LENGTH
-                LONGEST_PKG="$pkg"
-                continue
-            fi
-        fi
-        break
+        case "$CURRENT_SUBSTRING" in
+            *"$pkg"*)
+                CURRENT_MATCH_LENGTH=${#CURRENT_SUBSTRING}
+                # Save if this is the longest match so far
+                if [ "$CURRENT_MATCH_LENGTH" -gt "$LONGEST_MATCH_LENGTH" ]; then
+                    LONGEST_MATCH_LENGTH=$CURRENT_MATCH_LENGTH
+                    LONGEST_PKG="$pkg"
+                    continue
+                fi
+                ;;
+            *) break ;;
+        esac
     done
 done
 

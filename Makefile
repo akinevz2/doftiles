@@ -71,7 +71,7 @@ DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 .PHONY: depends bootstrap trust toolchain submodules bun rustup force-upgrade configure livereload \
 	depends-% \
 	on-deploy \
-	install all stow wm \
+	install all stow wm bashrc \
 	restow unstow clean status services-check services-start \
 	services-stop restart update help add-packages
 
@@ -217,11 +217,13 @@ help:
 	@echo "      FORCE=1 or error"
 	@echo "  on-deploy  rebuild the binary from its checkout + stow the package"
 	@echo "  submodules  submodule update --init --recursive --remote"
-	@echo "  install    configure + preserve + packages install (wm.depends)"
+	@echo "  install    configure + the wm.depends binary walk + preserve +"
+	@echo "      packages install (wm.depends)"
 	@echo "  all        stow the wm.depends stack"
 	@echo "  stow       stow the wm.depends stack (the submodule build first)"
 	@echo "  wm         stow the wm.depends stack"
 	@echo "  restow     stow the wm.depends stack (the same recipe, restowed)"
+	@echo "  bashrc     idempotent append: ~/.bashrc sources ~/.bashrcx"
 	@echo "  build      compile the binary-deployed submodules from source"
 	@echo "  stow-<pkg>  ONE package: on-deploy stow --only"
 	@echo "  unstow-<pkg>  ONE package: on-deploy unstow --only"
@@ -286,8 +288,12 @@ submodules:
 
 # ── stowing ───────────────────────────────────────────────────────────
 # install — configure FIRST (same apply; prompts for the git identity
-# when ~/.my-credentials is absent), then resolve conflicts per package
-# (preserve), then run each package's OLD-pattern dependency Makefile —
+# when ~/.my-credentials is absent), then the wm.depends BINARY WALK
+# (on-deploy install — the system packages for every required binary,
+# the same walk `make add-packages` runs; failure is loud but does not
+# abort the deploy — status re-reports what is still missing), then
+# resolve conflicts per package (preserve), then run each package's
+# OLD-pattern dependency Makefile —
 # ONLY the packages manifested in wm.depends. The SUBMODULES are
 # deployed by the bootstrap chain (make depends bootstrap) — target order:
 #   make depends bootstrap install
@@ -302,8 +308,15 @@ install: on-deploy
 	fi; \
 	rc=$$?; \
 	if [ $$rc -eq 130 ]; then exit 130; elif [ $$rc -ne 0 ]; then echo "install: configure FAILED — continuing (recorded config kept)"; fi; \
+	if $(ONDEPLOY_BIN) install $(if $(YES),--yes); then \
+		echo "install: requirement walk ok"; \
+	else \
+		echo "install: requirement walk FAILED — wm.depends binaries remain missing" >&2; \
+		echo "  (headless: no tty for the sudo grant — re-run 'make add-packages' on a tty, or install YES=1 with credentials granted)" >&2; \
+	fi; \
 	$(ONDEPLOY_BIN) preserve --only "$(WM_PACKAGES)"; \
 	$(ONDEPLOY_BIN) packages install $(WM_PACKAGES); \
+	$(SELF) bashrc; \
 	$(SELF) status
 
 # all / stow / wm — restow the wm.depends stack (stow -R per package)
@@ -314,6 +327,16 @@ install: on-deploy
 # depends on the build step, so `make stow` deploys the latest source.
 all stow wm restow: on-deploy build
 	@$(ONDEPLOY_BIN) stow --only "$(WM_PACKAGES)"
+	@$(SELF) bashrc
+
+# bashrc — the shell package's post-stow hook: ensure ~/.bashrc sources
+# the stowed ~/.bashrcx. ~/.bashrc itself is the user's preserved file
+# (deliberately never stowed) — the idempotent append in
+# shell/.local/bin/install/bashrc is the one sanctioned exception.
+bashrc:
+	@if [ -f "$(CURDIR)/shell/.local/bin/install/bashrc" ]; then \
+		bash "$(CURDIR)/shell/.local/bin/install/bashrc"; \
+	fi
 
 # build — compile each binary-deployed submodule from its checkout into
 # the package bin (the committed artifact is the deployable): a fresh
@@ -371,9 +394,18 @@ restart: on-deploy
 	@$(ONDEPLOY_BIN) services restart
 
 # ── reporting / maintenance ───────────────────────────────────────────
-status: on-deploy
-	@-$(ONDEPLOY_BIN) check
-	@$(ONDEPLOY_BIN) services status
+# status — a READ verb: no submodule fetch, no build, no restow. The
+# binary resolves through the home link first, else the package
+# artifact (ONDEPLOY_RUN) — the on-deploy REBUILD target is deploy
+# machinery and does not belong on a status path (it cost ~15s per
+# status: network submodule update + bun install + a 121M compile).
+status:
+	@if [ ! -x "$(ONDEPLOY_RUN)" ]; then \
+		echo "status: on-deploy binary missing — run 'make on-deploy' first" >&2; \
+		exit 1; \
+	fi
+	@-$(ONDEPLOY_RUN) check
+	@$(ONDEPLOY_RUN) services status
 	@if [ ! -f "$(HOME)/.my-credentials" ]; then \
 		echo "status: reminder — $(HOME)/.my-credentials is not set up; run 'on-deploy configure' on a tty to record your git identity"; \
 	fi

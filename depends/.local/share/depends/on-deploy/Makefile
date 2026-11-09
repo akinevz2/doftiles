@@ -62,13 +62,30 @@ build: deps-install compile rename-artifact
 deps-dir:
 	@mkdir -p "$(SUB_DIR)/node_modules/.tmp"
 
+# STALE — the freshness test, ONE definition shared by deps-install and
+# compile (the guarded set is compile's: src/ + package.json +
+# bunli.config.ts; bun.lock deliberately excluded — bun install touches
+# its mtime on no-change runs). TRUE = a rebuild is needed. Skipping
+# deps-install along with compile matters: bun install is ~1-6s and
+# runs on EVERY deployment flow that pulls in the on-deploy target.
+#
+# The mtime REFERENCE is the build output (dist/on-deploy), NOT the
+# ARTIFACT symlink: find's -newer lstats its reference (find -P), so
+# comparing against $(ARTIFACT) compared every source against the
+# SYMLINK's own fold-time mtime — the guard could never fire and every
+# on-deploy pull-in rebuilt the 121M bundle. The -x $(ARTIFACT) test
+# stays: the stowed symlink must exist and resolve (deploy presence).
+STALE := [ ! -x "$(ARTIFACT)" ] || [ ! -f "$(SUB_DIR)/dist/on-deploy" ] || [ -n "$$(find "$(SUB_DIR)/src" "$(SUB_DIR)/package.json" "$(SUB_DIR)/bunli.config.ts" -newer "$(SUB_DIR)/dist/on-deploy" 2>/dev/null)" ]
+
 deps-install: deps-dir
-	@env TMPDIR="$(SUB_DIR)/node_modules/.tmp" bun install --cwd "$(SUB_DIR)"
+	@if [ "$(FORCE)" = "1" ] || $(STALE); then \
+		env TMPDIR="$(SUB_DIR)/node_modules/.tmp" bun install --cwd "$(SUB_DIR)"; \
+	else \
+		echo "on-deploy: deps up to date (bun install skipped)"; \
+	fi
 
 compile:
-	@if [ "$(FORCE)" = "1" ] || [ ! -x "$(ARTIFACT)" ] || \
-	   find "$(SUB_DIR)/src" "$(SUB_DIR)/package.json" "$(SUB_DIR)/bunli.config.ts" \
-	        -newer "$(ARTIFACT)" 2>/dev/null | grep -q .; then \
+	@if [ "$(FORCE)" = "1" ] || $(STALE); then \
 		cd "$(SUB_DIR)" && bun x bunli build --targets linux-x64 --minify; \
 	else \
 		echo "on-deploy: up to date (FORCE=1 to rebuild)"; \
