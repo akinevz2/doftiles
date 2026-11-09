@@ -310,8 +310,9 @@ build: on-deploy update
 		[ -f "$$m" ] || continue; \
 		grep -q "^build:" "$$m" || continue; \
 		pkg=$${m%%/.local/share/depends/*}; \
+		mf=$${m#$$pkg/}; \
 		echo "==$$pkg build"; \
-		$(MAKE) -C "$$pkg" --no-print-directory -f ".local/share/depends/$$pkg/Makefile" build || exit 1; \
+		$(MAKE) -C "$$pkg" --no-print-directory -f "$$mf" build || exit 1; \
 	done
 
 # stow-<dots-package> / unstow-<dots-package> — the per-package pattern
