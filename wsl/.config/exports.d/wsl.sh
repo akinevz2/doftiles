@@ -12,6 +12,10 @@ if [ -x "$HOME/.local/bin/check-wsl" ] && "$HOME/.local/bin/check-wsl"; then
     # luakit die with SIGSEGV at startup). LIBGL_ALWAYS_SOFTWARE alone
     # routes through llvmpipe and works.
     export LIBGL_ALWAYS_SOFTWARE=true
+    # Firefox GPU path: WebRender over X11 EGL — verified alive with
+    # software GL (WebRender falls back to SWGL when EGL has no GPU).
+    export MOZ_WEBRENDER=1
+    export MOZ_X11_EGL=1
     # BROWSER -> the runtime-conditional wrapper (dots/wsl)
     export BROWSER="firefox"
     # Allows VS Code usage within the X11
