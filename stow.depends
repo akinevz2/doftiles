@@ -2,6 +2,7 @@ agents
 compton
 depends
 dunst
+get
 herbctl
 herbstluftwm
 herbstutil
