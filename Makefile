@@ -94,22 +94,30 @@ depends:
 		for m in $(MANIFESTS); do git update-index --skip-worktree $$m 2>/dev/null || true; done; \
 		rm -f $(MANIFEST_STATE); \
 	fi
-	git submodule sync
-	# ALWAYS LATEST, ONE LEVEL ONLY: --remote pulls each submodule's
-	# branch tip; the bare (non-recursive) update stops at the first
-	# level — bat's deep nested submodules are skipped (they take a
-	# very long time to update every time).
-	git submodule update --init --remote
-	# REATTACH TO main: --remote leaves detached HEADs (the checkout
-	# is at the branch tip, but the submodule HEAD is not a branch) —
-	# attach each submodule's HEAD to `main` (the tracked branch of
-	# this repo's own submodules; the upstream's branch is the
-	# default branch of the remote — resolved via the remote HEAD) so
-	# the next commit/push inside the checkout lands on the branch,
-	# not a detached HEAD. Only the FIRST-level submodules are touched
-	# (the deep nested ones stay detached — upstream's asset
-	# submodules).
-	git submodule foreach --quiet 'b=$(git config -f .gitmodules --get submodule."$displaypath".branch 2>/dev/null); [ -n "$b" ] || b=main; git checkout -q -B "$b" 2>/dev/null; true'
+	# MANIFEST-SCOPED: system.depends is the source of truth — only the
+	# configured submodule paths are synced/updated; a package dropped
+	# from the manifests is not chased here (its checkout stays local
+	# and untouched). ALWAYS LATEST, ONE LEVEL ONLY: --remote pulls
+	# each submodule's branch tip; the bare (non-recursive) update
+	# stops at the first level — bat's deep nested submodules are
+	# skipped (they take a very long time to update every time).
+	@if [ -n "$(DEPS_SUBMODULES)" ]; then \
+		git submodule sync -- $(DEPS_SUBMODULES); \
+		git submodule update --init --remote -- $(DEPS_SUBMODULES); \
+	else \
+		echo "depends: no submodules configured (system.depends is empty)"; \
+	fi
+	# REATTACH TO the tracked branch: --remote leaves detached HEADs (the
+	# checkout is at the branch tip, but the submodule HEAD is not a branch) —
+	# attach each MANIFEST-SCOPED submodule's HEAD to its tracked branch
+	# (the tracked branch of this repo's own submodules; the upstream's
+	# branch is the default branch of the remote — resolved via the
+	# remote HEAD) so the next commit/push inside the checkout lands on
+	# the branch, not a detached HEAD. Only the FIRST-level submodules are
+	# touched (the deep nested ones stay detached — upstream's asset
+	# submodules). NOTE the $$ escapes: unescaped $(...) was eaten by
+	# make and every checkout silently fell back to main.
+	git submodule foreach --quiet 'case " $(DEPS_SUBMODULES) " in *" $$sm_path "*) b=$$(git config -f .gitmodules --get submodule."$$displaypath".branch 2>/dev/null); [ -n "$$b" ] || b=main; git checkout -q -B "$$b" 2>/dev/null; true;; esac'
 	@$(SELF) on-deploy
 
 # sudo — the pre-flight grant: the root-check lives here (recipes that
@@ -197,7 +205,7 @@ configure:
 # help — the recipe listing
 help:
 	@echo "recipes:"
-	@echo "  depends    submodule sync + update at recorded pins + the on-deploy deploy"
+	@echo "  depends    manifest-scoped submodule sync + on-deploy deploy"
 	@echo "  bootstrap  depends + bun + rustup (+ the trust steps)"
 	@echo "  bun        ensure the bun toolchain: --check query first, sudo-gated"
 	@echo "      install when absent"
@@ -310,6 +318,9 @@ build: on-deploy update
 		[ -f "$$m" ] || continue; \
 		grep -q "^build:" "$$m" || continue; \
 		pkg=$${m%%/.local/share/depends/*}; \
+		# MANIFEST-SCOPED: system.depends is the submodule source of \
+		# truth — a package dropped from it is not built here \
+		grep -Eq "^$$pkg[[:space:]]" system.depends || continue; \
 		mf=$${m#$$pkg/}; \
 		echo "==$$pkg build"; \
 		$(MAKE) -C "$$pkg" --no-print-directory -f "$$mf" build || exit 1; \
@@ -367,6 +378,13 @@ status: on-deploy
 # resolve by hand (the stash is kept for recovery).
 MANIFESTS := stow.depends wm.depends system.depends services.depends
 MANIFEST_STATE := .git/doftiles-manifest-skip
+
+# the CONFIGURED submodule scope: system.depends is the submodule
+# manifest (`<pkg> <path>...` per line) and the SOURCE OF TRUTH — the
+# submodule sync/update/reattach flows never chase a path outside it,
+# so a package dropped from the manifests is dropped from every
+# machine flow (its checkout stays as-is on disk, untouched)
+DEPS_SUBMODULES := $(shell awk '!/^#/ && NF > 1 { for (i = 2; i <= NF; i++) print $$i }' $(CURDIR)/system.depends 2>/dev/null)
 
 define MANIFEST_STASH
 	: > $(MANIFEST_STATE); \

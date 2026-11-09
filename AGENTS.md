@@ -95,9 +95,10 @@ Layer contents:
   recipe per line (never bunch aliases like `all/stow/wm/restow`),
   wrapped description continuations indent TWO MORE spaces than the
   command column, ≤80 columns, knobs listed separately.
-- `make depends` — submodule sync + `--init --remote` update to each
-  tracked branch tip (bat's nested layers skipped) + the on-deploy
-  bootstrap build.
+- `make depends` — manifest-scoped submodule sync + `--init --remote`
+  update to each tracked branch tip (system.depends is the source of
+  truth: only configured paths are chased; bat's nested layers
+  skipped) + the on-deploy bootstrap build.
 - `make bootstrap` — depends + `bun` + `rustup` + `trust` + the FULL
   `on-deploy depends --install` walk (the system manifest's scope). The
   walk IS the deploy of every submodule artifact.
