@@ -52,3 +52,4 @@ shell/.my-credentials
 # the get package: the got artifact + the deployed get.sh staging
 get/.local/bin/
 get/.local/share/got/
+opencode/.config/opencode/service.json
