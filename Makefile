@@ -302,7 +302,11 @@ install: on-deploy
 	reason='$(RECONFIGURE_REASON)'; \
 	if [ -n "$$reason" ]; then \
 		echo "install: configure ($$reason)"; \
-		ONDEPLOY_INSTALL_CHAIN=1 $(ONDEPLOY_BIN) configure; \
+		if [ -n "$(YES)" ]; then \
+			ONDEPLOY_INSTALL_CHAIN=1 $(ONDEPLOY_BIN) configure </dev/null; \
+		else \
+			ONDEPLOY_INSTALL_CHAIN=1 $(ONDEPLOY_BIN) configure; \
+		fi; \
 	else \
 		echo "install: configure skipped (config recorded; manifests clean — 'on-deploy configure' to edit)"; \
 	fi; \
