@@ -4,12 +4,10 @@
 # Tiles an alacritty window (via launch_alacritty in plain mode — no
 # floating, no focus-off), in which the routine runs:
 #
-#   1. For EVERY submodule of ~/dots (dynamically enumerated from
-#      .gitmodules — new projects are picked up automatically):
-#      if it has uncommitted changes, show the diff, prompt for a
-#      commit message, commit, and push.
-#   2. Then the same for the ~/dots super-repo itself: diff, prompt,
-#      commit everything (incl. the submodule pointer bumps), push.
+#   1. Pulls the dots repo and each owned submodule (via make update /
+#      submodule update --remote), then checks for any uncommitted changes.
+#   2. For each repo that has changes, shows the diff, prompts for a
+#      commit message, commits, and pushes.
 #
 # After the final push the routine exits — and the terminal parks in
 # paused-for-dismiss_idle, clearable with a SINGLE key press.
@@ -53,16 +51,39 @@ msg() { printf '\n%s\n' "$*"; }
 ok() { green "SAVE: ${1}"; }     # shell helpers kept in ~/.local/bin
 warn() { yellow "SAVE: ${1}"; }
 
-# commit_push <dir> <label> — diff, prompt, commit, push. Echoes 1 if
-# something was committed+pushed, 0 if clean or skipped.
-commit_push() {
+# ---- helper: pull_then_commit_push <dir> <label> ----
+_pull_then_commit_push() {
 	local dir="$1" label="$2"
+	local pull_result pull_output
+
+	# Pull from upstream (dots itself or submodule)
+	if [ "$dir" = "$DOTS" ]; then
+		# Pull via the dots repo's make update (includes submodule updates)
+		pull_result="$(
+			(cd "$dir" && make update 2>&1) || { echo "FAILED"; }
+		)"
+		if [ "$pull_result" = "FAILED" ]; then
+			yellow "SAVE: pull failed for $label — aborting"
+			printf '%s\n' "$pull_result"
+			exit 1
+		fi
+		# make update can emit output; we'll capture it for completeness
+		if [ -n "$pull_result" ]; then
+			msg "[$label] pull output (last 5 lines):"
+			printf '%s\n' "$pull_result" | tail -5
+		fi
+	else
+		# Pull submodule directly
+		git -C "$dir" submodule update --remote >/dev/null 2>&1
+	fi
+
+	# Now check for uncommitted changes
 	if [ -z "$(git -C "$dir" status --porcelain)" ]; then
-		msg "[$label] clean — nothing to do"
+		msg "[$label] clean after pull — nothing to commit"
 		return 0
 	fi
 
-	msg "[$label] uncommitted changes:"
+	msg "[$label] uncommitted changes after pull:"
 	msg "----------------------------------------------------------------"
 	(cd "$dir" && git status --short && GIT_PAGER=cat git diff HEAD)
 	msg "----------------------------------------------------------------"
@@ -85,12 +106,12 @@ commit_push() {
 
 # 1 — every submodule of dots, dynamically enumerated
 while IFS= read -r sub; do
-	commit_push "$DOTS/$sub" "submodule $sub" || true
+	_pull_then_commit_push "$DOTS/$sub" "submodule $sub" || true
 done < <(git -C "$DOTS" config --file .gitmodules --get-regexp 'submodule\..*\.path' \
 	| cut -d' ' -f2)
 
 # 2 — the dots super-repo itself (submodule pointer bumps included)
-commit_push "$DOTS" "dots" || { rc=$?; [ "${rc:-0}" = 0 ] || { warn "aborted"; exit 0; }; }
+_pull_then_commit_push "$DOTS" "dots" || { rc=$?; [ "${rc:-0}" = 0 ] || { warn "aborted"; exit 0; }; }
 
 msg "SAVE: done. Updated+pushed: ${#UPDATED[@]} — ${UPDATED[*]:-none}"
 exit 0
