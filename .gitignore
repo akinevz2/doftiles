@@ -19,6 +19,7 @@ shell/.cache/
 # the exact artifact to ~/.local/bin
 herbctl/.local/bin/
 polyframes/.local/bin/
+polytags/.local/bin/
 depends/.local/bin/
 herbstutil/.local/bin/
 on-deploy/.local/bin/*
@@ -30,6 +31,7 @@ polyframes/node_modules/
 herbctl/node_modules/
 depends/node_modules/
 herbstutil/node_modules/
+polytags/node_modules/
 **/.on-deploy-release/
 vim/.vim/bundle/
 vim/.vim/.netrwhist

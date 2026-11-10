@@ -8,3 +8,4 @@ herbctl herbctl/.local/share/herbctl
 herbstutil herbstutil/.local/share/herbstutil
 polyframes polyframes/.local/share/polyframes
 get get/.local/share/got-source
+polytags polytags/.local/share/polytags
