@@ -42,6 +42,7 @@ alias open=xdg-open
 
 # WM Stuff
 alias config="cd $HOME/.config && ls -l"
+alias theme="$EDITOR $HOME/.local/bin/reload_theme"
 alias autostart="$EDITOR $HOME/.config/herbstluftwm/autostart $HOME/dots; herbstclient reload"
 alias aliases="$EDITOR $HOME/.config/aliases && source $HOME/.config/aliases"
 alias exports="$EDITOR $HOME/.config/exports && source $HOME/.config/exports"

@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# hc_time_toggle — glance-clock toggle. Spawns a 7-segment digital clock
+# (dclock) on the floating layer, bottom-right corner, focus-stolen-free;
+# on a second call while it is open, terminates it.
+#
+# Usage:
+#   hc_time_toggle            toggle the clock
+#   hc_time_toggle -h/--help  show this help
+#
+# Geometry is fixed at 320x160 (4:2 aspect) in the bottom-right corner of
+# the focused monitor (see CLOCK_GEOMETRY below). The clock is spawned with
+# a `rule once` (applied under `herbstclient lock` so the window
+# appearing can't steal focus into the tiling layer) and the rule is
+# re-armed on every spawn — the rule is per-invocation, never persistent.
+#
+# The clock is identified by its class (Dclock) + pid file, so the
+# toggle works across calls: present -> terminate, absent -> spawn.
+
+set -euo pipefail
+
+# ==== clock appearance ====
+# 320x160 (4:2 aspect — dclock stretches the 7-segment digits to fill
+# the window, so a 2:1 window gives wide digits). Bottom-right corner of
+# the focused monitor's usable area (pad_down reserved for the polybar).
+# The clock rides the floating layer, so it never disturbs the tiling layout.
+CLOCK_SIZE=320x160
+CLOCK_PAD_DOWN=33
+CLOCK_FG='#FEEF69'        # segment colour (LED red)
+CLOCK_LED_OFF='#333333'   # unlit segment background
+CLOCK_BG='#2C001E'        # field background
+
+# pid file mirrors the spawn; the pid is the toggle's liveness check
+# (a window id may be recycled, a pid file may not).
+PID_FILE="${XDG_RUNTIME_DIR:-/tmp}/hc_time_toggle.pid"
+CLASS="Dclock"
+
+hc() { herbstclient "$@"; }
+
+usage() {
+	cat <<EOF
+hc_time_toggle — toggle the 7-segment glance clock (dclock).
+
+Usage: hc_time_toggle [-h|--help]
+
+Spawns dclock on the floating layer, bottom-right (320x320), focus
+off. A second call while it is open terminates it.
+EOF
+}
+
+case "${1:-}" in
+	-h|--help)
+		usage
+		exit 0
+		;;
+esac
+
+# ---- toggle: terminate if open ----
+if [ -f "$PID_FILE" ]; then
+	pid=$(cat "$PID_FILE" 2>/dev/null || true)
+	if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+		kill "$pid" 2>/dev/null || true
+		rm -f "$PID_FILE"
+		exit 0
+	fi
+	rm -f "$PID_FILE"   # stale pid file
+fi
+
+# ---- spawn: find the focused monitor's usable bottom-right corner ----
+MONITOR=$(herbstutil attr monitors.focus. 2>/dev/null || true)
+MONITOR=$(herbstutil attr monitors.focus. 2>/dev/null | jq -c '.attributes.geometry' 2>/dev/null || true)
+
+# ---- spawn: rule once (under lock) so the client can't steal focus ----
+# The rule is one-shot and re-armed each call: floating=on, focus=off.
+hc lock
+trap 'herbstclient unlock' EXIT INT TERM
+hc rule once class="$CLASS" floating=on focus=off
+hc spawn dclock \
+	-geometry "$CLOCK_SIZE-0-$CLOCK_PAD_DOWN" \
+	-fg "$CLOCK_FG" \
+	-led_off "$CLOCK_LED_OFF" \
+	-bg "$CLOCK_BG" \
+	-seconds -miltime -blink
+# ---- spawn: record the pid for the next toggle ----
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+	if pgrep -x dclock >/dev/null 2>&1; then
+		pgrep -x dclock | head -1 > "$PID_FILE"
+		break
+	fi
+	sleep 0.2
+done
+herbstclient unlock
+trap - EXIT INT TERM
+exit 0

@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# hc_config-save — working-tree save routine for the dots repo.
+#
+# Tiles an alacritty window (via launch_alacritty in plain mode — no
+# floating, no focus-off), in which the routine runs:
+#
+#   1. For EVERY submodule of ~/dots (dynamically enumerated from
+#      .gitmodules — new projects are picked up automatically):
+#      if it has uncommitted changes, show the diff, prompt for a
+#      commit message, commit, and push.
+#   2. Then the same for the ~/dots super-repo itself: diff, prompt,
+#      commit everything (incl. the submodule pointer bumps), push.
+#
+# After the final push the routine exits — and the terminal parks in
+# paused-for-dismiss_idle, clearable with a SINGLE key press.
+#
+# Usage:
+#   hc_config-save            spawn the tiling window and run the routine
+#   hc_config-save --run      run the routine in the CURRENT terminal
+#                             (the spawn mode launches this)
+#   hc_config-save -h/--help  show this help
+
+set -euo pipefail
+
+DOTS="${DOTS:-$HOME/dots}"
+SELF="${BASH_SOURCE[0]}"
+
+usage() {
+	sed -n '2,30p' "$SELF" | sed 's/^# \{0,1\}//'
+	exit 0
+}
+
+case "${1:-}" in
+	-h|--help) usage ;;
+	--run) shift ;;
+	"")
+		# Spawn mode: tiling window (no --floating / --urgent /
+		# --no-distract flags), running this script in --run mode.
+		exec launch_alacritty "$SELF --run"
+		;;
+	*)
+		echo "hc_config-save: unknown argument: $1 (try -h)" >&2
+		exit 1
+		;;
+esac
+
+# ---- the routine (--run) ----
+cd "$DOTS"
+
+declare -a UPDATED=()
+
+msg() { printf '\n%s\n' "$*"; }
+ok() { green "SAVE: ${1}"; }     # shell helpers kept in ~/.local/bin
+warn() { yellow "SAVE: ${1}"; }
+
+# commit_push <dir> <label> — diff, prompt, commit, push. Echoes 1 if
+# something was committed+pushed, 0 if clean or skipped.
+commit_push() {
+	local dir="$1" label="$2"
+	if [ -z "$(git -C "$dir" status --porcelain)" ]; then
+		msg "[$label] clean — nothing to do"
+		return 0
+	fi
+
+	msg "[$label] uncommitted changes:"
+	msg "----------------------------------------------------------------"
+	(cd "$dir" && git status --short && GIT_PAGER=cat git diff HEAD)
+	msg "----------------------------------------------------------------"
+
+	local answer msg2
+	read -r -p "[$label] commit message (empty = SKIP this one, '!' = ABORT all): " answer || answer=""
+	case "$answer" in
+		"") warn "[$label] skipped (no message)"; return 0 ;;
+		'!') return 2 ;;
+	esac
+	msg2="$answer"
+
+	(cd "$dir" \
+		&& git add -A \
+		&& git commit -m "$msg2" \
+		&& git push origin "$(git -C "$dir" branch --show-current)") \
+		&& { UPDATED+=("$label"); ok "[$label] committed + pushed"; }
+	return 0
+}
+
+# 1 — every submodule of dots, dynamically enumerated
+while IFS= read -r sub; do
+	commit_push "$DOTS/$sub" "submodule $sub" || true
+done < <(git -C "$DOTS" config --file .gitmodules --get-regexp 'submodule\..*\.path' \
+	| cut -d' ' -f2)
+
+# 2 — the dots super-repo itself (submodule pointer bumps included)
+commit_push "$DOTS" "dots" || { rc=$?; [ "${rc:-0}" = 0 ] || { warn "aborted"; exit 0; }; }
+
+msg "SAVE: done. Updated+pushed: ${#UPDATED[@]} — ${UPDATED[*]:-none}"
+exit 0

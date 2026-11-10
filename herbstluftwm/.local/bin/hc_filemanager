@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# hc_filemanager — launch the Thunar file manager, detached via
+# `herbstclient spawn`. Thunar is single-instance per daemon: repeated
+# calls open a new window in the existing process rather than a second
+# copy.
+
+set -euo pipefail
+
+case "${1:-}" in
+	-h|--help)
+		echo "usage: hc_filemanager [-h|--help]   — launch Thunar (file manager)"
+		exit 0
+		;;
+esac
+
+if ! command -v thunar >/dev/null 2>&1; then
+	echo "hc_filemanager: thunar not found in PATH" >&2
+	exit 1
+fi
+
+# Detach via the WM: herbstclient spawn forks the child into its own
+# process group, owned by herbstluftwm — no shell to reap it.
+hc() { herbstclient "$@"; }
+hc spawn thunar "$@"
+disown

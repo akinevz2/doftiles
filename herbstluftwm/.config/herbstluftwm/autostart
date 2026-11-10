@@ -114,6 +114,11 @@ keyreg $Mod-comma   spawn ~/.local/bin/hc_dunst-dismiss
 # when one exists; the context menu for multiple/none)
 keyreg $Mod-period  spawn ~/.local/bin/hc_dunst-action
 
+# hc_time-toggle — the glance clock (dclock): a 7-segment digital clock
+# on the floating layer, bottom-right, focus-stolen-free. Spawn on
+# first press, terminate on the next.
+keyreg $Mod-z spawn ~/.local/bin/hc_time-toggle
+
 keyreg $Mod-w spawn ~/.local/bin/herbctl get-forward
 
 # ModShift-w: mirror of Mod-w's cycle -1 register — first tries shifting

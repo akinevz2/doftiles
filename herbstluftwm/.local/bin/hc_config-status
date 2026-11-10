@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# hc_config-status — show the git working-tree status of the dots repo and all its owned submodules.
+#
+# Shows a summary line: each repo in its own section, colored (green if clean, yellow if dirty) + any uncommitted lines.
+#
+# Usage:
+#   hc_config-status            spawn a tiling alacritty window and run the routine
+#   hc_config-status --run      run in the current terminal
+#   hc_config-status -h/--help  show this help
+
+set -euo pipefail
+
+DOTS="${DOTS:-$HOME/dots}"
+SELF="${BASH_SOURCE[0]}"
+
+usage() {
+	sed -n '2,16p' "$SELF" | sed 's/^# \{0,1\}//'
+	exit 0
+}
+
+case "${1:-}" in
+	-h|--help) usage ;;
+	--run) shift ;;
+	"")
+		# Spawn mode: plain tiling window, run in --run mode.
+		exec launch_alacritty "$SELF --run"
+		;;
+	*) echo "hc_config-status: unknown argument: $1 (try -h)" >&2; exit 1 ;;
+esac
+
+# ---- helper: _status_repo <dir> <label> ----
+_status_repo() {
+	local dir="$1" label="$2"
+	local status dirty output output_lines
+	status="$(git -C "$dir" status --porcelain)"
+	dirty="$([ -n "$status" ] && echo dirty || echo clean)"
+	output="$(git -C "$dir" status --short)"
+	output_lines="$([ -n "$output" ] && echo "$output" || echo none)"
+
+	case "$dirty" in
+		clean) green "${label}: clean (${output_lines})";;
+		dirty) yellow "${label}: dirty (${output_lines})";;
+	esac
+	if [ -n "$output" ]; then
+		printf '      %s\n' "$output"
+	fi
+}
+
+# ---- the status routine ----
+cd "$DOTS"
+
+# Submodule enumeration loop — dynamic, pulls in new projects automatically
+while IFS= read -r sub; do
+	[ -e "$DOTS/$sub/.git" ] || continue
+	_status_repo "$DOTS/$sub" "submodule $sub"
+done < <(git config --file .gitmodules --get-regexp 'submodule\..*\.path' \
+	| cut -d' ' -f2)
+_status_repo "$DOTS" "dots"
+
+printf '\n%s\n' "hc_config-status: done"

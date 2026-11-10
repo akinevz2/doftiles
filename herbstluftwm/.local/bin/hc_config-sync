@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# hc_config-sync — companion to hc_config-save: pull the dots repo to
+# latest, but ONLY when everything is clean.
+#
+# Guard: if the super-repo OR any submodule (dynamically enumerated
+# from .gitmodules) has uncommitted changes, refuse loudly and exit
+# non-zero — run hc_config-save first.
+#
+# When clean, runs `make update` in ~/dots: fetch + fast-forward
+# (falling back to a rebase --autostash), submodule sync + update,
+# on-deploy rebuild — the repo's canonical safe-pull recipe. A rebase
+# CONFLICT is the volition point: resolve by hand, `git rebase
+# --continue`.
+#
+# Usage:
+#   hc_config-sync            run the clean-guard + make update
+#   hc_config-sync -h/--help  show this help
+# Options: FORCE=1 propagates to make (redeploy checks).
+
+DOTS="${DOTS:-$HOME/dots}"
+
+case "${1:-}" in
+	-h|--help)
+		sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+		exit 0
+		;;
+	"") ;;
+	*) echo "hc_config-sync: unknown argument: $1 (try -h)" >&2; exit 1 ;;
+esac
+
+cd "$DOTS"
+
+dirty() { [ -n "$(git -C "$1" status --porcelain)" ]; }
+
+# ---- the clean guard: super-repo first, then every submodule ----
+DIRTY=()
+for d in "$DOTS"; do dirty "$d" && DIRTY+=("dots"); done
+while IFS= read -r sub; do
+	[ -e "$DOTS/$sub/.git" ] || continue
+	dirty "$DOTS/$sub" && DIRTY+=("$sub")
+done < <(git config --file .gitmodules --get-regexp 'submodule\..*\.path' \
+	| cut -d' ' -f2)
+
+if [ "${#DIRTY[@]}" -gt 0 ]; then
+	printf '\n'
+	yellow "SYNC: refused — uncommitted changes in: ${DIRTY[*]}"
+	yellow "SYNC: run hc_config-save first to commit + push them."
+	exit 1
+fi
+
+green "SYNC: trees clean — pulling latest (make update)…"
+exec make update ${FORCE:+FORCE=$FORCE}
