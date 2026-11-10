@@ -134,8 +134,6 @@ keyreg $ModShift-d spawn ~/.local/bin/herbctl get-dedeck
 
 keyreg $Mod-d spawn ~/.local/bin/herbctl get-deck
 
-keyreg $ModShift-z          spawn ~/.local/bin/herbctl minimize-toggle
-
 # tag switcher
 keyreg $Mod-t               spawn ~/.local/bin/polyframes tags
 
@@ -257,7 +255,9 @@ keyreg $ModShift-f spawn ~/.local/bin/herbctl fullscreen-toggle
 # companion-float / recall machine). ModShift-x keeps use_previous.
 keyreg $Mod-x               spawn ~/.local/bin/hc_floatx
 keyreg $ModShift-x          use_previous
-keyreg $ModCtrl-x           spawn ~/.local/bin/hc_floatx corner
+keyreg $ModCtrl-x          spawn ~/.local/bin/hc_minimize
+
+keyreg $ModCtrl-z           spawn ~/.local/bin/hc_floatx corner
 
 
 
