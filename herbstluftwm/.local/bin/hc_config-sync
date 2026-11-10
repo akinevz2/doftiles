@@ -1,52 +1,76 @@
 #!/usr/bin/env bash
-# hc_config-sync — companion to hc_config-save: pull the dots repo to
-# latest, but ONLY when everything is clean.
+# hc_config-sync — safely pull the dots repo and its submodules to the latest, from a tiling terminal.
 #
-# Guard: if the super-repo OR any submodule (dynamically enumerated
-# from .gitmodules) has uncommitted changes, refuse loudly and exit
-# non-zero — run hc_config-save first.
-#
-# When clean, runs `make update` in ~/dots: fetch + fast-forward
-# (falling back to a rebase --autostash), submodule sync + update,
-# on-deploy rebuild — the repo's canonical safe-pull recipe. A rebase
-# CONFLICT is the volition point: resolve by hand, `git rebase
-# --continue`.
+# Spawns a plain alacritty window and runs a bash function that:
+# 1. Checks the dots repo and each owned submodule for any uncommitted changes.
+# 2. If anything is dirty, refuses loudly and exits.
+# 3. When clean, runs `make update` in ~/dots — fetch + fast-forward (with a rebase --autostash fallback),
+#    submodule sync + update, and on-deploy rebuild.
 #
 # Usage:
-#   hc_config-sync            run the clean-guard + make update
+#   hc_config-sync            spawn a tiling alacritty window and run the sync routine
+#   hc_config-sync --run      run the routine in the CURRENT terminal (no spawn)
 #   hc_config-sync -h/--help  show this help
-# Options: FORCE=1 propagates to make (redeploy checks).
+
+set -euo pipefail
 
 DOTS="${DOTS:-$HOME/dots}"
+SELF="${BASH_SOURCE[0]}"
 
-case "${1:-}" in
-	-h|--help)
-		sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
-		exit 0
-		;;
-	"") ;;
-	*) echo "hc_config-sync: unknown argument: $1 (try -h)" >&2; exit 1 ;;
-esac
-
-cd "$DOTS"
-
-dirty() { [ -n "$(git -C "$1" status --porcelain)" ]; }
-
-# ---- the clean guard: super-repo first, then every submodule ----
-DIRTY=()
-for d in "$DOTS"; do dirty "$d" && DIRTY+=("dots"); done
-while IFS= read -r sub; do
-	[ -e "$DOTS/$sub/.git" ] || continue
-	dirty "$DOTS/$sub" && DIRTY+=("$sub")
-done < <(git config --file .gitmodules --get-regexp 'submodule\..*\.path' \
-	| cut -d' ' -f2)
-
-if [ "${#DIRTY[@]}" -gt 0 ]; then
-	printf '\n'
-	yellow "SYNC: refused — uncommitted changes in: ${DIRTY[*]}"
-	yellow "SYNC: run hc_config-save first to commit + push them."
-	exit 1
+# Pull in the shell helpers (green, yellow) — the dots repo's .shellx.rc is sourced at shell start,
+# but we need the functions here as well for the function wrapper.
+if [ -f "$DOTS/shell/.local/share/aliases" ]; then
+	source "$DOTS/shell/.local/share/aliases"
+else
+	# Fallback: define inline if not sourced
+	green() { printf '\033[32m%s\033[0m\n' "$*"; }
+	yellow() { printf '\033[33m%s\033[0m\n' "$*"; }
 fi
 
-green "SYNC: trees clean — pulling latest (make update)…"
-exec make update ${FORCE:+FORCE=$FORCE}
+usage() {
+	sed -n '2,17p' "$SELF" | sed 's/^# \{0,1\}//'
+	exit 0
+}
+
+# ---- the sync routine ----
+_sync_run() {
+	cd "$DOTS"
+
+	# Submodule enumeration loop — dynamic, pulls in new projects automatically
+	while IFS= read -r sub; do
+		[ -e "$DOTS/$sub/.git" ] || continue
+		_sync_repo "$DOTS/$sub" "submodule $sub"
+	done < <(git config --file .gitmodules --get-regexp 'submodule\..*\.path' \
+		| cut -d' ' -f2)
+	_sync_repo "$DOTS" "dots"
+
+	# If we reached here, everything was clean → run make update
+	green "SYNC: trees clean — running make update…"
+	exec make update
+}
+
+# ---- helper: _sync_repo <dir> <label> ----
+_sync_repo() {
+	local dir="$1" label="$2"
+	local dirty
+	dirty="$([ -n "$(git -C "$dir" status --porcelain)" ] && echo dirty || echo clean)"
+	case "$dirty" in
+		clean) ;;
+		dirty) 
+			printf '\n'
+			yellow "SYNC: refused — uncommitted changes in: ${label}"
+			yellow "SYNC: run save_wm-config (hc_config-save) first to commit + push them."
+			exit 1 
+			;;
+	esac
+}
+
+case "${1:-}" in
+	-h|--help) usage ;;
+	--run) _sync_run ;;
+	"")
+		# Spawn mode: plain tiling window, run in --run mode.
+		exec launch_alacritty "$SELF --run"
+		;;
+	*) echo "hc_config-sync: unknown argument: $1 (try -h)" >&2; exit 1 ;;
+esac
