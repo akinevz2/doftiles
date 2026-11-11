@@ -106,7 +106,7 @@ keyreg $Mod-n      spawn ~/.local/bin/hc_dunst-pop
 keyreg $ModShift-n spawn ~/.local/bin/hc_dunst-pop-all
 
 # hc_reminders-manage — manage ~/notifs.d directory
-keyreg $Mod-M spawn ~/.local/bin/hc_reminders-manage
+keyreg $Mod-m spawn ~/.local/bin/hc_reminders-manage
 
 # hc_dismiss-notifs — dismiss ALL notifications (errors et al.)
 keyreg $ModCtrl-d   spawn ~/.local/bin/hc_dismiss-notifs
