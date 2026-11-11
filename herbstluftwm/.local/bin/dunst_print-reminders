@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Print all notification files in ~/notifs.d
+
+NOTIFS_DIR="${HOME}/notifs.d"
+
+# Create directory if it doesn't exist
+mkdir -p "$NOTIFS_DIR"
+
+# Iterate through notification files and display them
+for notif in "$NOTIFS_DIR"/*; do
+    if [ -f "$notif" ]; then
+        # Extract just the filename without path for readability
+        filename=$(basename "$notif")
+        # Display the notification using notify-send
+        notify-send -a "reminder" -u normal -t 3000 "me@alex-white.uk" "$(cat "$notif")"
+    fi
+done

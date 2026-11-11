@@ -46,6 +46,8 @@ opencode/.config/opencode/opencode.jsonc
 shell/.my-credentials
 **/.my-credentials-env
 **/*.env
+# user-managed notification files
+notifs.d/
 # the on-deploy artifact home (2026-11 resplit: the binary lives with its
 # own stow package; the depends meta-package stays REMNANTS ONLY)
 

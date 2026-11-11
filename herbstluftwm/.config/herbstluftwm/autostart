@@ -105,6 +105,9 @@ keyreg $Mod-n      spawn ~/.local/bin/hc_dunst-pop
 # paced pop of the whole history (via dunstctl history, id by id)
 keyreg $ModShift-n spawn ~/.local/bin/hc_dunst-pop-all
 
+# hc_reminders-manage — manage ~/notifs.d directory
+keyreg $Mod-M spawn ~/.local/bin/hc_reminders-manage
+
 # hc_dismiss-notifs — dismiss ALL notifications (errors et al.)
 keyreg $ModCtrl-d   spawn ~/.local/bin/hc_dismiss-notifs
 
@@ -422,5 +425,7 @@ STATUS=$(hc_reload_hook)
 if [ "$STATUS" = "reload" ]; then
     # Reload detected — wm survived, autostart re-running
     # Send notification via notify-send
-    notify-send -a "herbstluftwm" -u normal -t 2000 "herbstluftwm reloaded" "autostart completed"
+	notify-send -a "herbstluftwm" -u normal -t 2000 "herbstluftwm reloaded" "autostart completed"
+	# Print all reminder notifications
+	~/.local/bin/dunst_print-reminders
 fi

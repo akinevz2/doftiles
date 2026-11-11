@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Add a reminder to ~/notifs.d using rofi
+
+NOTIFS_DIR="${HOME}/notifs.d"
+
+# Create directory if it doesn't exist
+mkdir -p "$NOTIFS_DIR"
+
+# Get current timestamp
+TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+
+# Run rofi with the hlwm launcher theme
+# We use the rofi theme from the herbstluftwm package
+rofi -theme /home/kine/dots/herbstluftwm/.config/rofi/launcher.rasi -dmenu \
+     -p "Add reminder:" \
+     -mesg "Enter your reminder text"
+     
+REMINDER_TEXT=$?
+
+if [ -n "$REMINDER_TEXT" ]; then
+    # Create file with timestamp as filename
+    echo "$REMINDER_TEXT" > "$NOTIFS_DIR/$TIMESTAMP"
+    
+    # Notify that reminder was added
+    notify-send -a "reminder" -u low "Reminder added" "File created: $TIMESTAMP"
+fi
+
+exit 0

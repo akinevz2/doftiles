@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Manage ~/notifs.d - opens alacritty in the directory
+
+NOTIFS_DIR="${HOME}/notifs.d"
+
+# Create directory if it doesn't exist
+mkdir -p "$NOTIFS_DIR"
+
+# Launch alacritty in the notifs.d directory
+launch_alacritty "$NOTIFS_DIR"
