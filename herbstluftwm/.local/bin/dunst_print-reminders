@@ -12,6 +12,6 @@ for notif in "$NOTIFS_DIR"/*; do
         # Extract just the filename without path for readability
         filename=$(basename "$notif")
         # Display the notification using notify-send
-        notify-send -a "reminder" -u normal -t 3000 "me@alex-white.uk" "$(cat "$notif")"
+        notify-send -a "reminder" -u normal -t 3000 "$filename" "$(cat "$notif")"
     fi
 done
