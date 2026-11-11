@@ -105,6 +105,9 @@ keyreg $Mod-n      spawn ~/.local/bin/hc_dunst-pop
 # paced pop of the whole history (via dunstctl history, id by id)
 keyreg $ModShift-n spawn ~/.local/bin/hc_dunst-pop-all
 
+# hc_reminders-add — add a reminder using rofi
+keyreg $ModShift-m spawn ~/.local/bin/hc_reminders-add
+
 # hc_reminders-manage — manage ~/notifs.d directory
 keyreg $Mod-m spawn ~/.local/bin/hc_reminders-manage
 
