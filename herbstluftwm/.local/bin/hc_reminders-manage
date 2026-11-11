@@ -7,4 +7,4 @@ NOTIFS_DIR="${HOME}/notifs.d"
 mkdir -p "$NOTIFS_DIR"
 
 # Launch alacritty in the notifs.d directory
-launch_alacritty "$NOTIFS_DIR"
+launch_alacritty -d "$NOTIFS_DIR"
