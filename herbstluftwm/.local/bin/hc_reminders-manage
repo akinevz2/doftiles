@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Manage ~/notifs.d - opens ranger in the directory
+# Manage ~/notifs.d - opens alacritty running ranger in the directory
 
 NOTIFS_DIR="${HOME}/notifs.d"
 
 # Create directory if it doesn't exist
 mkdir -p "$NOTIFS_DIR"
 
-# Launch ranger in the notifs.d directory
-cd "$NOTIFS_DIR" && ranger
+# Launch alacritty running ranger in the notifs.d directory
+launch_alacritty -d "$NOTIFS_DIR" "ranger"
