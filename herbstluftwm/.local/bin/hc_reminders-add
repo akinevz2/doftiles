@@ -11,11 +11,9 @@ TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
 
 # Run rofi with the hlwm launcher theme
 # We use the rofi theme from the herbstluftwm package
-rofi -theme /home/kine/dots/herbstluftwm/.config/rofi/launcher.rasi -dmenu \
+REMINDER_TEXT=$(rofi -theme /home/kine/dots/herbstluftwm/.config/rofi/launcher.rasi -dmenu \
      -p "Add reminder:" \
-     -mesg "Enter your reminder text"
-     
-REMINDER_TEXT=$?
+     -mesg "Enter your reminder text")
 
 if [ -n "$REMINDER_TEXT" ]; then
     # Create file with timestamp as filename
