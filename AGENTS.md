@@ -38,6 +38,8 @@ this repo via the dotfiles feature and runs
 | `polyframes` | submodule checkout + artifact (rofi menus, tile/center live as its subcommands) |
 | `bat` | pkg-only adapter (`.local/share/depends/bat/Makefile`): deploys bat through the system package manager (apt package `bat`, binary `batcat`; carried in `wm.depends`) — the bat-src submodule was pruned 2026-11 |
 | `novnc`, `xvfb`, `x11vnc`, `xrdp` | individually deployable service packages (commented out of the stows manifest; enable deliberately) |
+| `himalaya` | the email CLI: prebuilt-release adapter (`.local/share/depends/himalaya/Makefile`, sha256-pinned fetch), TRACKED config `.config/himalaya/config.toml` (the accounts), `.config/opencode/skills/himalaya/SKILL.md` (the agent's usage skill) |
+| `oama` | the OAuth credential manager behind himalaya: prebuilt-release adapter, TRACKED `.config/oama/config.yaml` (Thunderbird's public client IDs, GPG backend) |
 
 Repo-level files — `Makefile`, `README.md`, `AGENTS.md`, the manifests
 (`*.depends` — tracked via force-add, see Manifests), — are **not
@@ -216,6 +218,39 @@ Wall-clock effect: `make install` 35.7 s → 10.3 s, `make status`
   extensions at shell start**: `~/.shellx.rc` (sourced by
   `.bashrcx`→bash and `.zshrc`→zsh) reads `~/.my-credentials`
   directly and exports `GIT_AUTHOR_*`/`GIT_COMMITTER_*`.
+
+## Mail accounts (himalaya + oama)
+
+The mail stack is `himalaya` (CLI) + `oama` (OAuth credential
+manager). NO passwords exist anywhere in the mail configuration:
+every account authenticates through OAuth2 and himalaya resolves its
+tokens at runtime via oama's `access <email>` command (oama renews
+them automatically in the background).
+
+- **Accounts** (in `.config/himalaya/config.toml`): `akinevz-gmail`
+  (default), `kirilos-gmail` — both the `gmail` backend; and
+  `akinevz-outlook` — the `msgraph` backend.
+- **Secrets**: oama stores the OAuth grants GPG-encrypted in
+  `~/.local/state/oama/<email>.oama` (0600). The GPG key is a
+  dedicated passphrase-less key (`oama-store <oama@localhost>`) so
+  the background renewal stays non-interactive; it is runtime
+  exposure equivalent to what the running himalaya could read.
+  NEVER track, print, or log token material.
+- **Client IDs**: oama's `.config/oama/config.yaml` uses Thunderbird's
+  PUBLIC built-in application registrations (from comm-central
+  `mailnews/base/src/OAuth2Providers.sys.mjs`) — safe to track.
+- **Logging an account in** (the interactive part, the only browser
+  step): `oama authorize google <email>` (localhost redirect flow) or
+  `oama authorize microsoft <email> --device` (device code flow).
+  The user signs in and approves the "Thunderbird" application in
+  their browser; oama saves the encrypted grant. Token renewal is
+  then fully automatic.
+- **Adding an account**: authorize it through oama (above), add an
+  `[accounts.<name>]` block (with the matching `gmail`/`msgraph`
+  backend table and `auth.token.command = ["oama", "access",
+  "<email>"]`) to the himalaya config, restow the `himalaya` package.
+- The per-package method records (HIMALAYA=source, OAMA=source in
+  `doftiles.conf`) deploy through `on-deploy managed <pkg> install`.
 
 ## Services / WM runtime model
 

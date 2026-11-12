@@ -1,0 +1,31 @@
+## oama config — STOWED from the dots oama package, TRACKED.
+## Only PUBLIC values live here: the client_id/secret pairs below are
+## Thunderbird's built-in application registrations (published in
+## comm-central mailnews/base/src/OAuth2Providers.sys.mjs). The OAuth
+## tokens themselves are stored GPG-encrypted in
+## ~/.local/state/oama/<email>.oauth (NEVER tracked, never printed).
+##
+## Indentation matters (YAML). Double ## comments, single # defaults.
+
+encryption:
+    tag: GPG
+    contents: 383731ABADDCCBB420E29FF45F3E7BEE91CE90E7
+
+services:
+  google:
+    ## Thunderbird's Google application (device/localhost flows need
+    ## the pair; oama renews tokens automatically)
+    client_id: 406964657835-aq8lmia8j95dhl1a2bvharmfk3t1hgqj.apps.googleusercontent.com
+    client_secret: kSmqreRr0qwBWJgbf5Y-PjSU
+    auth_scope: https://mail.google.com/
+
+  microsoft:
+    ## Thunderbird's Microsoft application — device code flow needs
+    ## the client_id only; Graph scopes for the himalaya msgraph backend
+    client_id: 9e5f94bc-e8a4-4e73-b8be-63364c29d753
+    auth_scope:
+      https://graph.microsoft.com/User.Read
+      https://graph.microsoft.com/Mail.ReadWrite
+      https://graph.microsoft.com/Mail.Send
+      offline_access
+    tenant: common

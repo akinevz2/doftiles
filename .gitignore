@@ -55,3 +55,8 @@ notifs.d/
 get/.local/bin/
 get/.local/share/got/
 opencode/.config/opencode/service.json
+
+# the himalaya package: the release-fetch artifact (the account
+# secrets file credentials.env is covered by **/*.env above)
+himalaya/.local/bin/
+oama/.local/bin/

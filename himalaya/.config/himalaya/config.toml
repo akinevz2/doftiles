@@ -1,0 +1,51 @@
+# himalaya — the email CLI (v2 schema). STOWED, TRACKED: this file is
+# the PUBLIC configuration — everything generic. No secrets live here:
+# every account authenticates through oama (the dots `oama` package),
+# whose `access <email>` command prints a fresh OAuth access token
+# (oama renews automatically; its GPG-encrypted token store is
+# ~/.local/state/oama/<email>.oauth, never tracked, never printed).
+
+[accounts.akinevz-gmail]
+default = true
+email = "akinevz@gmail.com"
+display-name = "Kirill Nevzorov"
+signature-delim = "-- \n"	# the RFC 3676 separator before the signature
+#downloads-dir = "~/.local/share/himalaya/downloads"	# where attachments go
+# Gmail files the sent copy itself — keep no duplicate
+message.send.save-copy = false
+message.reply.posting-style = "top"		# write a reply above the quoted message
+message.forward.posting-style = "top"		# write a forward above the forwarded one
+envelope.list.page-size = 25			# envelopes per page, absent -s
+envelope.list.datetime-fmt = "%F %R"		# ISO-ish dates: script-parseable
+
+[accounts.akinevz-gmail.gmail]
+user-id = "me"
+auth.token.command = ["oama", "access", "akinevz@gmail.com"]
+
+[accounts.kirilos-gmail]
+email = "kirilos24@gmail.com"
+display-name = "Kirill Nevzorov"
+signature-delim = "-- \n"
+message.send.save-copy = false
+message.reply.posting-style = "top"
+message.forward.posting-style = "top"
+envelope.list.page-size = 25
+envelope.list.datetime-fmt = "%F %R"
+
+[accounts.kirilos-gmail.gmail]
+user-id = "me"
+auth.token.command = ["oama", "access", "kirilos24@gmail.com"]
+
+[accounts.akinevz-outlook]
+email = "akinevz@outlook.com"
+display-name = "Kirill Nevzorov"
+signature-delim = "-- \n"
+message.send.save-copy = false
+message.reply.posting-style = "top"
+message.forward.posting-style = "top"
+envelope.list.page-size = 25
+envelope.list.datetime-fmt = "%F %R"
+
+[accounts.akinevz-outlook.msgraph]
+user-id = "me"
+auth.token.command = ["oama", "access", "akinevz@outlook.com"]
