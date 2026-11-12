@@ -39,13 +39,40 @@ Always edit files inside the package directory:
 
 ## Deployment Workflow
 
-### After making changes
+### When to run `make stow`
 
-You must re-deploy the affected packages using the Makefile targets in `~/dots/`:
+**Always run `make stow` when performing FILE-LEVEL operations** (creating, deleting, moving, or renaming files/folders). Symlinks do not update automatically for these changes.
+
+**Do NOT run `make stow` for content-only changes** (editing existing file contents) since symlinks automatically pick up file changes.
+
+### File-Level Operations (NEEDS `make stow`)
+
+Creating, deleting, moving, or renaming files or directories in the source repository:
 
 ```bash
+# Example: Create a new file in a package
+touch ~/dots/herbst/.config/herbstluftwm/my-new-config
+
+# Example: Move a file between packages
+mv ~/dots/herbst/.config/herbstluftwm/file.txt ~/dots/dunst/.config/dunst/file.txt
+
+# Example: Delete a file
+rm ~/dots/shell/.bashrcx
+```
+
+After file-level operations:
+```bash
 cd ~/dots
-make <target>
+make stow
+```
+
+### Content-Only Operations (NO `make stow` needed)
+
+Editing existing file contents (config values, scripts, etc.):
+```bash
+# Example: Change a value in a config file
+vim ~/dots/herbst/.config/herbstluftwm/autostart
+# No 'make stow' needed - symlink updates automatically
 ```
 
 ### Make Targets

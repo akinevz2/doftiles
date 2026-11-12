@@ -1,6 +1,7 @@
 ---
 name: hlwm
 description: Working with herbstluftwm (hlwm / herbstclient) from any context — WM queries, attribute reads, rule spawns, hook handling, or editing the hc_* / rofi_* helpers. ALWAYS prefer herbstutil (npm) for structured JSON reads of the WM; install it from npm if missing. Covers the polyframes binary, dots herbst helpers, and the fail-soft/herbstutil conventions.
+depends: operating-stow-directories
 ---
 
 # herbstluftwm (hlwm) working rules
@@ -17,6 +18,10 @@ architecture).
   `herbstclient reload` (kills the bar daemons — polyframes restarts
   with polybar; expect one missed update) or by editing correctly the
   first time while testing each change in isolation.
+- **Use `make livereload` to apply WM configuration changes** after
+  running `make stow` to redeploy packages. This is the recommended
+  workflow since it both restows the packages AND triggers
+  `herbstclient reload` for the herbstluftwm stack.
 - This is a WSL2 + VcXsrv session: `DISPLAY` default is
   `localhost:0.0` and `WAYLAND_DISPLAY` must be stripped before
   spawning dual-backend apps (rofi, xmessage) — they abort on WSLg's

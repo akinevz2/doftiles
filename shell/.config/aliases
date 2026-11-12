@@ -50,6 +50,7 @@ alias dots="cd $HOME/dots && tree -aL 2 -I '.git' $HOME/dots 2&>/dev/null || ls 
 alias bin="cd $HOME/.local/bin && ls -ralA --color=always |less -R"
 
 alias opencodec="$EDITOR --new-window $HOME/dots $HOME/.config/opencode/opencode.json"
+alias mail="himalaya"
 
 alias development="cd $HOME/development && ls -l */ && git status"
 alias system="cd $HOME/development/system && ls -l */ && git status"
