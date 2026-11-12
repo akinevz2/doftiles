@@ -16,6 +16,10 @@ if [ -x "$HOME/.local/bin/check-wsl" ] && "$HOME/.local/bin/check-wsl"; then
     # software GL (WebRender falls back to SWGL when EGL has no GPU).
     export MOZ_WEBRENDER=1
     export MOZ_X11_EGL=1
+    # Gecko X11 input: use the XInput2 extension (touchpad smooth
+    # scrolling / touch events). Standard dotfiles convention; pairs
+    # with dom.w3c_touch.events.enabled in the profile prefs.js.
+    export MOZ_USE_XINPUT2=1
     # BROWSER -> the runtime-conditional wrapper (dots/wsl)
     export BROWSER="firefox"
     # Allows VS Code usage within the X11
