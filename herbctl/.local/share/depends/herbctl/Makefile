@@ -67,6 +67,13 @@ deps-dir:
 
 deps-install: deps-dir
 	@env TMPDIR="$(SUB_DIR)/node_modules/.tmp" bun install --cwd "$(SUB_DIR)"
+	@# FRESHNESS: the cross-submodule dependencies are github branch
+	# checkouts (#main, not npm) — re-resolve them to their branch tips
+	# on every build so the compiled binary tracks the sibling checkouts
+	# without a publish step. Best-effort: an offline run keeps the
+	# lockfile-pinned resolution (plain install already ran above).
+	@cd "$(SUB_DIR)" && bun update herbstutil 2>/dev/null \
+		|| echo "herbctl: herbstutil tip re-resolve skipped (offline — lockfile resolution kept)"
 
 # compile — freshness guard: skip the ~120MB standalone recompile when
 # dist/herbctl is newer than every input (src/, package.json,

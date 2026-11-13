@@ -66,6 +66,13 @@ deps-dir:
 
 deps-install: deps-dir
 	@env TMPDIR="$(SUB_DIR)/node_modules/.tmp" bun install --cwd "$(SUB_DIR)"
+	@# FRESHNESS: the cross-submodule dependencies are github branch
+	# checkouts (#main, not npm) — re-resolve them to their branch tips
+	# on every build so the compiled binary tracks the sibling checkouts
+	# without a publish step. Best-effort: an offline run keeps the
+	# lockfile-pinned resolution (plain install already ran above).
+	@cd "$(SUB_DIR)" && bun update herbstutil herbctl 2>/dev/null \
+		|| echo "polyframes: tip re-resolve skipped (offline — lockfile resolution kept)"
 
 # bun-hooks — freshness guard: the nested bun postinstall's ENTIRE job
 # is linking the platform binary into node_modules/bun/bin/ (bun skips
