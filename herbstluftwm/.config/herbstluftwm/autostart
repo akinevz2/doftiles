@@ -242,28 +242,37 @@ keyreg $ModCtrl-t           spawn ~/.local/bin/polyframes tile
 # pressing again focuses the tiling layer — no un-float (un-float
 # happens from the tiling side: an empty focused frame pulls the
 # first float in)
-keyreg $Mod-f               spawn ~/.local/bin/hc_focus
+# (the full state machine lives in herbctl float-focus — the hc_focus
+# script stays on disk as a legacy shim, no keybind calls it)
+keyreg $Mod-f               spawn ~/.local/bin/herbctl float-focus
 
 # zoom: 3-state toggle for the focused window — float the focused
 # window if tiled (a), maximize onto a <tag>-max tag if floating (b),
-# restore via hc_unmaximize if maximized (c) (hc_zoom)
-keyreg $ModCtrl-f          spawn ~/.local/bin/hc_zoom
+# restore via hc_unmaximize if maximized (c) (hc_zoom; the verb
+# delegates the maximize/restore record-keeping to those helpers,
+# which stay on disk)
+keyreg $ModCtrl-f          spawn ~/.local/bin/herbctl zoom
 
 keyreg $ModShift-f spawn ~/.local/bin/herbctl fullscreen-toggle
 
-# x-family final layout: Mod-x runs hc_floatx (the layer-focus
-# toggle / yanker: from tiling, focus a float, un-float into an empty
-# frame, or yank; from a focused float — UN-FLOAT into the frame
-# below). ModCtrl-x runs the same script in `corner` mode: on an
-# ALREADY-FLOATING window it resizes the float to the top-left
-# quadrant of the monitor and pins it there (polyframes corner,
-# v2.3.1); from tiling it delegates to herbctl float-unfocus (the
-# companion-float / recall machine). ModShift-x keeps use_previous.
-keyreg $Mod-x               spawn ~/.local/bin/hc_floatx
+# x-family final layout: Mod-x runs the layer-focus toggle / yanker
+# (herbctl float-yank — the hc_floatx machine, migrated: from tiling,
+# focus a float, un-float into an empty frame, or yank; from a
+# focused float — UN-FLOAT into the frame below). ModCtrl-x runs the
+# minimize machine (herbctl minimize — the hc_minimize targeting:
+# -c/-f/--wid, empty frame -> close_or_remove). ModShift-x keeps
+# use_previous.
+keyreg $Mod-x               spawn ~/.local/bin/herbctl float-yank
 keyreg $ModShift-x          use_previous
-keyreg $ModCtrl-x          spawn ~/.local/bin/hc_minimize
+keyreg $ModCtrl-x          spawn ~/.local/bin/herbctl minimize
 
-keyreg $ModCtrl-z           spawn ~/.local/bin/hc_floatx corner
+# ModCtrl-z: on an ALREADY-FLOATING window — pin it to the top-left
+# quadrant of the monitor (herbctl corner: the size BECOMES the
+# quadrant, deco-aware, size-hint reconciled; no un-float, no layer
+# change). From the TILING layer — the companion-float / recall
+# machine (herbctl float-unfocus). The dispatch is native hlwm
+# composition over the two atomic verbs — no branching script.
+keyreg $ModCtrl-z           or . and , compare clients.focus.floating = true . spawn ~/.local/bin/herbctl corner . spawn ~/.local/bin/herbctl float-unfocus
 
 
 
@@ -276,7 +285,7 @@ APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
 
 # terminal
 keyreg $Mod-Return          spawn $TERMINAL
-keyreg $ModShift-Return     spawn ~/.local/bin/hc_split-launch $APPLAUNCHER
+keyreg $ModShift-Return     spawn ~/.local/bin/herbctl split-launch $APPLAUNCHER
 
 keyreg $ModCtrl-Return      spawn $APPLAUNCHER
 # shift-t opens a second frame only when the focused one already holds
@@ -299,15 +308,15 @@ keyreg $ModShift-a           or . and , compare tags.focus.curframe_wcount gt 0 
 # ModShift-b: open a split below (unconditional split bottom).
 #
 # ModCtrl-b: focus the frame below; when there is none, split below
-# and call hc_tile (the polyframes tile register).
+# and call the tile register (herbctl tile).
 keyreg $ModShift-b spawn ~/.local/bin/herbctl split-bottom-focus
 keyreg $ModCtrl-b spawn ~/.local/bin/herbctl shift-down
 
 keyreg $ModCtrl-a spawn ~/.local/bin/herbctl shift-left
 keyreg $ModCtrl-e spawn ~/.local/bin/herbctl shift-right
-# split-auto + the tile register (hc_tile is a polyframes spawn,
-# so this stays a chain — see the herbctl exclusion list)
-keyreg $ModShift-e           chain . split auto . spawn $local/hc_tile
+# split-auto + the tile register: one verb now (herbctl split-new —
+# the former `chain . split auto . spawn hc_tile`, migrated)
+keyreg $ModShift-e           spawn ~/.local/bin/herbctl split-new
 
 
 

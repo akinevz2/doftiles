@@ -22,7 +22,7 @@ this repo via the dotfiles feature and runs
 
 | Package | Contents |
 | ------- | -------- |
-| `herbstluftwm` | THE single herbst stack package: WM bootstrap (`autostart`), theme (`theme`, `theme.d/titles.theme`, `reload_theme`, `winbarctl`), ALL float/focus machinery + the full `hc_*` toolset (`hc_command` is the `$Mod-c` menu; `hc_center`/`hc_tile` are two-line shims delegating to `polyframes center|tile`), `dunstify-{callback,input}`, `pause`, `launch_alacritty`, `hc_send-error(-daemon)`, `.config/{alacritty,herbstluftwm,opencode,rofi,systemd}` and `rofi_hc_context` |
+| `herbstluftwm` | THE single herbst stack package: WM bootstrap (`autostart` — the keybinds call herbctl verbs directly), theme (`theme`, `theme.d/titles.theme`, `reload_theme`, `winbarctl`), the kept `hc_*` toolset (notification/reminder/palette helpers; the geometry shims `hc_center`/`hc_tile` stay for script callers), `dunstify-{callback,input}`, `pause`, `launch_alacritty`, `hc_send-error(-daemon)`, `.config/{alacritty,herbstluftwm,opencode,rofi,systemd}` and `rofi_hc_context` |
 | `compton` | `.config/compton` (picom-adjacent compositor config + rofi context menu), unit |
 | `dunst` | `.config/{dunst,systemd}` (`dunstrc`, `dunst.service`), legacy `.local/share/dunst/Makefile` hook |
 | `polybar` | `.config/polybar` (config.ini + polybar.sh + polywins.sh), `.local/bin/{polyctl,ewmh_labels}`, `.local/share/polybar/Makefile` (bar control) |
@@ -334,10 +334,13 @@ them automatically in the background).
     upstream advanced; nested assets stay untouched by routine
     flows unless deliberately bumped.
 11. **polyframes owns the rofi menus** (`tags`, `hidden`, `windows`,
-    `launch`, `switcher-menu`, `window-menu` subcommands). `hc_tile`/
-    `hc_center` remain two-line shims — dots-side callers depend on
-    the untouched names.
-12. **`polyframes spawn` = typed one-shot `hc rule once`**; at least
+    `launch`, `switcher-menu`, `window-menu` subcommands — the WM
+    geometry verbs migrated to herbctl in 2026-11). `hc_tile`/
+    `hc_center` remain two-line shims — dots-side SCRIPTS still call
+    them (`hc_unmaximize` → `hc_tile`; herbctl's zoom delegates the
+    maximize/restore record-keeping to `hc_maximize`/`hc_unmaximize`);
+    no KEYBIND does — the autostart calls herbctl verbs directly.
+12. **`herbctl spawn` = typed one-shot `hc rule once`**; at least
     one criterion required. bunli parses flag-like tokens even after
     `--` — commands with flags go through `--cmd '<string>'` or a
     wrapper file.

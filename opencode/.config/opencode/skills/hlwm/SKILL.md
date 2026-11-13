@@ -97,23 +97,27 @@ applies to 5-second timeouts on `herbstclient` calls.
 
 The geometry state machines have single implementations:
 
-- `polyframes` (`~/.local/bin/polyframes`, repo
-  `~/development/personal/polyframes`): the bar module/renderer and
-  all moved helpers (`tags hidden windows launch switcher-menu
-  window-menu tile center spawn scroll …` rules).
-- `~/.local/bin/hc_center` → `polyframes center` — when CENTERING use
-  this (sizes preserved, deco-aware; `--center` spawn preset for
-  floating dialogs). `polyframes center --wid <wid>` centers a
-  specific window in its OWN parent frame.
-- `~/.local/bin/hc_resize` — when RESIZING use this: `hc_resize dx dy`
-  (delta nudges) or `hc_resize <wid> frame` (stretch-to-frame fill,
-  deco-top clamped; `hc_zoom` uses it). herbstutil/jq-JSON output.
-- `spawning` with one-off placement rules is `polyframes spawn --class
+- `herbctl` (`~/.local/bin/herbctl`, submodule
+  `~/dots/herbctl/.local/share/herbctl`): ALL window-management
+  machines — the float/focus family (`float-focus`, `float-yank`,
+  `float-unfocus`, `zoom`, `minimize`), the geometry verbs
+  (`center`, `fit`, `corner`, `resize`, `tile`), and the compositional
+  modifiers (`--to-float`, `--to-tiling`, `--foreground`) shared via
+  the layer grammar. The keybinds call it directly (autostart).
+- `polyframes` (`~/.local/bin/polyframes`): the bar module/renderer
+  and the rofi menus only (`tags hidden windows launch switcher-menu
+  window-menu` — the geometry verbs were migrated OUT to herbctl).
+- `~/.local/bin/hc_center` / `hc_tile` / `hc_fit_to` / `hc_resize` —
+  legacy shims, KEPT for the scripts that still call them
+  (`hc_unmaximize` → `hc_tile`, the `hc_maximize`/`hc_unmaximize`
+  record-keeping that herbctl zoom delegates to) — no keybind calls
+  them; new code uses `herbctl` directly.
+- `spawning` with one-off placement rules is `herbctl spawn --class
   … --float on|--center` (typed; avoids raw `rule once` strings).
 
 Do not write new inline `floating_geometry` math; the centered logic
-in `center.ts` is the reference implementation (deco margins, stability
-wait, clamps).
+in herbctl's `geometry.ts` is the reference implementation (deco
+margins, stability wait, clamps).
 
 ## 4. Mixed-repo edits
 
