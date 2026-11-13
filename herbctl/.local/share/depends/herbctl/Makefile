@@ -10,15 +10,11 @@
 # Method format: PACKAGE=source|pkg (doftiles.conf). The submodule:
 # herbctl -> dots/herbctl/.local/share/herbctl.
 
-# Path resolution is anchored to the Makefile's own location (NOT
-# $(CURDIR)): the router invokes with `make -C dots/<pkg> -f <file>`
-# (cwd = the package dir), while a human may run make directly from
-# this directory — both must resolve identically. THIS_DIR is the only
-# absolute anchor; everything else walks RELATIVELY within the stow
-# package:  dots/herbctl/.local/share/depends/herbctl  →
-#   up4 = the stow package root (dots/herbctl).
-THIS_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-PKG_ROOT := $(THIS_DIR)/../../../..
+# The router passes DOTS + PKG_ROOT on the make command line (from
+# the doftiles.conf DOTS record — the installed dots location); the
+# ?= fallbacks cover bare human invocation. No relative walk-ups.
+DOTS     ?= $(HOME)/dots
+PKG_ROOT ?= $(DOTS)/herbctl
 SUB_DIR  := $(abspath $(PKG_ROOT)/.local/share/herbctl)
 LINK     := $(abspath $(PKG_ROOT)/.local/bin)
 ARTIFACT := $(LINK)/herbctl

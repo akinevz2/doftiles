@@ -19,8 +19,8 @@
 # Version bumps: update VERSION + SHA256 (the digest is published on
 # the release page). FORCE=1 refetches.
 
-THIS_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-PKG_ROOT := $(THIS_DIR)/../../../..
+DOTS     ?= $(HOME)/dots
+PKG_ROOT ?= $(DOTS)/himalaya
 LINK     := $(abspath $(PKG_ROOT)/.local/bin)
 ARTIFACT := $(LINK)/himalaya
 SYSBIN   := $(HOME)/.local/bin
