@@ -20,9 +20,7 @@
 TOOLCHAIN_BINDIR := $(HOME)/.bun/bin
 export PATH := $(TOOLCHAIN_BINDIR):$(PATH)
 
-THIS_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-PKG_ROOT := $(THIS_DIR)/../../../..
-DOTS     := $(abspath $(PKG_ROOT)/..)
+DOTS     ?= $(HOME)/dots
 SUB_DIR  := $(abspath $(DOTS)/on-deploy/.local/share/on-deploy)
 ARTIFACT := $(abspath $(DOTS)/on-deploy/.local/bin/on-deploy)
 

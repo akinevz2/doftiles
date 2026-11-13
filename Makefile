@@ -96,7 +96,9 @@ depends:
 	# each submodule's branch tip; the bare (non-recursive) update
 	# stops at the first level — nested submodules are skipped (they
 	# take a very long time to update every time).
-	@if [ -n "$(DEPS_SUBMODULES)" ]; then \
+	@if [ -n "$(SUB_DIRTY)" ]; then \
+		echo "depends: UNCOMMITTED changes — the submodule sync/re-anchor is SKIPPED (the local checkouts are the testable state)"; \
+	elif [ -n "$(DEPS_SUBMODULES)" ]; then \
 		git submodule sync -- $(DEPS_SUBMODULES); \
 		git submodule update --init --remote -- $(DEPS_SUBMODULES); \
 	else \
@@ -261,12 +263,20 @@ on-deploy:
 	@# OUTSIDE the configured system.depends scope (the manifest-scoped
 	@# submodule flows never chase it), so the bootstrap syncs+updates
 	@# JUST its own checkout here — at the tracked branch tip, like
-	@# every other submodule, then attaches the branch (see depends)
-	@git submodule sync -- on-deploy/.local/share/on-deploy && \
-		git submodule update --init --remote -- on-deploy/.local/share/on-deploy && \
-		b=$$(git config -f .gitmodules --get submodule.on-deploy/.local/share/on-deploy.branch 2>/dev/null); \
-		[ -n "$$b" ] || b=main; \
-		git -C on-deploy/.local/share/on-deploy checkout -q -B "$$b" 2>/dev/null || true
+	@# every other submodule, then attaches the branch (see depends).
+	@# DIRTY guard: with uncommitted changes or unpushed commits in the
+	@# checkout the dance is SKIPPED (update --remote would drag the
+	@# checkout backward onto its origin tip) — the local checkout is
+	@# what gets built and deployed, testable without committing.
+	@if [ -n "$(SUB_DIRTY)" ]; then \
+		echo "on-deploy: UNCOMMITTED changes — the checkout dance is SKIPPED (building from the local checkout)"; \
+	else \
+		git submodule sync -- on-deploy/.local/share/on-deploy && \
+			git submodule update --init --remote -- on-deploy/.local/share/on-deploy && \
+			b=$$(git config -f .gitmodules --get submodule.on-deploy/.local/share/on-deploy.branch 2>/dev/null); \
+			[ -n "$$b" ] || b=main; \
+			git -C on-deploy/.local/share/on-deploy checkout -q -B "$$b" 2>/dev/null || true; \
+	fi
 	@$(MAKE) -C depends --no-print-directory -f .local/share/depends/on-deploy/Makefile install FORCE=$(FORCE)
 	@# the omitted recipe was stow-on-deploy: on a fresh clone (the
 	@# force-upgrade flow) nothing is stowed yet — the fresh binary sits
@@ -346,8 +356,10 @@ bashrc:
 # The per-package router-Makefiles (.local/share/depends/<pkg>/Makefile)
 # own the concrete steps (deps-install, compile, rename-artifact, link);
 # this target just walks them — on-deploy's own build lives in the
-# on-deploy target (the bootstrap).
-build: on-deploy update
+# on-deploy target (the bootstrap). OFFLINE-SAFE: NO pull here — update
+# is an explicit flow (`make update install`); stow/restow work with
+# whatever is on disk (the freshness guards compile local changes).
+build: on-deploy
 	@for m in $(wildcard */.local/share/depends/*/Makefile); do \
 		[ -f "$$m" ] || continue; \
 		grep -q "^build:" "$$m" || continue; \
@@ -443,6 +455,20 @@ endef
 # machine flow (its checkout stays as-is on disk, untouched)
 DEPS_SUBMODULES := $(shell awk '!/^#/ && NF > 1 { for (i = 2; i <= NF; i++) print $$i }' $(CURDIR)/system.depends 2>/dev/null)
 
+# TREE_DIRTY / SUB_DIRTY — the LOCAL state that must stay deployable
+# WITHOUT committing. TREE_DIRTY: uncommitted changes in the dots tree
+# itself (a rebase cannot proceed over them). SUB_DIRTY: a submodule
+# checkout (configured scope + the on-deploy bootstrap) that is dirty
+# or carries UNPUSHED commits — the submodule dances (sync + update
+# --remote) would drag such a checkout BACKWARD onto its origin tip,
+# discarding the local state from the working tree. The flows guard on
+# their own variable: with local changes the dances are SKIPPED
+# loudly and the build+stow proceeds straight from the checkouts (the
+# adapters' freshness guards compile whatever is on disk). Commit or
+# stash, then re-run the pull flows to fetch.
+TREE_DIRTY := $(shell git status --porcelain --untracked-files=no 2>/dev/null | head -1)
+SUB_DIRTY := $(foreach s,$(DEPS_SUBMODULES) on-deploy/.local/share/on-deploy,$(shell test -d "$(s)" && git -C "$(s)" status --porcelain --untracked-files=no 2>/dev/null | head -1)$(shell test -d "$(s)" && git -C "$(s)" log --branches --not --remotes --oneline 2>/dev/null | head -1))
+
 # update — the safe pull directly in the repo: fetch + fast-forward
 # (fallback --rebase --autostash), submodule sync, then the BOOTSTRAP
 # chain (pkg-only packages like bat need no toolchain — an update on a
@@ -452,8 +478,13 @@ DEPS_SUBMODULES := $(shell awk '!/^#/ && NF > 1 { for (i = 2; i <= NF; i++) prin
 # the walk keeps the on-deploy artifact out of the adapters (already
 # fresh from the unconditional rebuild).
 update:
-	$(USER_BRANCH_FLOW)
-	@$(SELF) depends
+	@if [ -n "$(TREE_DIRTY)" ]; then \
+		echo "update: UNCOMMITTED changes in the dots tree — the pull/rebase is SKIPPED"; \
+		echo "update: the LOCAL state stays deployable (the build compiles whatever is on disk); commit or stash, then re-run make update to pull"; \
+	else \
+		$(USER_BRANCH_FLOW); \
+		$(SELF) depends; \
+	fi
 	# NO submodule installs here (branch-tracked checkouts only): modules get
 	# synced/local, nothing is built or deployed — so a chained
 	# `make update install` does not run the install step twice. The

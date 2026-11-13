@@ -15,15 +15,14 @@
 #   dots/get/.local/share/got/get.sh -> ~/.local/share/got/get.sh
 #   (the latter is sourced by shell/.shellx.rc)
 
-# Paths derive from THIS Makefile's location (dots/get/.local/share/
-# depends/get/), so the adapter behaves under `make -C dots/get -f ...`
-# (the on-deploy consult) and bare `make -f ...` from the dots root.
-MAKEFILE_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
-DOTS_GET := $(abspath $(MAKEFILE_DIR)/../../../..)
-DOTS     := $(abspath $(MAKEFILE_DIR)/../../../../..)
-SUB_DIR  := $(DOTS_GET)/.local/share/got-source
-LINK     := $(DOTS_GET)/.local/bin
-SHARE    := $(DOTS_GET)/.local/share/got
+# The router passes DOTS + PKG_ROOT on the make command line (from
+# the doftiles.conf DOTS record — the installed dots location); these
+# ?= fallbacks cover bare human invocation. No relative walk-ups.
+DOTS     ?= $(HOME)/dots
+PKG_ROOT ?= $(DOTS)/get
+SUB_DIR  := $(abspath $(PKG_ROOT)/.local/share/got-source)
+LINK     := $(abspath $(PKG_ROOT)/.local/bin)
+SHARE    := $(abspath $(PKG_ROOT)/.local/share/got)
 ARTIFACT := $(LINK)/got
 GET_SH   := $(SHARE)/get.sh
 ONDEPLOY := $(HOME)/.local/bin/on-deploy

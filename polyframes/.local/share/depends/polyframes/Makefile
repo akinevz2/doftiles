@@ -12,8 +12,8 @@
 # NOTE: the nested bun package's install-hook ensure is a
 # package-specific step (bun skips postinstalls on fresh installs).
 
-THIS_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-PKG_ROOT := $(THIS_DIR)/../../../..
+DOTS     ?= $(HOME)/dots
+PKG_ROOT ?= $(DOTS)/polyframes
 SUB_DIR  := $(abspath $(PKG_ROOT)/.local/share/polyframes)
 LINK     := $(abspath $(PKG_ROOT)/.local/bin)
 ARTIFACT := $(LINK)/polyframes
@@ -99,7 +99,7 @@ compile:
 	fi
 
 link:
-	@(ONDEPLOY) managed polyframes link
+	@$(ONDEPLOY) managed polyframes link
 
 # ── toolchain (defer) ───────────────────────────────────────────────────
 toolchain:
