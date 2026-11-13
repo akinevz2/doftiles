@@ -204,7 +204,15 @@ Wall-clock effect: `make install` 35.7 s → 10.3 s, `make status`
   deploy helpers `on.deploy` + `deploy-menu` — zero callers; the
   firefox wrapper became runtime-conditional in `dots/wsl`, so the
   stow-time prune/relink hook died with deploy-menu). **Keep** all
-  `hc_*` (the `$Mod-c` hlwm operation menu) and `green`/`yellow`
+  remaining `hc_*` (the `$Mod-c` menu lists every PATH `hc_*`; the
+  geometry shims `hc_center`/`hc_fit_to`/`hc_resize`/`hc_tile` and
+  the migrated machines `hc_focus`/`hc_floatx`/`hc_zoom`/
+  `hc_minimize`/`hc_split-launch`/`hc_dispose` were REMOVED
+  2026-11-13 — their single implementations live in herbctl; the
+  kept `hc_*` are either distinct machines (`hc_show`, `hc_move`,
+  `hc_bounce`, the maximize/unmaximize family) or live consumers'
+  plumbing (the `hc_get-*` introspection family behind polybar's
+  `polywins.sh`)) and `green`/`yellow`
   (used liberally in user scripting).
 - **Credentials** (2026-11, final): `make configure` is the ONLY
   point credentials may be interacted with. `~/.my-credentials` (name

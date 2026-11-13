@@ -49,7 +49,7 @@ if [ "$fullscreen" = "true" ]; then
     hc chain \
         . attr clients.focus.fullscreen off \
         . attr clients.focus.floating on
-    exec "$HOME/.local/bin/hc_center"
+    exec "$HOME/.local/bin/herbctl" center root
 fi
 
 # Case 3: fullscreen the focused window
