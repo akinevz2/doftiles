@@ -3,12 +3,9 @@ shell/.cache/
 *.un~
 
 # the MANIFESTS: *.depends are the ONE file per manifest (stows, wm,
-# system, services). The developer force-adds them when expanding the
-# software (`git add -f <name>.depends`); user machines personalize
-# the same file and hide the dirtiness with
-# `git update-index --skip-worktree` (the make update ritual automates
-# the pull dance; the pull-collision volition point is documented in
-# AGENTS.md).
+# system, services). The pattern is gitignored; the content is
+# force-add committed (mainline by default since 2026-11-13; a user
+# branch is optional for private deltas — see AGENTS.md Manifests).
 *.depends
 
 # built artifacts LINKED into the stow packages by the per-package

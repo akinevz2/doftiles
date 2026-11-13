@@ -59,31 +59,34 @@ analysis; also not stowed.
   them (an absolute hand-made symlink once blocked `make wm/update`
   with "existing target is not owned by stow").
 
-## Manifests — one file each, tracked on the USER BRANCH
+## Manifests — one file each, tracked via force-add
 
 Every manifest is ONE file (stows, wm, system, services):
-`<name>.depends`. The pattern is gitignored; the branches carry it:
+`<name>.depends`. The pattern is gitignored; commits carry it:
 
-- **Developer expansion**: edit the manifest on `main`, then
-  `git add -f <name>.depends` + commit — mainline ships the GENERIC
-  content. This is the only way manifest content enters main.
-- **User personalization — the user branch** (2026-11, replaces the
-  skip-worktree dance): a machine that personalizes the manifests
-  lives on a branch named after its unix username (`id -un`,
-  honoring SUDO_USER). `configure` creates the branch on the first
-  personalization (from the current HEAD), stages the config files
-  (`add -f --sparse` — the pattern is gitignored) and COMMITS every
-  config change to it; `managed conf-set` tracks doftiles.conf the
-  same way. The working tree stays CLEAN — no skip-worktree flags,
-  no stash dances, no phantom dirtiness for the reconfigure gate.
-  Push the user branch like any other (`git push origin <user>`).
+- **Mainline manifests** (the default since 2026-11-13): a machine
+  whose personalization is the generic build (or whose deltas are
+  meant for every machine — mutt joining stow.depends + wm.depends)
+  edits the manifest and force-add commits it ON `main`
+  (`git add -f <name>.depends`). `make update` then does the plain
+  mainline fast-forward. The kine user branch was retired — the
+  manifests live on mainline.
+- **User personalization — the user branch** (OPTIONAL): a machine
+  that keeps PRIVATE deltas (or wants manifests off the shared
+  mainline) lives on a branch named after its unix username
+  (`id -un`, honoring SUDO_USER). `configure` creates the branch on
+  the first personalization (from the current HEAD), stages the
+  config files (`add -f --sparse` — the pattern is gitignored) and
+  COMMITS every config change to it; `managed conf-set` tracks
+  doftiles.conf the same way. The working tree stays CLEAN — no
+  skip-worktree flags, no stash dances, no phantom dirtiness for the
+  reconfigure gate. Push the user branch like any other
+  (`git push origin <user>`).
 - **The update flow**: `make update` / `make force-upgrade` fetch,
   then — user branch exists → REBASE it onto origin/main; not → the
   plain mainline fast-forward (fallback rebase --autostash). A rebase
   CONFLICT is the volition point: resolve by hand, `git rebase
   --continue`.
-- Fresh machines that never personalize just track the generic build
-  on main and receive mainline updates as normal pulls.
 
 Layer contents:
 - stows — the stow package list (space-separated lines, `#` comments);
@@ -362,8 +365,10 @@ them automatically in the background).
     went out on same-day tweaks — kept, not reverted; the doctrine
     applies going forward).
 15. **`make update` is headless out of the box**; the TUI/session
-    gates are the only real tty assumptions. The pull rebases the
-    user branch onto origin/main when one exists (see Manifests).
+    gates are the only real tty assumptions. The pull fast-forwards
+    mainline (a user branch, when one exists, is rebased onto
+    origin/main — see Manifests; with manifests on mainline no branch
+    is involved).
 
 ## Quick verification workflow
 
@@ -380,8 +385,9 @@ journalctl --user -u herbst.service -u compton.service -b --since "2 min ago" --
 
 The LIVE-SYSTEM re-install candidate is `make sudo update install
 YES=1`: the `sudo` target collects the root grant UPFRONT (a clean
-TTY, before anything runs), `update` pulls (user branch rebased onto
-origin/main when one exists, else the mainline fast-forward), and
+TTY, before anything runs), `update` pulls (the plain mainline
+fast-forward; a user branch, when one exists, is rebased onto
+origin/main), and
 `install YES=1` deploys headless — the batched binary walk, preserve,
 packages, status, with the configure gate applying the recorded
 config instead of opening the menu. The upfront grant is what makes

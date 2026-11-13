@@ -1,0 +1,192 @@
+# muttrc — the mutt configuration. STOWED, TRACKED: public
+# configuration only, NO secrets. Every account authenticates through
+# oama (the dots `oama` package): `oama access <email>` prints a fresh
+# OAuth access token at the moment mutt needs one (the token store
+# itself is GPG-encrypted in ~/.local/state/oama/ — nothing lands here).
+#
+# Accounts (mirroring himalaya's config.toml):
+#   akinevz-gmail   akinevz@gmail.com    (default)
+#   kirilos-gmail   kirilos24@gmail.com
+#   akinevz-outlook akinevz@outlook.com
+#
+# Gmail speaks OAUTHBEARER (SASL XOAUTH2 also accepted); Office 365
+# speaks XOAUTH2 only. oama's token output is exactly what these
+# mechanisms want.
+
+# ── identity: all three addresses are me ─────────────────────────────
+alternates "akinevz@gmail.com|kirilos24@gmail.com"
+set realname="Kirill Nevzorov"
+
+# ── generic comfort ──────────────────────────────────────────────────
+set editor="vim"
+set edit_headers=yes			# edit From/Subject/To when composing
+set sort=threads			# threaded index, newest last
+set sort_aux=reverse-last-date-received
+set date_format="%F %R"
+set index_format="%4C %Z %{%F %R} %-24.24L (%4l) %s"
+set mail_check=60 timeout=300		# don't hammer the IMAP servers
+set connect_timeout=15			# IPv6 here is dead-routing — never wait
+set mail_check_stats=yes
+set markers=yes
+set tilde=yes
+set quit=ask-yes
+set move=no				# keep read mail where it arrived
+
+# sidebar
+set sidebar_visible=yes sidebar_width=28 sidebar_short_path=yes
+set sidebar_delim_chars="//" sidebar_folder_indent=yes sidebar_indent_string="  "
+bind index,pager \Cp sidebar-prev
+bind index,pager \Cn sidebar-next
+bind index,pager \Co sidebar-page-up
+bind index,pager \Ci sidebar-page-down
+bind index,pager \Cb sidebar-toggle-visible
+
+# pager
+set pager_context=3 pager_index_lines=8 pager_stop=yes
+bind pager g top
+bind pager G bottom
+bind pager j next-line
+bind pager k previous-line
+
+# ── OAuth plumbing (shared shape; per-account URLs live in the hooks) ─
+# oama renews tokens in the background; this command just reads one.
+# The token-command names the account explicitly (each account-hook
+# re-points these — the values below are the default account's).
+set imap_oauth_refresh_command="oama access akinevz@gmail.com"
+set smtp_oauth_refresh_command="oama access akinevz@gmail.com"
+set imap_authenticators="oauthbearer:xoauth2"
+set smtp_authenticators="xoauth2"
+set imap_keepalive=300
+
+# ── the default account (before any hook fires): akinevz-gmail ───────
+set folder="imaps://akinevz@gmail.com@imap.gmail.com/"
+set spoolfile="+INBOX"
+set record="+Sent Mail"			# Gmail files the sent copy itself —
+set copy=no			# keep no duplicate (matches himalaya)
+set postponed="+Drafts"
+set trash="+Trash"
+set smtp_url="smtps://akinevz@gmail.com@smtp.gmail.com:465/"
+set from="akinevz@gmail.com"
+
+# ── account hooks: switching folders re-points the whole session ─────
+# Each matches the account's IMAP URL (user embedded — REQUIRED, both
+# Gmail accounts share a host) and sets everything the session needs.
+
+# akinevz@gmail.com — Gmail, OAUTHBEARER
+account-hook 'imaps://akinevz@gmail.com@.*' 'set \
+	imap_user=akinevz@gmail.com \
+	imap_authenticators=oauthbearer \
+	smtp_authenticators=xoauth2 \
+	imap_oauth_refresh_command="oama access akinevz@gmail.com" \
+	smtp_oauth_refresh_command="oama access akinevz@gmail.com" \
+	folder="imaps://akinevz@gmail.com@imap.gmail.com/" \
+	smtp_url="smtps://akinevz@gmail.com@smtp.gmail.com:465/" \
+	spoolfile="+INBOX" record="+Sent Mail" postponed="+Drafts" trash="+Trash" \
+	copy=no from="akinevz@gmail.com" '
+
+# kirilos24@gmail.com — Gmail, OAUTHBEARER
+account-hook 'imaps://kirilos24@gmail.com@.*' 'set \
+	imap_user=kirilos24@gmail.com \
+	imap_authenticators=oauthbearer \
+	smtp_authenticators=xoauth2 \
+	imap_oauth_refresh_command="oama access kirilos24@gmail.com" \
+	smtp_oauth_refresh_command="oama access kirilos24@gmail.com" \
+	folder="imaps://kirilos24@gmail.com@imap.gmail.com/" \
+	smtp_url="smtps://kirilos24@gmail.com@smtp.gmail.com:465/" \
+	spoolfile="+INBOX" record="+Sent Mail" postponed="+Drafts" trash="+Trash" \
+	copy=no from="kirilos24@gmail.com" '
+
+# DISABLED-OUTLOOK: # akinevz@outlook.com — Office 365, XOAUTH2, submission on 587
+# DISABLED-OUTLOOK: account-hook imaps://akinevz@outlook.com@.*
+# DISABLED-OUTLOOK: 	imap_user=akinevz@outlook.com \
+# DISABLED-OUTLOOK: 	imap_authenticators=xoauth2 \
+# DISABLED-OUTLOOK: 	smtp_authenticators=xoauth2 \
+# DISABLED-OUTLOOK: 	imap_oauth_refresh_command="oama access akinevz@outlook.com" \
+# DISABLED-OUTLOOK: 	smtp_oauth_refresh_command="oama access akinevz@outlook.com" \
+# DISABLED-OUTLOOK: 	folder="imaps://akinevz@outlook.com@outlook.office365.com/" \
+# DISABLED-OUTLOOK: 	smtp_url="smtp://akinevz@outlook.com@smtp.office365.com:587/" \
+# DISABLED-OUTLOOK: 	spoolfile="+INBOX" record="+Sent" postponed="+Drafts" trash="+Deleted" \
+# DISABLED-OUTLOOK: 	copy=yes from="akinevz@outlook.com" '
+# DISABLED-OUTLOOK: 
+# DISABLED-OUTLOOK: # ── mailboxes: what the sidebar lists (per account, `=`-prefixed to
+# the account's $folder of the moment) ────────────────────────────────
+mailboxes +INBOX +Sent\ Mail +Drafts +Trash +Archive
+mailboxes imaps://akinevz@gmail.com@imap.gmail.com/INBOX imaps://akinevz@gmail.com@imap.gmail.com/Sent\ Mail
+mailboxes imaps://kirilos24@gmail.com@imap.gmail.com/INBOX imaps://kirilos24@gmail.com@imap.gmail.com/Sent\ Mail
+# DISABLED-OUTLOOK: mailboxes imaps://akinevz@outlook.com@outlook.office365.com/INBOX imaps://akinevz@outlook.com@outlook.office365.com/Sent
+
+# ── folder shortcuts: <tab> cycles accounts via the sidebar ──────────
+macro index,pager \ea "<change-folder>imaps://akinevz@gmail.com@imap.gmail.com/INBOX<enter>"
+macro index,pager \ec "<change-folder>imaps://kirilos24@gmail.com@imap.gmail.com/INBOX<enter>"
+# DISABLED-OUTLOOK: macro index,pager \ee "<change-folder>imaps://akinevz@outlook.com@outlook.office365.com/INBOX<enter>"
+
+# ── compose / sending ────────────────────────────────────────────────
+set use_from=yes
+set fast_reply=yes
+set include=yes				# quote the original on reply
+set header_cache=~/.cache/mutt/headers
+set message_cachedir=~/.cache/mutt/bodies
+
+# ── vi/vim-style keybindings ─────────────────────────────────────────
+# (hjkl everywhere, gg/G ends, g/G pager tops, d/u page, r reload)
+bind index gg first-entry
+bind index G last-entry
+bind index j next-entry
+bind index k previous-entry
+bind index h noop				# h in index does nothing (use l to enter)
+bind index l display-message			# l = open the message (vim-ish)
+bind index g noop
+bind index d noop				# protect: real deletes stay on dd
+bind index u noop
+bind index \Cf next-page
+bind index \Cb previous-page
+bind index zj collapse-thread
+bind index zk collapse-all
+
+bind pager gg top
+bind pager G bottom
+bind pager j next-line
+bind pager k previous-line
+bind pager h exit
+bind pager l noop				# (links already open on enter)
+bind pager \Cf next-page
+bind pager \Cb previous-page
+
+bind browser j next-entry
+bind browser k previous-entry
+bind browser gg first-entry
+bind browser G last-entry
+bind browser l select-entry			# l = descend into folder
+bind browser h exit				# h = leave back to index
+bind browser \Cf next-page
+bind browser \Cb previous-page
+
+bind alias j next-entry
+bind alias k previous-entry
+bind alias l select-entry
+bind alias h exit
+
+# ── colours ──────────────────────────────────────────────────────────
+# Debian's /etc/Muttrc.d/colors.rc paints solid backgrounds (the status
+# line arrives as brightgreen-on-blue and is unreadable on dark themes).
+# Override everything: `default` background = the terminal's own colour,
+# so text stays readable on any theme. Message bodies keep ANSI colors
+# from the mail itself (color body strips nothing).
+source /etc/Muttrc.d/colors.rc		# quote the useful bits, then repaint
+color normal	white default
+color hdrdefault cyan default
+color status	white default		# the green-on-blue offender, fixed
+color indicator	brightwhite default	# current entry: bold instead of paint
+color attachment brightyellow default
+color markers	brightred default
+color tree	magenta default
+color quoted	green default
+color quoted1	cyan default
+color quoted2	yellow default
+color signature	cyan default
+color tilde	blue default
+color search	brightyellow default
+color error	brightred default
+color bold	brightwhite default
+
+# vim: ft=muttrc
