@@ -19,8 +19,9 @@
 # Version bumps: update VERSION + SHA256 (the digest is published on
 # the release page). FORCE=1 refetches.
 
-CURDIR_ABSPATH := $(patsubst %/,%,$(abspath $(CURDIR)))
-LINK     := $(CURDIR_ABSPATH)/.local/bin
+THIS_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+PKG_ROOT := $(THIS_DIR)/../../../..
+LINK     := $(abspath $(PKG_ROOT)/.local/bin)
 ARTIFACT := $(LINK)/himalaya
 SYSBIN   := $(HOME)/.local/bin
 ONDEPLOY := $(SYSBIN)/on-deploy

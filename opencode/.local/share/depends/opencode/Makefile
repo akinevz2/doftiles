@@ -12,7 +12,6 @@
 # Method format: opencode=# pkg (doftiles.conf). No submodule: no
 # source route — pkg (bun) is the only valid method.
 
-DOTS    := $(abspath $(CURDIR)/..)
 SYSBIN  := $(HOME)/.local/bin
 ONDEPLOY := $(SYSBIN)/on-deploy
 

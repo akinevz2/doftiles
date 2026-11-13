@@ -4,7 +4,9 @@
 # the stowed user unit (dunst.service). Deployable independently; the
 # platform package-manager work defers to on-deploy pkg.
 
-DOTS    := $(abspath $(CURDIR))
+THIS_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+PKG_ROOT := $(THIS_DIR)/../../../..
+DOTS     := $(abspath $(PKG_ROOT)/..)
 UNIT   := dunst.service
 BIN    := dunst
 ONDEPLOY ?= $(HOME)/.local/bin/on-deploy

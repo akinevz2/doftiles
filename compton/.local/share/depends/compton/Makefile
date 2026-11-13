@@ -6,7 +6,9 @@
 # Deployable independently of the WM; the platform package-manager
 # work defers to on-deploy pkg.
 
-DOTS    := $(abspath $(CURDIR))
+THIS_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+PKG_ROOT := $(THIS_DIR)/../../../..
+DOTS     := $(abspath $(PKG_ROOT)/..)
 UNIT   := compton.service
 BIN    := compton
 ONDEPLOY ?= $(HOME)/.local/bin/on-deploy

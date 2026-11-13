@@ -15,7 +15,6 @@
 # binary walk — the <target>.deploy protocol resolves batcat ->
 # apt-cache -> package bat. doftiles.conf records BAT=pkg.
 
-DOTS     := $(abspath $(CURDIR)/..)
 SYSBIN   := $(HOME)/.local/bin
 ONDEPLOY := $(SYSBIN)/on-deploy
 

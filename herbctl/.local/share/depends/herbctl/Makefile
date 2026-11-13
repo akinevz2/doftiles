@@ -10,9 +10,17 @@
 # Method format: PACKAGE=source|pkg (doftiles.conf). The submodule:
 # herbctl -> dots/herbctl/.local/share/herbctl.
 
-DOTS     := $(abspath $(CURDIR)/..)
-SUB_DIR  := $(DOTS)/herbctl/.local/share/herbctl
-LINK     := $(CURDIR)/.local/bin
+# Path resolution is anchored to the Makefile's own location (NOT
+# $(CURDIR)): the router invokes with `make -C dots/<pkg> -f <file>`
+# (cwd = the package dir), while a human may run make directly from
+# this directory — both must resolve identically. THIS_DIR is the only
+# absolute anchor; everything else walks RELATIVELY within the stow
+# package:  dots/herbctl/.local/share/depends/herbctl  →
+#   up4 = the stow package root (dots/herbctl).
+THIS_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+PKG_ROOT := $(THIS_DIR)/../../../..
+SUB_DIR  := $(abspath $(PKG_ROOT)/.local/share/herbctl)
+LINK     := $(abspath $(PKG_ROOT)/.local/bin)
 ARTIFACT := $(LINK)/herbctl
 SYSBIN   := $(HOME)/.local/bin
 ONDEPLOY := $(SYSBIN)/on-deploy
@@ -78,16 +86,16 @@ compile:
 	fi
 
 # rename-artifact — no-op when compile was skipped (dist/index only
-# exists right after a real build)
+# exists right after a real build). mv -f overwrites even a
+# hard-linked dist/herbctl; the stray source map leaves with it.
 rename-artifact:
 	@if [ -f "$(SUB_DIR)/dist/index" ]; then \
 		mv -f "$(SUB_DIR)/dist/index" "$(SUB_DIR)/dist/herbctl"; \
+		rm -f "$(SUB_DIR)/dist/index.map"; \
 	fi
 
 link:
-	@mkdir -p "$(LINK)"
-	@ln -f "$(SUB_DIR)/dist/herbctl" "$(ARTIFACT)"
-	@echo "herbctl: linked $(ARTIFACT)"
+	@$(ONDEPLOY) managed herbctl link
 
 # ── toolchain (defer) ───────────────────────────────────────────────────
 toolchain:
@@ -95,7 +103,7 @@ toolchain:
 
 # ── the package metadata: one config item per recipe (value only!), ────
 # ── chained; the ORDER is the contract (see lib/adapters.ts) ───────────
-metadata: git_repo pkg_name methods_supported repos_pkg repos_pkg_name
+metadata: git_repo pkg_name methods_supported repos_pkg repos_pkg_name build_output
 
 git_repo:
 	@echo https://github.com/akinevz2/herbctl
@@ -111,3 +119,6 @@ repos_pkg:
 
 repos_pkg_name:
 	@echo herbctl
+
+build_output:
+	@echo dist/herbctl

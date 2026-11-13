@@ -12,9 +12,10 @@
 # NOTE: the nested bun package's install-hook ensure is a
 # package-specific step (bun skips postinstalls on fresh installs).
 
-DOTS     := $(abspath $(CURDIR)/..)
-SUB_DIR  := $(DOTS)/polyframes/.local/share/polyframes
-LINK     := $(CURDIR)/.local/bin
+THIS_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+PKG_ROOT := $(THIS_DIR)/../../../..
+SUB_DIR  := $(abspath $(PKG_ROOT)/.local/share/polyframes)
+LINK     := $(abspath $(PKG_ROOT)/.local/bin)
 ARTIFACT := $(LINK)/polyframes
 SYSBIN   := $(HOME)/.local/bin
 ONDEPLOY := $(SYSBIN)/on-deploy
@@ -98,9 +99,7 @@ compile:
 	fi
 
 link:
-	@mkdir -p "$(LINK)"
-	@ln -f "$(SUB_DIR)/dist/polyframes" "$(ARTIFACT)"
-	@echo "polyframes: linked $(ARTIFACT)"
+	@(ONDEPLOY) managed polyframes link
 
 # ── toolchain (defer) ───────────────────────────────────────────────────
 toolchain:
@@ -108,7 +107,7 @@ toolchain:
 
 # ── the package metadata: one config item per recipe (value only!), ────
 # ── chained; the ORDER is the contract (see lib/adapters.ts) ───────────
-metadata: git_repo pkg_name methods_supported repos_pkg repos_pkg_name
+metadata: git_repo pkg_name methods_supported repos_pkg repos_pkg_name build_output
 
 git_repo:
 	@echo https://github.com/akinevz2/polyframes
@@ -124,3 +123,6 @@ repos_pkg:
 
 repos_pkg_name:
 	@echo polyframes
+
+build_output:
+	@echo dist/polyframes

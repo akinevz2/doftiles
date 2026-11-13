@@ -11,8 +11,10 @@
 # Method format: PACKAGE=source|pkg (doftiles.conf). The submodule:
 # herbstutil -> dots/herbstutil/.local/share/herbstutil.
 
-DOTS    := $(abspath $(CURDIR)/..)
-SUB_DIR := $(DOTS)/herbstutil/.local/share/herbstutil
+THIS_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+PKG_ROOT := $(THIS_DIR)/../../../..
+DOTS    := $(abspath $(PKG_ROOT)/..)
+SUB_DIR := $(abspath $(PKG_ROOT)/.local/share/herbstutil)
 SYSBIN  := $(HOME)/.local/bin
 ONDEPLOY := $(SYSBIN)/on-deploy
 
