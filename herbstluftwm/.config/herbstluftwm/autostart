@@ -270,9 +270,11 @@ keyreg $ModCtrl-x          spawn ~/.local/bin/herbctl minimize
 # quadrant of the monitor (herbctl corner: the size BECOMES the
 # quadrant, deco-aware, size-hint reconciled; no un-float, no layer
 # change). From the TILING layer — the companion-float / recall
-# machine (herbctl float-unfocus). The dispatch is native hlwm
-# composition over the two atomic verbs — no branching script.
-keyreg $ModCtrl-z           or . and , compare clients.focus.floating = true . spawn ~/.local/bin/herbctl corner . spawn ~/.local/bin/herbctl float-unfocus
+# machine (herbctl float-unfocus). The dispatch is the verb's exit
+# status: corner GUARDED (a tiled client throws, exit 1) so the ||
+# falls back — the read happens inside the verb at execution time,
+# no branching script, no compare pre-read.
+keyreg $ModCtrl-z           spawn sh -c "$local/herbctl corner || $local/herbctl float-unfocus"
 
 
 
