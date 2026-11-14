@@ -244,9 +244,11 @@ keyreg $ModCtrl-t           spawn ~/.local/bin/polyframes tile
 # first float in)
 # (the full state machine lives in herbctl float-focus — the hc_focus
 # script stays on disk as a legacy shim, no keybind calls it.
-# The max-layout LIFT is the exclusive-foreground add: the floated
-# window TAKES the float session (register chain + jumpto + bring);
-# ModCtrl-z's corner machine is the additive add)
+# Mod-f = the float-session FOCUS manager: no floats -> the max-layout
+# LIFT (the exclusive-foreground add, the algorithm=max tail kept);
+# floats -> focus the layer (the floating layer is NEVER destroyed —
+# no grab); a focused float -> UNFOCUS the layer (the float
+# preserved). The grab-and-unfloat register is Mod-x's)
 keyreg $Mod-f               spawn ~/.local/bin/herbctl float-focus
 
 # zoom: the toggle for windows already in the float layer —
@@ -260,15 +262,16 @@ keyreg $ModCtrl-f          spawn ~/.local/bin/herbctl zoom
 
 keyreg $ModShift-f spawn ~/.local/bin/herbctl fullscreen-toggle
 
-# x-family final layout: Mod-x runs the layer-focus toggle / yanker
-# (herbctl float-yank — the hc_floatx machine, migrated: from tiling,
-# focus a float, un-float into an empty frame, YANK (the
-# exclusive-foreground add — float + center + take the session), or
-# tidy; from a focused float — hand focus back to the tiling layer
-# PRESERVING the float, un-float only into an empty frame).
-# ModCtrl-x runs the minimize machine (herbctl minimize — the
-# hc_minimize targeting: -c/-f/--wid, empty frame ->
-# close_or_remove). ModShift-x keeps use_previous.
+# x-family final layout: Mod-x runs the register — CLOSE OUT of the
+# floating layer / CREATE it (herbctl float-yank): from a focused
+# float -> UN-FLOAT it (the register chain; the floating_focused off
+# follow-up); from tiling with floats -> focus the float (populated
+# frame) or GRAB it into a stable-empty frame; from tiling without
+# floats -> YANK (the exclusive-foreground add — float + center +
+# take the session) or tidy the empty frame. ModCtrl-x runs the
+# minimize machine (herbctl minimize — the hc_minimize targeting:
+# -c/-f/--wid, empty frame -> close_or_remove). ModShift-x keeps
+# use_previous.
 keyreg $Mod-x               spawn ~/.local/bin/herbctl float-yank
 keyreg $ModShift-x          use_previous
 keyreg $ModCtrl-x          spawn ~/.local/bin/herbctl minimize
