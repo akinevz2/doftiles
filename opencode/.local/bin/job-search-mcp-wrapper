@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# job-search-mcp is vendored as a nested repo; dotenv reads .env from the
+# repo root, so run from there.
+repo_dir="${JOB_SEARCH_MCP_DIR:-/home/kine/dots/job-search-mcp}"
+cd "$repo_dir"
+exec node "$repo_dir/dist/index.js"

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolve the integration token without storing it in the project config.
+# Prefer an explicitly exported value; otherwise read the local token file.
+if [ -z "${NOTION_TOKEN:-}" ]; then
+  token_file="${NOTION_TOKEN_FILE:-$HOME/.config/notion/token}"
+  if [ -r "$token_file" ]; then
+    NOTION_TOKEN="$(tr -d '[:space:]' < "$token_file")"
+  fi
+fi
+
+if [ -z "${NOTION_TOKEN:-}" ]; then
+  echo "Notion MCP requires a token: export NOTION_TOKEN or create '$HOME/.config/notion/token'." >&2
+  exit 1
+fi
+
+export OPENAPI_MCP_HEADERS="{\"Authorization\": \"Bearer ${NOTION_TOKEN}\", \"Notion-Version\": \"2022-06-01\"}"
+exec npx -y @notionhq/notion-mcp-server

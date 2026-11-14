@@ -140,6 +140,11 @@
         "type": "local",
         "command": ["/home/kine/.local/bin/notion-mcp-wrapper"],
         "enabled": true
+      },
+      "job-search": {
+        "type": "local",
+        "command": ["/home/kine/.local/bin/job-search-mcp-wrapper"],
+        "enabled": true
       }
     }
   }

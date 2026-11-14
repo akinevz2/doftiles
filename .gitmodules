@@ -21,3 +21,6 @@
 [submodule "polytags/.local/share/polytags"]
 	path = polytags/.local/share/polytags
 	url = https://github.com/akinevz2/polytags.git
+[submodule "job-search-mcp"]
+	path = job-search-mcp
+	url = https://github.com/ewanlimr25/job-search-mcp

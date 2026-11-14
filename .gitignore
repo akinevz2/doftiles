@@ -57,3 +57,6 @@ opencode/.config/opencode/service.json
 # secrets file credentials.env is covered by **/*.env above)
 himalaya/.local/bin/
 oama/.local/bin/
+
+# the notion package: the integration token never enters the repo
+opencode/.config/notion/
