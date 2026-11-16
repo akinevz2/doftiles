@@ -80,8 +80,10 @@ done
 # when >1, windows on a single frame). herbctl >= 1.3.0.
 keyreg $ModCtrl-c spawn ~/.local/bin/herbctl rotate-tree --smart
 
-# hc_command — the rofi command palette over the helper scripts
-keyreg $Mod-c       spawn ~/.local/bin/hc_command
+# hc_command — the rofi command palette over the helper scripts (the
+# shim remains for script callers; the keybind goes straight to the
+# herbctl verb — bare `herbctl` is the same palette shorthand)
+keyreg $Mod-c       spawn ~/.local/bin/herbctl command
 
 # ==== notifications — dunst ====
 # The old dunst_keybinds fragment is folded here (across 2026 as an
@@ -105,20 +107,26 @@ keyreg $Mod-n      spawn ~/.local/bin/hc_dunst-pop
 # paced pop of the whole history (via dunstctl history, id by id)
 keyreg $ModShift-n spawn ~/.local/bin/hc_dunst-pop-all
 
+# mod-period: dismiss ALL notifications (hc_dismiss-notifs; formerly
+# hc_dunst-action's trigger, dropped 2026-11)
+keyreg $Mod-period  spawn ~/.local/bin/hc_dismiss-notifs
+
+# mod-comma: trigger the selected notification's action (default action
+# when one exists; the context menu for multiple/none) — the 2026-11
+# swap with the top-notification dismissal, which moved to mod-m
+keyreg $Mod-comma   spawn ~/.local/bin/hc_dunst-action
+
+# mod-m: dismiss the current (top) notification (hc_dunst-dismiss;
+# formerly hc_reminders-manage, dropped 2026-11)
+keyreg $Mod-m       spawn ~/.local/bin/hc_dunst-dismiss
+
 # hc_reminders-add — add a reminder using rofi
 keyreg $ModShift-m spawn ~/.local/bin/hc_reminders-add
 
-# hc_reminders-manage — manage ~/notifs.d directory
-keyreg $Mod-m spawn ~/.local/bin/hc_reminders-manage
-
-# hc_dismiss-notifs — dismiss ALL notifications (errors et al.)
-keyreg $ModCtrl-d   spawn ~/.local/bin/hc_dismiss-notifs
-
-# mod-comma: dismiss the current (top) notification
-keyreg $Mod-comma   spawn ~/.local/bin/hc_dunst-dismiss
-# mod-period: trigger the selected notification's action (default action
-# when one exists; the context menu for multiple/none)
-keyreg $Mod-period  spawn ~/.local/bin/hc_dunst-action
+# ModCtrl-d — expand: max the focused frame's split ratio; at the
+# maximum, collapse the adjacent EMPTY split (herbctl >= 1.7.1). The
+# notification dismissal it used to carry moved to mod-period.
+keyreg $ModCtrl-d   spawn ~/.local/bin/herbctl expand
 
 # hc_time-toggle — the glance clock (dclock): a 7-segment digital clock
 # on the floating layer, bottom-right, focus-stolen-free. Spawn on
