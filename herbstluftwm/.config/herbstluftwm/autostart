@@ -88,11 +88,13 @@ keyreg $Mod-c       spawn ~/.local/bin/herbctl command
 # ==== notifications — dunst ====
 # The old dunst_keybinds fragment is folded here (across 2026 as an
 # unsourced leftover since the keys.d merge — grave bindings live here
-# again). Also: mod-n / modshift-n for history, mod-comma/mod-period
-# for dismiss/action on the displayed stack.
-# dunst history is LIFO: repeated mod-n pops go older — the "previous
-# notification" navigation. There is no dunstctl API to detect whether
-# a history popup is open, so no conditional rebinding is possible.
+# again). 2026-11 muscle-memory remap: mod-comma SHOWS a notification
+# (history pop), mod-period HIDES the current one, mod-n opens the
+# context menu, modctrl-n triggers the action. modctrl-d stays
+# dismiss-all; modshift-n keeps the paced pop-all.
+# dunst history is LIFO: repeated mod-comma pops go older — the
+# "previous notification" navigation. There is no dunstctl API to
+# detect whether a history popup is open, so no conditional rebinding.
 keyreg $Mod-grave       spawn dunstctl history-pop
 keyreg $Mod-numbersign  spawn dunstctl close
 keyreg $ModCtrl-grave   spawn dunstctl context
@@ -102,36 +104,25 @@ keyreg Ctrl-Shift-grave spawn pause_notification_toggle
 # notification helpers live in ~/.local/bin (repo pattern: one hc_*
 # wrapper per dunst verb — keybind registration still goes through
 # hlwm's spawn, which is the only mechanism it offers for externals)
-keyreg $Mod-n      spawn ~/.local/bin/hc_dunst-pop
+
+# mod-comma: show the MOST RECENT notification (LIFO walk-back nav)
+keyreg $Mod-comma      spawn ~/.local/bin/hc_dunst-pop
+# mod-period: hide/dismiss the current (top) notification
+keyreg $Mod-period     spawn ~/.local/bin/hc_dunst-dismiss
+
+# mod-n: context menu for the current notification
+keyreg $Mod-n          spawn dunstctl context
+# modctrl-n: trigger the selected notification's action (default action
+# when one exists; the context menu for multiple/none)
+keyreg $ModCtrl-n      spawn ~/.local/bin/hc_dunst-action
 
 # paced pop of the whole history (via dunstctl history, id by id)
 keyreg $ModShift-n spawn ~/.local/bin/hc_dunst-pop-all
 
-# mod-period: dismiss ALL notifications (hc_dismiss-notifs; formerly
-# hc_dunst-action's trigger, dropped 2026-11)
-keyreg $Mod-period  spawn ~/.local/bin/hc_dismiss-notifs
+# modctrl-d: dismiss ALL notifications (errors et al.) — mod-period is
+# the single-notification dismissal above
+keyreg $ModCtrl-d spawn ~/.local/bin/hc_dismiss-notifs
 
-# mod-comma: trigger the selected notification's action (default action
-# when one exists; the context menu for multiple/none) — the 2026-11
-# swap with the top-notification dismissal, which moved to mod-m
-keyreg $Mod-comma   spawn ~/.local/bin/hc_dunst-action
-
-# mod-m: dismiss the current (top) notification (hc_dunst-dismiss;
-# formerly hc_reminders-manage, dropped 2026-11)
-keyreg $Mod-m       spawn ~/.local/bin/hc_dunst-dismiss
-
-# hc_reminders-add — add a reminder using rofi
-keyreg $ModShift-m spawn ~/.local/bin/hc_reminders-add
-
-# ModCtrl-d — expand: max the focused frame's split ratio; at the
-# maximum, collapse the adjacent EMPTY split (herbctl >= 1.7.1). The
-# notification dismissal it used to carry moved to mod-period.
-keyreg $ModCtrl-d   spawn ~/.local/bin/herbctl expand
-
-# hc_time-toggle — the glance clock (dclock): a 7-segment digital clock
-# on the floating layer, bottom-right, focus-stolen-free. Spawn on
-# first press, terminate on the next.
-keyreg $Mod-z spawn ~/.local/bin/hc_time-toggle
 
 keyreg $Mod-w spawn ~/.local/bin/herbctl get-forward
 

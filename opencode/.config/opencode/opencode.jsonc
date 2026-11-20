@@ -98,8 +98,22 @@
           "reasoning": true,
           "tool_call": true
         },
+        "unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE": {
+          "name": "GLM 4.7 MXFP4 Unsloth",
+          "attachment": true,
+          "reasoning": true,
+          "temperature": 1.0,
+          "top_p": 0.95,
+          "model_options": {
+            "options": {
+              "--repeat-penalty": 1.0,
+              "--min-p": 0.01
+            }
+          },
+          "tool_call": true
+        },
         "ollama/hf.co/unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE": {
-          "name": "GLM 4.7 Flash MXFP4 MOE",
+          "name": "GLM 4.7 Flash MXFP4 MOE Ollama",
           "limit": {
             "context": 131072,
             "output": 8192
