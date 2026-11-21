@@ -22,34 +22,53 @@ mkdir -p "$lean_home/.config/opencode" "$lean_home/.local/share" "$lean_home/.ru
 # the real config (stow link -> dots), comments preserved via the .jsonc copy
 cp "$HOME/.config/opencode/opencode.jsonc" "$lean_home/.config/opencode/opencode.jsonc"
 
-# strip the whole mcp block: brace-count from the "mcp" key so the
-# block position (middle or end of the top-level object) doesn't matter
-python3 - "$lean_home/.config/opencode/opencode.jsonc" <<'PYEOF'
-import re, sys
-p = sys.argv[1]
-s = open(p).read()
-m = re.search(r'"mcp":\s*\{', s)
-if m:
-    i = m.end()
-    depth = 1
-    while depth > 0:
-        c = s[i]
-        if c == "{":
-            depth += 1
-        elif c == "}":
-            depth -= 1
-        i += 1
-    # trailing comma cleanup: drop ",\n" before if the block was last
-    end = i
-    while s[end] in " \n\t":
-        end += 1
-    if s[end] == "}":
-        stripped = s[:m.start()].rstrip().rstrip(",")
-        s = stripped + "\n" + s[end:]
-    else:
-        s = s[:m.start()] + s[i:]
-    open(p, "w").write(s)
-PYEOF
+# strip the whole mcp block: from the line holding `"mcp": {` through
+# its balanced close. Pure bash — repo quirk 13: no python, no awk.
+# The config is machine-generated here (we copied it), so we lean on a
+# simple, total line transform:
+#   - lines before the mcp opener are kept
+#   - the opener line through the line where depth returns to 0 are cut
+#   - everything after is kept
+strip_mcp_block() {
+	local file=$1 out="" line depth=0 state=0
+	while IFS= read -r line; do
+		if [ "$state" = 0 ]; then
+			case "$line" in
+			*"\"mcp\": "*")"*) ;; # not our shape; keep below
+			*"\"mcp\": "*"{")
+				state=1
+				depth=1
+				local tail=${line#*\"mcp\": }
+				tail=${tail#\{}
+				local j
+				for ((j = 0; j < ${#tail}; j++)); do
+					case "${tail:j:1}" in
+					"{") depth=$((depth + 1)) ;;
+					"}") depth=$((depth - 1)) ;;
+					esac
+				done
+				[ "$depth" -le 0 ] && state=2
+				continue
+				;;
+			esac
+			out+="$line"$'\n'
+		elif [ "$state" = 1 ]; then
+			local j
+			for ((j = 0; j < ${#line}; j++)); do
+				case "${line:j:1}" in
+				"{") depth=$((depth + 1)) ;;
+				"}") depth=$((depth - 1)) ;;
+				esac
+			done
+			[ "$depth" -le 0 ] && state=2
+		else
+			out+="$line"$'\n'
+		fi
+	done < "$file"
+	# repair a trailing comma left by a now-removed last block
+	printf '%s' "$out" | sed -e ':a' -e 'N' -e '$!ba' -e 's/,\n}/\n}/'
+}
+strip_mcp_block "$lean_home/.config/opencode/opencode.jsonc"
 
 export HOME="$lean_home"
 export XDG_CONFIG_HOME="$lean_home/.config"

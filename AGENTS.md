@@ -82,11 +82,11 @@ Every manifest is ONE file (stows, wm, system, services):
   skip-worktree flags, no stash dances, no phantom dirtiness for the
   reconfigure gate. Push the user branch like any other
   (`git push origin <user>`).
-- **The update flow**: `make update` / `make force-upgrade` fetch,
-  then — user branch exists → REBASE it onto origin/main; not → the
-  plain mainline fast-forward (fallback rebase --autostash). A rebase
-  CONFLICT is the volition point: resolve by hand, `git rebase
-  --continue`.
+- **The update flow**: `make update` / `force-upgrade` fetch, then —
+  the CURRENT branch is anything but `main` → REBASE it onto
+  origin/main (a rebase CONFLICT is the volition point: resolve by
+  hand, `git rebase --continue`); on main → the plain mainline
+  fast-forward (fallback rebase --autostash).
 
 Layer contents:
 - stows — the stow package list (space-separated lines, `#` comments);
@@ -305,6 +305,28 @@ them automatically in the background).
   asking for the raw command bypasses the machinery the repo
   documents.
 - TUI/session gates: `make configure` is tty-only without `FORCE=1`.
+
+## The development repo — ~/development (NOT a dots package)
+
+The personal/workspace repo `~/development` (its own git remote,
+`github.com/akinevz2/development`, synced independently) is reachable
+from dots scope via the gitignored `dots/development` symlink. It is
+NOT stowed, NOT tracked by dots git, and never enters any deploy flow
+— its 3.9 GB tree, nested repos, and its own submodule machinery
+(`system/{herbctl,polyframes,herbstutil,on-deploy,polytags}` — the
+same projects dots tracks as submodules, TWO separate checkouts)
+stay out of every dots update/stow walk by design.
+
+- When a dots-scope task points into `~/development`, edit there
+  directly (the opencode permission config allows `~/development/**`)
+  and follow that repo's OWN AGENTS.md for its conventions.
+- The dots submodule sources live under `dots/<pkg>/.local/share/…`,
+  NOT under `~/development/system/…` — never confuse the two checkouts.
+- This machine's working branch: `development` (checked out; the
+  update flow rebases the CURRENT branch onto origin/main whenever it
+  is not main — see USER_BRANCH_FLOW in the Makefile). main stays the
+  user-adoption-friendly line; features mature on development and are
+  cherry-picked to main.
 
 ## Quirks and conventions
 

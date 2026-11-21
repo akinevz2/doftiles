@@ -60,3 +60,6 @@ oama/.local/bin/
 
 # the notion package: the integration token never enters the repo
 opencode/.config/notion/
+
+# the development repo (its own git remote; stow is not involved)
+/development

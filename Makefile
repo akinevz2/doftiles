@@ -444,16 +444,18 @@ status:
 MANIFESTS := stow.depends wm.depends system.depends services.depends
 
 # USER_BRANCH_FLOW — the shared pull body of update / force-upgrade:
-# fetch, then rebase the user branch when it exists, else fast-forward
+# fetch, then rebase the CURRENT working branch onto origin/main when
+# it is anything but main (the machine's dev branch — e.g. development
+# — is recognized by being checked out, not by name), else fast-forward
 # main (fallback rebase --autostash for a dirty mainline tree)
 define USER_BRANCH_FLOW
 	git fetch origin; \
-	u=$$(id -un 2>/dev/null); \
-	if [ -n "$$u" ] && git show-ref --verify --quiet refs/heads/$$u; then \
-		echo "update: user branch '$$u' found — rebasing onto origin/main"; \
+	u=$$(git symbolic-ref --quiet --short HEAD 2>/dev/null); \
+	if [ -n "$$u" ] && [ "$$u" != "main" ]; then \
+		echo "update: working branch '$$u' found — rebasing onto origin/main"; \
 		git rebase origin/main; \
 	else \
-		echo "update: no user branch — mainline fast-forward"; \
+		echo "update: on main — mainline fast-forward"; \
 		git merge --ff-only origin/main 2>/dev/null || git pull --rebase --autostash; \
 	fi
 endef
