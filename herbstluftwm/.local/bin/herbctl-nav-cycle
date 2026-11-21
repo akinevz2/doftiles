@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# herbctl-nav-cycle — dual-behavior cycling for mod-w and mod-e
+# First tries intra-frame cycling, falls back to inter-frame when not available
+
+set -euo pipefail
+
+MODE=${1:-get-forward}
+HERBCTL="$HOME/.local/bin/herbctl"
+
+# First try intra-frame cycling (within the current frame)
+herbctl cycle +1 2>/dev/null && exit 0
+
+# Fallback to inter-frame navigation if intra-frame fails
+case "$MODE" in
+    get-forward|shift-up)
+        # Try moving the window to the next frame
+        herbctl shift-up 2>/dev/null && exit 0
+        # Last resort: rotate the frame tree
+        herbctl rotate-tree 2>/dev/null && exit 0
+        ;;
+    explode-frame|split-new)
+        # Try cycling to the next frame
+        herbctl explode-frame 2>/dev/null && exit 0
+        # Last resort: cycle windows backward
+        herbctl cycle -1 2>/dev/null && exit 0
+        ;;
+    *)
+        # Generic fallback
+        herbctl shift-up 2>/dev/null || herbctl rotate-tree 2>/dev/null || true
+        ;;
+esac
