@@ -1,39 +1,57 @@
 #!/usr/bin/env bash
-# herbctl-nav-cycle — dual-behavior cycling for mod-w and mod-e
-# First attempts specific intra-frame cycling, falls back to non-destructive frame navigation
+# herbctl-nav-cycle — the dual-behavior intra/inter-frame cycling for
+# $Mod-w and $Mod-e.
+#
+# Primary behavior is intra-frame client cycling (non-destructive):
+#   $Mod-w: cycle -1 (negative direction within the frame)
+#   $Mod-e: cycle +1 (positive direction within the frame)
+#
+# At the frame's edge — the focused client IS the frame's first
+# (negative direction) or last (positive direction) client, or the
+# frame holds a single client — the key hands off to FRAME cycling
+# (cycle_frame, focus-only, never modifies the layout):
+#   $Mod-w: cycle_frame +1 (positive direction)
+#   $Mod-e: cycle_frame -1 (negative direction)
+#
+# Edge detection uses tags.focus.curframe_windex / curframe_wcount.
+# The floating layer is left first (the get-forward pre-step), so
+# cycling never runs while a float holds focus.
+#
+# Layout-modifying navigation (shift-up / rotate-tree) stays reserved
+# for the $ModShift-* keybinds — this script never moves clients.
 
 set -euo pipefail
 
-MODE=${1:-get-forward}
-HERBCTL="$HOME/.local/bin/herbctl"
+MODE=${1:-}
+HC=$HOME/.local/bin/herbctl
 
-# Mod-w: Reverse intra-frame cycling (backward), then frame cycle WITHOUT modifying layout
-if [ "$MODE" = "get-forward" ]; then
-    # Mod-w: Try backward cycle within frame (-1)
-    herbctl cycle -1 2>/dev/null && exit 0
-
-    # Fallback: rotate-tree (frame cycle without modifying layout)
-    herbctl rotate-tree 2>/dev/null && exit 0
-
-    exit 0
+# The float-layer pre-step: a focused float takes the cycling first.
+if [ "$(herbstclient attr tags.focus.floating_focused 2>/dev/null)" = "true" ]; then
+    herbstclient attr tags.focus.floating_focused off
 fi
 
-# Mod-e: Cycle within frame forwards (+1), then frame cycling
-if [ "$MODE" = "explode-frame" ]; then
-    # Mod-e: Try forward cycle within frame (+1)
-    herbctl cycle +1 2>/dev/null && exit 0
+wcount=$(herbstclient attr tags.focus.curframe_wcount 2>/dev/null || echo 0)
+windex=$(herbstclient attr tags.focus.curframe_windex 2>/dev/null || echo 0)
 
-    # Fallback: cycle/explode frames
-    herbctl explode-frame 2>/dev/null || true
-    exit 0
-fi
-
-# Default fallback behavior
 case "$MODE" in
-    shift-up)
-        herbctl shift-up 2>/dev/null || herbctl rotate-tree 2>/dev/null || true
+    get-forward)
+        # $Mod-w: intra-frame NEGATIVE cycling, frame cycle +1 at the edge.
+        if [ "$wcount" -gt 1 ] && [ "$windex" -gt 0 ]; then
+            herbstclient cycle -1
+        else
+            herbstclient cycle_frame +1
+        fi
+        ;;
+    explode-frame)
+        # $Mod-e: intra-frame POSITIVE cycling, frame cycle -1 at the edge.
+        if [ "$wcount" -gt 1 ] && [ "$windex" -lt $((wcount - 1)) ]; then
+            herbstclient cycle +1
+        else
+            herbstclient cycle_frame -1
+        fi
         ;;
     *)
-        herbctl cycle +1 2>/dev/null || herbctl rotate-tree 2>/dev/null || true
+        echo "usage: herbctl-nav-cycle {get-forward|explode-frame}" >&2
+        exit 2
         ;;
 esac
