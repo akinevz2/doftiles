@@ -1,22 +1,20 @@
 #!/usr/bin/env bash
 # herbctl-nav-cycle — dual-behavior cycling for mod-w and mod-e
-# First attempts specific intra-frame cycling, falls back to inter-frame navigation
+# First attempts specific intra-frame cycling, falls back to non-destructive frame navigation
 
 set -euo pipefail
 
 MODE=${1:-get-forward}
 HERBCTL="$HOME/.local/bin/herbctl"
 
-# Mod-w: Reverse intra-frame cycling (backward), then frame navigation
+# Mod-w: Reverse intra-frame cycling (backward), then frame cycle WITHOUT modifying layout
 if [ "$MODE" = "get-forward" ]; then
     # Mod-w: Try backward cycle within frame (-1)
     herbctl cycle -1 2>/dev/null && exit 0
 
-    # Fallback: shift-up (inter-frame navigation)
-    herbctl shift-up 2>/dev/null && exit 0
+    # Fallback: rotate-tree (frame cycle without modifying layout)
+    herbctl rotate-tree 2>/dev/null && exit 0
 
-    # Last resort: rotate the frame tree
-    herbctl rotate-tree 2>/dev/null || true
     exit 0
 fi
 
@@ -36,6 +34,6 @@ case "$MODE" in
         herbctl shift-up 2>/dev/null || herbctl rotate-tree 2>/dev/null || true
         ;;
     *)
-        herbctl cycle +1 2>/dev/null || herbctl shift-up 2>/dev/null || true
+        herbctl cycle +1 2>/dev/null || herbctl rotate-tree 2>/dev/null || true
         ;;
 esac
