@@ -126,7 +126,7 @@ keyreg $ModCtrl-d spawn ~/.local/bin/hc_dismiss-notifs
 
 keyreg $Mod-w spawn ~/.local/bin/herbctl-nav-cycle get-forward
 # Mod-w: intra-frame cycle -1 (negative); at the frame's edge (first
-# client, or a single-client frame) it hands off to cycle_frame +1 —
+# client, or a single-client frame) it hands off to cycle_frame -1 —
 # focus-only frame cycling, never layout modification
 
 # ModShift-w: mirror of Mod-w's cycle -1 register — first tries shifting
@@ -212,18 +212,19 @@ keyreg $ModCtrl-r spawn ~/.local/bin/herbctl rotate-tree
 
 keyreg $Mod-e spawn ~/.local/bin/herbctl-nav-cycle explode-frame
 # Mod-e: intra-frame cycle +1 (positive); at the frame's edge (last
-# client, or a single-client frame) it hands off to cycle_frame -1 —
+# client, or a single-client frame) it hands off to cycle_frame +1 —
 # the reverse of Mod-w's frame direction, focus-only
 
-# cycle; was $Mod-s / $ModShift-s
-# zoom/peek grid — focuses the frame below first; when there is none,
-# falls back to the window cycle / pseudotile toggle
+# zoom/peek grid head — focuses the frame below first (urgent jumpto
+# and the float-layer branch are kept); the pseudotile toggle block is
+# replaced by the reverse-of-Mod-w cycling (intra-frame +1, edge →
+# cycle_frame +1), handled by herbctl-nav-cycle get-south
 # The floating branch: `attr tags.focus.floating_focused true` focuses
 # the floating layer AND doubles as the "are there (non-minimized)
 # floats" conditional — it fails on an empty floating layer, falling
 # through to the alternatives (the failure is quieted in the
 # hc_send-error-daemon's QUIET_MATCH).
-keyreg $Mod-s spawn ~/.local/bin/herbctl get-south
+keyreg $Mod-s spawn ~/.local/bin/herbctl-nav-cycle get-south
 
 # ==== herbst_floating — the float registers (mod-f / mod-x / mod-ctrl-f) ====
 

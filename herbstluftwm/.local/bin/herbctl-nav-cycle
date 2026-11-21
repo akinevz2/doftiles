@@ -10,8 +10,8 @@
 # (negative direction) or last (positive direction) client, or the
 # frame holds a single client — the key hands off to FRAME cycling
 # (cycle_frame, focus-only, never modifies the layout):
-#   $Mod-w: cycle_frame +1 (positive direction)
-#   $Mod-e: cycle_frame -1 (negative direction)
+#   $Mod-w: cycle_frame -1 (negative direction)
+#   $Mod-e: cycle_frame +1 (positive direction — the reverse of Mod-w)
 #
 # Edge detection uses tags.focus.curframe_windex / curframe_wcount.
 # The floating layer is left first (the get-forward pre-step), so
@@ -39,15 +39,33 @@ case "$MODE" in
         if [ "$wcount" -gt 1 ] && [ "$windex" -gt 0 ]; then
             herbstclient cycle -1
         else
-            herbstclient cycle_frame +1
+            herbstclient cycle_frame -1
         fi
         ;;
     explode-frame)
-        # $Mod-e: intra-frame POSITIVE cycling, frame cycle -1 at the edge.
+        # $Mod-e: intra-frame POSITIVE cycling, frame cycle +1 at the edge.
         if [ "$wcount" -gt 1 ] && [ "$windex" -lt $((wcount - 1)) ]; then
             herbstclient cycle +1
         else
-            herbstclient cycle_frame -1
+            herbstclient cycle_frame +1
+        fi
+        ;;
+    get-south)
+        # $Mod-s: the getSouth head kept verbatim (urgent jumpto, else
+        # frame-down focus; `or` stops at the first success), then the
+        # float-layer branch, then — in place of the pseudotile toggle
+        # machinery — the REVERSE of Mod-w: intra-frame cycle +1, edge
+        # → cycle_frame +1.
+        if herbstclient or , and . compare tags.focus.urgent_count gt 0 . jumpto urgent , focus --level=frame down; then
+            exit 0
+        fi
+        if herbstclient and . attr tags.focus.floating_focused true . attr tags.focus.focused_client.floating off; then
+            exit 0
+        fi
+        if [ "$wcount" -gt 1 ] && [ "$windex" -lt $((wcount - 1)) ]; then
+            herbstclient cycle +1
+        else
+            herbstclient cycle_frame +1
         fi
         ;;
     *)
