@@ -276,3 +276,31 @@ then split the covered child along the perpendicular edge; generalize by
 iterating over remaining covered children one float at a time. Not yet
 implemented; the tool reports `unsupported` with the free-rect geometry
 so a manual two-split can be done.
+
+## 8. Stalled / never-terminating builds: timeout discipline
+
+The submodule builds (`herbctl`, `polyframes` — bunli standalone
+compiles, ~120 MB artifacts) and the on-deploy walks CAN stall or
+recurse. Hard rules learned 2026-11-20/21:
+
+- **Every agentic build/deploy invocation carries a timeout.** Either
+  the repo knob — `make install YES=1 TIMEOUT=300` (the root Makefile's
+  `TIMEOUT` caps EACH `on-deploy` sub-invocation, not the whole recipe)
+  — or a shell `timeout <s> make build` around the whole command. Never
+  launch a build/deploy bare: a runaway compile or a recursive
+  make<->on-deploy walk eats RAM (observed: full 31 Gi).
+- **The recursion class to recognise:** the bunli adapters' `link:`
+  recipes delegate to `on-deploy managed <pkg> link`; an OUT-OF-DATE
+  deployed `on-deploy` binary paired with NEW adapters loops
+  make <-> on-deploy forever (make[24]-style nested levels). Symptom:
+  `make[N]: *** [Makefile:<line>: link] Error 1` cascades. Fix: rebuild
+  the binary FIRST (`make on-deploy`), then the packages.
+- **Diagnose statically before re-running.** A dirty submodule checkout
+  (churned `bun.lock`/`package.json` from a killed deps-install) +
+  `make update`'s loud dirty-tree guard means the next build's
+  freshness pass re-resolves a mismatched dep graph. `git -C
+  <submodule> diff --stat` and `git checkout -- bun.lock package.json`
+  FIRST; never "just run it again".
+- **Cleanup after a kill:** `pkill -9 -f bunli; pkill -9 -f "make build"`,
+  then `free -h` to confirm; `git checkout -- <lockfiles>`; then the
+  rebuild under a timeout.
