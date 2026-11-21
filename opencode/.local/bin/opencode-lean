@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# opencode-lean — run opencode WITHOUT the MCP servers (github, notion,
+# job-search). For local/small-model sessions where the MCP tool
+# definitions would eat the context budget. Everything else (providers,
+# plugins, skills, permissions) mirrors the real global config.
+#
+# Mechanism: the mcp `enabled: false` knob is IGNORED by opencode
+# v2.3.2 (verified 2026-11-21 — servers load even when disabled), and
+# project-level mcp overrides are ignored too. The only working
+# suppression is omitting the servers from the config entirely. This
+# wrapper materialises a throwaway config home with the mcp block
+# stripped, regenerated from the live config on EVERY run (no drift),
+# then execs opencode against it.
+
+lean_home="${OPENCODE_LEAN_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/opencode-lean}"
+
+rm -rf "$lean_home"
+mkdir -p "$lean_home/.config/opencode" "$lean_home/.local/share" "$lean_home/.run"
+
+# the real config (stow link -> dots), comments preserved via the .jsonc copy
+cp "$HOME/.config/opencode/opencode.jsonc" "$lean_home/.config/opencode/opencode.jsonc"
+
+# strip the whole mcp block: brace-count from the "mcp" key so the
+# block position (middle or end of the top-level object) doesn't matter
+python3 - "$lean_home/.config/opencode/opencode.jsonc" <<'PYEOF'
+import re, sys
+p = sys.argv[1]
+s = open(p).read()
+m = re.search(r'"mcp":\s*\{', s)
+if m:
+    i = m.end()
+    depth = 1
+    while depth > 0:
+        c = s[i]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+        i += 1
+    # trailing comma cleanup: drop ",\n" before if the block was last
+    end = i
+    while s[end] in " \n\t":
+        end += 1
+    if s[end] == "}":
+        stripped = s[:m.start()].rstrip().rstrip(",")
+        s = stripped + "\n" + s[end:]
+    else:
+        s = s[:m.start()] + s[i:]
+    open(p, "w").write(s)
+PYEOF
+
+export HOME="$lean_home"
+export XDG_CONFIG_HOME="$lean_home/.config"
+export XDG_DATA_HOME="$lean_home/.local/share"
+export XDG_RUNTIME_DIR="$lean_home/.run"
+mkdir -p "$XDG_RUNTIME_DIR"
+
+exec opencode "$@"
