@@ -1,31 +1,41 @@
 #!/usr/bin/env bash
 # herbctl-nav-cycle — dual-behavior cycling for mod-w and mod-e
-# First tries intra-frame cycling, falls back to inter-frame when not available
+# First attempts specific intra-frame cycling, falls back to inter-frame navigation
 
 set -euo pipefail
 
 MODE=${1:-get-forward}
 HERBCTL="$HOME/.local/bin/herbctl"
 
-# First try intra-frame cycling (within the current frame)
-herbctl cycle +1 2>/dev/null && exit 0
+# Mod-w: Reverse intra-frame cycling (backward), then frame navigation
+if [ "$MODE" = "get-forward" ]; then
+    # Mod-w: Try backward cycle within frame (-1)
+    herbctl cycle -1 2>/dev/null && exit 0
 
-# Fallback to inter-frame navigation if intra-frame fails
+    # Fallback: shift-up (inter-frame navigation)
+    herbctl shift-up 2>/dev/null && exit 0
+
+    # Last resort: rotate the frame tree
+    herbctl rotate-tree 2>/dev/null || true
+    exit 0
+fi
+
+# Mod-e: Cycle within frame forwards (+1), then frame cycling
+if [ "$MODE" = "explode-frame" ]; then
+    # Mod-e: Try forward cycle within frame (+1)
+    herbctl cycle +1 2>/dev/null && exit 0
+
+    # Fallback: cycle/explode frames
+    herbctl explode-frame 2>/dev/null || true
+    exit 0
+fi
+
+# Default fallback behavior
 case "$MODE" in
-    get-forward|shift-up)
-        # Try moving the window to the next frame
-        herbctl shift-up 2>/dev/null && exit 0
-        # Last resort: rotate the frame tree
-        herbctl rotate-tree 2>/dev/null && exit 0
-        ;;
-    explode-frame|split-new)
-        # Try cycling to the next frame
-        herbctl explode-frame 2>/dev/null && exit 0
-        # Last resort: cycle windows backward
-        herbctl cycle -1 2>/dev/null && exit 0
+    shift-up)
+        herbctl shift-up 2>/dev/null || herbctl rotate-tree 2>/dev/null || true
         ;;
     *)
-        # Generic fallback
-        herbctl shift-up 2>/dev/null || herbctl rotate-tree 2>/dev/null || true
+        herbctl cycle +1 2>/dev/null || herbctl shift-up 2>/dev/null || true
         ;;
 esac

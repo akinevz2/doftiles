@@ -125,8 +125,7 @@ keyreg $ModCtrl-d spawn ~/.local/bin/hc_dismiss-notifs
 
 
 keyreg $Mod-w spawn ~/.local/bin/herbctl-nav-cycle get-forward
-# Mod-w: dual-behavior cycle — first cycles windows within the frame,
-# falls back to inter-frame navigation (shift-up/rotate-tree) if not applicable
+# Mod-w: reverse intra-frame cycling (backward via cycle -1) with frame navigation fallback
 
 # ModShift-w: mirror of Mod-w's cycle -1 register — first tries shifting
 # the window up (#window leaves the frame, --level=all); when there is
@@ -210,8 +209,7 @@ keyreg $ModShift-period     shift right
 keyreg $ModCtrl-r spawn ~/.local/bin/herbctl rotate-tree
 
 keyreg $Mod-e spawn ~/.local/bin/herbctl-nav-cycle explode-frame
-# Mod-e: dual-behavior frame cycle — first cycles/explodes frames,
-# falls back to intra-frame window cycling if not applicable
+# Mod-e: forward intra-frame cycling (via cycle +1) with frame cycling fallback
 
 # cycle; was $Mod-s / $ModShift-s
 # zoom/peek grid — focuses the frame below first; when there is none,
