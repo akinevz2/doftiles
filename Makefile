@@ -49,6 +49,14 @@ WM_PACKAGES      := $(shell grep -vi '^#' $(WM_PACKAGES_FILE))
 # recovers from stow conflicts (repo unstow, then retry)
 F := $(if $(filter 1,$(FORCE)),-f,)
 
+# TIMEOUT=<seconds> — the agentic-run knob: caps EACH on-deploy
+# sub-invocation (never the overall recipe) so a stalled/never-
+# terminating deploy step (a hung package walk, a wedged configure)
+# fails loudly instead of eating the session. Unset/empty = no cap.
+# Usage: make install YES=1 TIMEOUT=300
+TIMEOUT ?=
+TIMEOUT_CMD := $(if $(TIMEOUT),timeout $(TIMEOUT),)
+
 # WHEN CONFIGURE RUNS (the install target): only on a CLEAN-INSTALL (no
 # recorded doftiles.conf yet), when a required manifest/recorded-conf
 # file is modified or conflicting (post-rebase UU/DD noise included),
@@ -143,7 +151,7 @@ sudo:
 # package Makefile). Explicit chain: make depends bootstrap install
 bootstrap: depends bun rustup
 	@$(SELF) trust
-	$(ONDEPLOY_BIN) depends --install $(F)
+	$(TIMEOUT_CMD) $(ONDEPLOY_BIN) depends --install $(F)
 
 # bun / rustup — the toolchain recipes (DISPENSABLE in-name file-style
 # targets: deliberately NOT in .PHONY, though no file `bun`/`rustup`
@@ -154,19 +162,19 @@ bootstrap: depends bun rustup
 # UPFRONT (a clean TTY before anything runs) and ERRORS OUT (never
 # hangs) when it cannot be obtained — sudo-via-make fails on purpose.
 bun:
-	@if $(ONDEPLOY_BIN) toolchain --bun --check; then \
+	@if $(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --bun --check; then \
 		echo "bun: present (skip)"; \
 	else \
 		$(SELF) sudo || exit 1; \
-		$(ONDEPLOY_BIN) toolchain --bun --yes $(F); \
+		$(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --bun --yes $(F); \
 	fi
 
 rustup:
-	@if $(ONDEPLOY_BIN) toolchain --rustup --check; then \
+	@if $(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --rustup --check; then \
 		echo "rustup: present (skip)"; \
 	else \
 		$(SELF) sudo || exit 1; \
-		$(ONDEPLOY_BIN) toolchain --rustup --yes $(F); \
+		$(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --rustup --yes $(F); \
 	fi
 
 # trust — the bun postinstall policy steps for every checked-out bun
@@ -180,8 +188,8 @@ trust:
 # checked (each verb: the --check query first, the system install only
 # when absent — the FORCE knob feeds --yes/-f).
 toolchain: depends
-	$(ONDEPLOY_BIN) toolchain --bun --check || $(ONDEPLOY_BIN) toolchain --bun --yes $(F)
-	$(ONDEPLOY_BIN) toolchain --rustup --check || $(ONDEPLOY_BIN) toolchain --rustup --yes $(F)
+	$(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --bun --check || $(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --bun --yes $(F)
+	$(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --rustup --check || $(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --rustup --yes $(F)
 
 # configure — the reconfiguration gate for force-upgrade (before stow):
 # on an upgrade the deployment knobs may have changed — offer the TUI
@@ -191,7 +199,7 @@ toolchain: depends
 # else errors out instead of hanging on the TUI.
 configure:
 	@if [ -t 0 ] || [ -n "$(F)" ]; then \
-		$(ONDEPLOY_BIN) configure $(F); \
+		$(TIMEOUT_CMD) $(ONDEPLOY_BIN) configure $(F); \
 	else \
 		echo "configure: non-tty, no FORCE=1" >&2; \
 		echo "  rerun: FORCE=1 make configure" >&2; \
@@ -243,6 +251,8 @@ help:
 	@echo "      missing (YES=1 headless; sudo grant on a tty)"
 	@echo "knobs:"
 	@echo "  FORCE=1    the non-interactive + fail-safe knob (retry after unstow)"
+	@echo "  YES=1      bypass confirmations (headless)"
+	@echo "  TIMEOUT=<s>  cap EACH on-deploy sub-invocation (agentic deploys)"
 
 # add-packages — the wm.depends requirement walk: verify every binary,
 # install the MISSING ones through the <target>.deploy protocol (the
@@ -250,7 +260,7 @@ help:
 # Headless: YES=1 installs without confirmations (still needs the sudo
 # grant); without it the walk fails fast listing the missing binaries.
 add-packages:
-	@$(ONDEPLOY_BIN) install $(if $(YES),--yes)
+	@$(TIMEOUT_CMD) $(ONDEPLOY_BIN) install $(if $(YES),--yes)
 
 # ── on-deploy itself ──────────────────────────────────────────────────
 # on-deploy — rebuilds dots/on-deploy/.local/bin/on-deploy from the
@@ -310,23 +320,23 @@ install: on-deploy
 	if [ -n "$$reason" ]; then \
 		echo "install: configure ($$reason)"; \
 		if [ -n "$(YES)" ]; then \
-			ONDEPLOY_INSTALL_CHAIN=1 $(ONDEPLOY_BIN) configure </dev/null; \
+			ONDEPLOY_INSTALL_CHAIN=1 $(TIMEOUT_CMD) $(ONDEPLOY_BIN) configure </dev/null; \
 		else \
-			ONDEPLOY_INSTALL_CHAIN=1 $(ONDEPLOY_BIN) configure; \
+			ONDEPLOY_INSTALL_CHAIN=1 $(TIMEOUT_CMD) $(ONDEPLOY_BIN) configure; \
 		fi; \
 	else \
 		echo "install: configure skipped (config recorded; manifests clean — 'on-deploy configure' to edit)"; \
 	fi; \
 	rc=$$?; \
 	if [ $$rc -eq 130 ]; then exit 130; elif [ $$rc -ne 0 ]; then echo "install: configure FAILED — continuing (recorded config kept)"; fi; \
-	if $(ONDEPLOY_BIN) install $(if $(YES),--yes); then \
+	if $(TIMEOUT_CMD) $(ONDEPLOY_BIN) install $(if $(YES),--yes); then \
 		echo "install: requirement walk ok"; \
 	else \
 		echo "install: requirement walk FAILED — wm.depends binaries remain missing" >&2; \
 		echo "  (headless: no tty for the sudo grant — re-run 'make add-packages' on a tty, or install YES=1 with credentials granted)" >&2; \
 	fi; \
-	$(ONDEPLOY_BIN) preserve --only "$(WM_PACKAGES)"; \
-	$(ONDEPLOY_BIN) packages install $(WM_PACKAGES); \
+	$(TIMEOUT_CMD) $(ONDEPLOY_BIN) preserve --only "$(WM_PACKAGES)"; \
+	$(TIMEOUT_CMD) $(ONDEPLOY_BIN) packages install $(WM_PACKAGES); \
 	$(SELF) bashrc; \
 	$(SELF) status
 
@@ -337,7 +347,7 @@ install: on-deploy
 # and re-folds the binary into the package's .local/bin. stow therefore
 # depends on the build step, so `make stow` deploys the latest source.
 all stow wm restow: on-deploy build
-	@$(ONDEPLOY_BIN) stow --only "$(WM_PACKAGES)"
+	@$(TIMEOUT_CMD) $(ONDEPLOY_BIN) stow --only "$(WM_PACKAGES)"
 	@$(SELF) bashrc
 
 # bashrc — the shell package's post-stow hook: ensure ~/.bashrc sources
@@ -384,27 +394,27 @@ build: on-deploy
 ONDEPLOY_RUN := $(shell if [ -x "$(ONDEPLOY_BIN)" ]; then echo $(ONDEPLOY_BIN); else echo $(CURDIR)/on-deploy/.local/bin/on-deploy; fi)
 
 stow-%:
-	@$(ONDEPLOY_RUN) stow --only "$*"
+	@$(TIMEOUT_CMD) $(ONDEPLOY_RUN) stow --only "$*"
 
 unstow-%:
-	@$(ONDEPLOY_RUN) unstow --only "$*"
+	@$(TIMEOUT_CMD) $(ONDEPLOY_RUN) unstow --only "$*"
 
 # unstow / clean — remove the links (the user's real files stay)
 unstow clean: on-deploy
-	@$(ONDEPLOY_BIN) unstow --only "$(WM_PACKAGES)"
+	@$(TIMEOUT_CMD) $(ONDEPLOY_BIN) unstow --only "$(WM_PACKAGES)"
 
 # ── services (the services.depends manifest, driven by on-deploy) ────────
 services-check: on-deploy
-	@$(ONDEPLOY_BIN) services check
+	@$(TIMEOUT_CMD) $(ONDEPLOY_BIN) services check
 
 services-start: on-deploy
-	@$(ONDEPLOY_BIN) services start
+	@$(TIMEOUT_CMD) $(ONDEPLOY_BIN) services start
 
 services-stop: on-deploy
-	@$(ONDEPLOY_BIN) services stop
+	@$(TIMEOUT_CMD) $(ONDEPLOY_BIN) services stop
 
 restart: on-deploy
-	@$(ONDEPLOY_BIN) services restart
+	@$(TIMEOUT_CMD) $(ONDEPLOY_BIN) services restart
 
 # ── reporting / maintenance ───────────────────────────────────────────
 # status — a READ verb: no submodule fetch, no build, no restow. The
@@ -417,8 +427,8 @@ status:
 		echo "status: on-deploy binary missing — run 'make on-deploy' first" >&2; \
 		exit 1; \
 	fi
-	@-$(ONDEPLOY_RUN) check
-	@$(ONDEPLOY_RUN) services status
+	@-$(TIMEOUT_CMD) $(ONDEPLOY_RUN) check
+	@$(TIMEOUT_CMD) $(ONDEPLOY_RUN) services status
 	@if [ ! -f "$(HOME)/.my-credentials" ]; then \
 		echo "status: reminder — $(HOME)/.my-credentials is not set up; run 'on-deploy configure' on a tty to record your git identity"; \
 	fi
@@ -494,8 +504,8 @@ update:
 	# toolchain assurance ONLY when the check says missing: the recipes'
 	# sudo prerequisite is skipped entirely on a healthy machine (a
 	# headless update must not demand a root grant for a no-op)
-	@$(ONDEPLOY_BIN) toolchain --bun --check || $(SELF) bun FORCE=$(FORCE)
-	@$(ONDEPLOY_BIN) toolchain --rustup --check || $(SELF) rustup FORCE=$(FORCE)
+	@$(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --bun --check || $(SELF) bun FORCE=$(FORCE)
+	@$(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --rustup --check || $(SELF) rustup FORCE=$(FORCE)
 
 # force-upgrade — the LAYOUT-HEAL upgrade (2026-11): the full sequence for
 # a machine whose on-disk deployment predates the CURRENT layout (the
@@ -543,11 +553,11 @@ force-upgrade:
 depends-%:
 	@if [ ! -x "$(ONDEPLOY_BIN)" ]; then $(SELF) depends; fi
 	@tool=bun; \
-	if ! $(ONDEPLOY_BIN) toolchain --$$tool --check; then \
+	if ! $(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --$$tool --check; then \
 		echo "depends-$*: $$tool missing — run make $$tool" >&2; \
 		exit 2; \
 	fi
-	$(ONDEPLOY_BIN) depends --install --only "$*" $(F)
+	$(TIMEOUT_CMD) $(ONDEPLOY_BIN) depends --install --only "$*" $(F)
 
 # herbst (Alias=x-window-manager) is a bulletproof reload: the WM binary
 # MUST NOT restart (only force-upgrade may) — the reconfig goes through
@@ -558,7 +568,7 @@ depends-%:
 # the unit files — the restow + daemon-reload below happens BEFORE any
 # service reload.
 livereload: on-deploy
-	@$(ONDEPLOY_RUN) check
+	@$(TIMEOUT_CMD) $(ONDEPLOY_RUN) check
 	@units=$$(sed -e 's/#.*//' -e '/^[[:space:]]*$$/d' $(if $(wildcard services.depends),services.depends,services.required) | tr -s ' \t' '\n' | grep -v '^$$'); \
 	pkgs=""; \
 	for u in $$units; do \
@@ -571,10 +581,10 @@ livereload: on-deploy
 	done; \
 	pkgs=$$(tr ' ' '\n' <<< "$$pkgs" | sort -u | tr '\n' ' '); \
 	echo "livereload: restow $$pkgs"; \
-	$(ONDEPLOY_RUN) stow --only "$$pkgs" || exit 1; \
+	$(TIMEOUT_CMD) $(ONDEPLOY_RUN) stow --only "$$pkgs" || exit 1; \
 	systemctl --user daemon-reload 2>/dev/null || true; \
 	DISP=$$(systemctl --user show-environment 2>/dev/null | sed -n 's/^DISPLAY=//p'); \
-	[ -n "$$DISP" ] || DISP=$$($(ONDEPLOY_RUN) detect-server --dry-run 2>/dev/null || true); \
+	[ -n "$$DISP" ] || DISP=$$($(TIMEOUT_CMD) $(ONDEPLOY_RUN) detect-server --dry-run 2>/dev/null || true); \
 	DISP=$${DISP:-localhost:0.0}; \
 	export DISPLAY=$$DISP; \
 	for u in $$units; do \
@@ -592,10 +602,10 @@ livereload: on-deploy
 	done
 
 # on-deploy housekeeping verbs stay one call away:
-#   $(ONDEPLOY_BIN) preserve <pkg> ...   conflict-safe restow
-#   $(ONDEPLOY_BIN) archive <pkg>        record-container backups
-#   $(ONDEPLOY_BIN) unarchive <pkg>      restore them
-#   $(ONDEPLOY_BIN) configure --show     current configuration
-#   $(ONDEPLOY_BIN) toolchain --bun|--rustup   language toolchains
-#   $(ONDEPLOY_BIN) depends              submodule deploy step
+#   $(TIMEOUT_CMD) $(ONDEPLOY_BIN) preserve <pkg> ...   conflict-safe restow
+#   $(TIMEOUT_CMD) $(ONDEPLOY_BIN) archive <pkg>        record-container backups
+#   $(TIMEOUT_CMD) $(ONDEPLOY_BIN) unarchive <pkg>      restore them
+#   $(TIMEOUT_CMD) $(ONDEPLOY_BIN) configure --show     current configuration
+#   $(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --bun|--rustup   language toolchains
+#   $(TIMEOUT_CMD) $(ONDEPLOY_BIN) depends              submodule deploy step
 # add them as Makefile targets only when they need a sequence.

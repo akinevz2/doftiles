@@ -162,7 +162,9 @@ Layer contents:
   `restart` — interactive-confirm; non-interactive requires `YES=1`.
   **Never restart user services casually** (kills the WM session).
 - Knobs: `FORCE=1` (redeploy / non-interactive fail-safe), `YES=1`
-  (bypass confirmations), `DRY=1`, `M=` (explicit method).
+  (bypass confirmations), `DRY=1`, `M=` (explicit method),
+  `TIMEOUT=<s>` (caps EACH on-deploy sub-invocation — the agentic-run
+  knob; never the overall recipe).
 
 ## The per-package depends Makefile scheme
 
