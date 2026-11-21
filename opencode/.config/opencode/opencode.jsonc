@@ -136,23 +136,6 @@
       }
     }
   },
-  "mcp": {
-    "servers": {
-      "github": {
-        "type": "local",
-        "command": ["/home/kine/.local/bin/github-mcp-wrapper"],
-        "enabled": true
-      },
-      "notion": {
-        "type": "local",
-        "command": ["/home/kine/.local/bin/notion-mcp-wrapper"],
-        "enabled": true
-      },
-      "job-search": {
-        "type": "local",
-        "command": ["/home/kine/.local/bin/job-search-mcp-wrapper"],
-        "enabled": true
-      }
-    }
-  }
+  "formatter": true
 }
+
