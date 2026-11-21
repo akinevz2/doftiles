@@ -73,7 +73,8 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "WS-RAREBOX",
       "options": {
-        "baseURL": "http://ws-rarebox:11434/v1"
+        "baseURL": "http://ws-rarebox:11434/v1",
+        "apiKey": "{env:RAREBOX_API_KEY}"
       },
       "models": {
         "ollama/qwen3.8:27b": {
@@ -102,14 +103,6 @@
           "name": "GLM 4.7 MXFP4 Unsloth",
           "attachment": true,
           "reasoning": true,
-          "temperature": 1.0,
-          "top_p": 0.95,
-          "model_options": {
-            "options": {
-              "--repeat-penalty": 1.0,
-              "--min-p": 0.01
-            }
-          },
           "tool_call": true
         },
         "ollama/hf.co/unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE": {
