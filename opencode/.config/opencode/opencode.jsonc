@@ -5,7 +5,7 @@
     "buffer": 6000,
     "keep": { "tokens": 8000 }
   },
-  "plugins": ["./opencode-screencast"],
+  "plugins": ["./opencode-screencast", "./structured-spec"],
   "formatter": true,
   "lsp": true,
   "watcher": {
