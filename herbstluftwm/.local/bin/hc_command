@@ -11,4 +11,4 @@
 #                       palette over the command's help (Shift-Return
 #                       descends a subcommand, Return accepts)
 #   Escape              cancel
-exec herbctl command "$@"
+exec herbctl run "$@"

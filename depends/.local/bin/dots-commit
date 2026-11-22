@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# dots-commit — thin delegate. The contribute workflow (sync the dots
+# repository + submodules with origin; branching only on rebase
+# conflicts, conflicts indicated to the user) is IMPLEMENTED in
+# on-deploy's source (src/commands/contribute.ts + the presentation
+# adapter src/lib/commitUI.ts) and ships compiled in ~/.local/bin/on-deploy.
+# Per repo doctrine the UI is NEVER in a scripting language: this file
+# holds no presentation code and merely forwards.
+
+exec "${ONDEPLOY_BIN:-$HOME/.local/bin/on-deploy}" contribute "$@"

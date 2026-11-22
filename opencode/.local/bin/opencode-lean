@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# opencode-lean — run opencode WITHOUT the MCP servers (github, notion,
+# job-search). For local/small-model sessions where the MCP tool
+# definitions would eat the context budget. Everything else (providers,
+# plugins, skills, permissions) mirrors the real global config.
+#
+# Mechanism: the mcp `enabled: false` knob is IGNORED by opencode
+# v2.3.2 (verified 2026-11-21 — servers load even when disabled), and
+# project-level mcp overrides are ignored too. The only working
+# suppression is omitting the servers from the config entirely. This
+# wrapper materialises a throwaway config home with the mcp block
+# stripped, regenerated from the live config on EVERY run (no drift),
+# then execs opencode against it.
+
+lean_home="${OPENCODE_LEAN_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/opencode-lean}"
+
+rm -rf "$lean_home"
+mkdir -p "$lean_home/.config/opencode" "$lean_home/.local/share" "$lean_home/.run"
+
+# the real config (stow link -> dots), comments preserved via the .jsonc copy
+cp "$HOME/.config/opencode/opencode.jsonc" "$lean_home/.config/opencode/opencode.jsonc"
+
+# strip the whole mcp block: from the line holding `"mcp": {` through
+# its balanced close. Pure bash — repo quirk 13: no python, no awk.
+# The config is machine-generated here (we copied it), so we lean on a
+# simple, total line transform:
+#   - lines before the mcp opener are kept
+#   - the opener line through the line where depth returns to 0 are cut
+#   - everything after is kept
+strip_mcp_block() {
+	local file=$1 out="" line depth=0 state=0
+	while IFS= read -r line; do
+		if [ "$state" = 0 ]; then
+			case "$line" in
+			*"\"mcp\": "*")"*) ;; # not our shape; keep below
+			*"\"mcp\": "*"{")
+				state=1
+				depth=1
+				local tail=${line#*\"mcp\": }
+				tail=${tail#\{}
+				local j
+				for ((j = 0; j < ${#tail}; j++)); do
+					case "${tail:j:1}" in
+					"{") depth=$((depth + 1)) ;;
+					"}") depth=$((depth - 1)) ;;
+					esac
+				done
+				[ "$depth" -le 0 ] && state=2
+				continue
+				;;
+			esac
+			out+="$line"$'\n'
+		elif [ "$state" = 1 ]; then
+			local j
+			for ((j = 0; j < ${#line}; j++)); do
+				case "${line:j:1}" in
+				"{") depth=$((depth + 1)) ;;
+				"}") depth=$((depth - 1)) ;;
+				esac
+			done
+			[ "$depth" -le 0 ] && state=2
+		else
+			out+="$line"$'\n'
+		fi
+	done < "$file"
+	# repair a trailing comma left by a now-removed last block
+	printf '%s' "$out" | sed -e ':a' -e 'N' -e '$!ba' -e 's/,\n}/\n}/'
+}
+strip_mcp_block "$lean_home/.config/opencode/opencode.jsonc"
+
+export HOME="$lean_home"
+export XDG_CONFIG_HOME="$lean_home/.config"
+export XDG_DATA_HOME="$lean_home/.local/share"
+export XDG_RUNTIME_DIR="$lean_home/.run"
+mkdir -p "$XDG_RUNTIME_DIR"
+
+exec opencode "$@"

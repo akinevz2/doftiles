@@ -17,7 +17,9 @@ shell/.cache/
 herbctl/.local/bin/
 polyframes/.local/bin/
 polytags/.local/bin/
-depends/.local/bin/
+depends/.local/bin/*
+!depends/.local/bin/install
+!depends/.local/bin/dots-commit
 herbstutil/.local/bin/
 on-deploy/.local/bin/*
 !on-deploy/.local/bin/on-deploy
@@ -60,3 +62,6 @@ oama/.local/bin/
 
 # the notion package: the integration token never enters the repo
 opencode/.config/notion/
+
+# the development repo (its own git remote; stow is not involved)
+/development

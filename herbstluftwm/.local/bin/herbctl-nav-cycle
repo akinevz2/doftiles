@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# herbctl-nav-cycle — the dual-behavior intra/inter-frame cycling for
+# $Mod-w and $Mod-e.
+#
+# Primary behavior is intra-frame client cycling (non-destructive):
+#   $Mod-w: cycle -1 (negative direction within the frame)
+#   $Mod-e: cycle +1 (positive direction within the frame)
+#
+# At the frame's edge — the focused client IS the frame's first
+# (negative direction) or last (positive direction) client, or the
+# frame holds a single client — the key hands off to FRAME cycling
+# (cycle_frame, focus-only, never modifies the layout):
+#   $Mod-w: cycle_frame -1 (negative direction)
+#   $Mod-e: cycle_frame +1 (positive direction — the reverse of Mod-w)
+#
+# Edge detection uses tags.focus.curframe_windex / curframe_wcount.
+# The floating layer is left first (the get-forward pre-step), so
+# cycling never runs while a float holds focus.
+#
+# Layout-modifying navigation (shift-up / rotate-tree) stays reserved
+# for the $ModShift-* keybinds — this script never moves clients.
+
+set -euo pipefail
+
+MODE=${1:-}
+HC=$HOME/.local/bin/herbctl
+
+# The float-layer pre-step: a focused float takes the cycling first.
+if [ "$(herbstclient attr tags.focus.floating_focused 2>/dev/null)" = "true" ]; then
+    herbstclient attr tags.focus.floating_focused off
+fi
+
+wcount=$(herbstclient attr tags.focus.curframe_wcount 2>/dev/null || echo 0)
+windex=$(herbstclient attr tags.focus.curframe_windex 2>/dev/null || echo 0)
+
+case "$MODE" in
+    get-forward)
+        # $Mod-w: intra-frame NEGATIVE cycling, frame cycle +1 at the edge.
+        if [ "$wcount" -gt 1 ] && [ "$windex" -gt 0 ]; then
+            herbstclient cycle -1
+        else
+            herbstclient cycle_frame -1
+        fi
+        ;;
+    explode-frame)
+        # $Mod-e: intra-frame POSITIVE cycling, frame cycle +1 at the edge.
+        if [ "$wcount" -gt 1 ] && [ "$windex" -lt $((wcount - 1)) ]; then
+            herbstclient cycle +1
+        else
+            herbstclient cycle_frame +1
+        fi
+        ;;
+    get-south)
+        # $Mod-s: the getSouth head kept verbatim (urgent jumpto, else
+        # frame-down focus; `or` stops at the first success), then the
+        # float-layer branch, then — in place of the pseudotile toggle
+        # machinery — the REVERSE of Mod-w: intra-frame cycle +1, edge
+        # → cycle_frame +1.
+        if herbstclient or , and . compare tags.focus.urgent_count gt 0 . jumpto urgent , focus --level=frame down; then
+            exit 0
+        fi
+        if herbstclient and . attr tags.focus.floating_focused true . attr tags.focus.focused_client.floating off; then
+            exit 0
+        fi
+        if [ "$wcount" -gt 1 ] && [ "$windex" -lt $((wcount - 1)) ]; then
+            herbstclient cycle +1
+        else
+            herbstclient cycle_frame +1
+        fi
+        ;;
+    *)
+        echo "usage: herbctl-nav-cycle {get-forward|explode-frame}" >&2
+        exit 2
+        ;;
+esac

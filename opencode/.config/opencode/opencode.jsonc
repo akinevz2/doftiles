@@ -5,7 +5,7 @@
     "buffer": 6000,
     "keep": { "tokens": 8000 }
   },
-  "plugins": ["./opencode-screencast"],
+  "plugins": ["./opencode-screencast", "./structured-spec"],
   "formatter": true,
   "lsp": true,
   "watcher": {
@@ -73,7 +73,8 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "WS-RAREBOX",
       "options": {
-        "baseURL": "http://ws-rarebox:11434/v1"
+        "baseURL": "http://ws-rarebox:11434/v1",
+        "apiKey": "{env:RAREBOX_API_KEY}"
       },
       "models": {
         "ollama/qwen3.8:27b": {
@@ -98,8 +99,14 @@
           "reasoning": true,
           "tool_call": true
         },
+        "unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE": {
+          "name": "GLM 4.7 MXFP4 Unsloth",
+          "attachment": true,
+          "reasoning": true,
+          "tool_call": true
+        },
         "ollama/hf.co/unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE": {
-          "name": "GLM 4.7 Flash MXFP4 MOE",
+          "name": "GLM 4.7 Flash MXFP4 MOE Ollama",
           "limit": {
             "context": 131072,
             "output": 8192
@@ -129,23 +136,6 @@
       }
     }
   },
-  "mcp": {
-    "servers": {
-      "github": {
-        "type": "local",
-        "command": ["/home/kine/.local/bin/github-mcp-wrapper"],
-        "enabled": true
-      },
-      "notion": {
-        "type": "local",
-        "command": ["/home/kine/.local/bin/notion-mcp-wrapper"],
-        "enabled": true
-      },
-      "job-search": {
-        "type": "local",
-        "command": ["/home/kine/.local/bin/job-search-mcp-wrapper"],
-        "enabled": true
-      }
-    }
-  }
+  "formatter": true
 }
+

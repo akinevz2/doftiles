@@ -82,11 +82,11 @@ Every manifest is ONE file (stows, wm, system, services):
   skip-worktree flags, no stash dances, no phantom dirtiness for the
   reconfigure gate. Push the user branch like any other
   (`git push origin <user>`).
-- **The update flow**: `make update` / `make force-upgrade` fetch,
-  then — user branch exists → REBASE it onto origin/main; not → the
-  plain mainline fast-forward (fallback rebase --autostash). A rebase
-  CONFLICT is the volition point: resolve by hand, `git rebase
-  --continue`.
+- **The update flow**: `make update` / `force-upgrade` fetch, then —
+  the CURRENT branch is anything but `main` → REBASE it onto
+  origin/main (a rebase CONFLICT is the volition point: resolve by
+  hand, `git rebase --continue`); on main → the plain mainline
+  fast-forward (fallback rebase --autostash).
 
 Layer contents:
 - stows — the stow package list (space-separated lines, `#` comments);
@@ -142,10 +142,37 @@ Layer contents:
 - `make stow-<pkg>` / `unstow-<pkg>` / `depends-<pkg>` — ONE package
   through on-deploy (`depends-<pkg>` honors toolchain checks loudly).
 - `make unstow` / `clean` — drop the WM_PACKAGES links.
-- `make update` — SAFE PULL (branch-local): fetch + ff (fallback
-  rebase --autostash), submodule sync + update, on-deploy rebuild.
-  Artifacts untouched; chain `make update install` for
-  pull-with-install (install runs EXACTLY once).
+- `make update` — SYNC-AND-DEPLOY (2026-11): the sync phase DELEGATES
+  to `on-deploy contribute --yes` (the single implementation —
+  `make update` and `make commit` mirror it in parity: fetch, report,
+  commit local work onto its branch, rebase, branch only on conflict,
+  publish). This recipe keeps only the deploy concerns: when the state
+  moved, the submodule sync + the FULL build+install run automatically
+  (chaining `make update install` stays safe; install re-runs
+  idempotently); a no-op update skips install entirely.
+- `make commit` — a thin delegate (`depends/.local/bin/dots-commit` →
+  `on-deploy contribute`): the workflow is IMPLEMENTED in on-deploy's
+  source (`src/commands/contribute.ts` + the presentation adapter
+  `src/lib/commitUI.ts`) — the bash file holds NO UI (doctrine: the UI
+  is never in a scripting language; adaptor/framework additions go to
+  on-deploy's source repo). Flow: fetch + REPORT (local changes,
+  ahead/behind divergence, submodule state), commit local work onto
+  its own branch, sync with origin (rebase) — BRANCHING IS EXCEPTIONAL:
+  a `contribute/<timestamp>` side branch is created ONLY when the
+  rebase would conflict, the branch syncs clean, and the conflicts are
+  INDICATED for by-hand resolution — then publish (auto on --yes /
+  headless; confirmed on a tty). No park/fold staging branches exist
+  in the repo structure. `--report` shows the state and changes
+  nothing.
+- **AGENTS rule — origin-sync routing**: synchronisation with origin
+  goes through `make contribute` ONLY when work was done in the
+  SUBMODULES (herbctl, polyframes, on-deploy, … — the flow reports,
+  commits, rebases, branches on conflict, and publishes every repo in
+  scope). When a change touches the ~/dots REPO ONLY (Makefile,
+  AGENTS.md, package configs, manifests), bare git commands are the
+  sanctioned path: `git add`/`git commit`/`git push` directly —
+  the contribute walk is submodule machinery, not a dots-commit
+  ritual.
 - **AGENTS rule — submodule sources**: whenever working with the
   sources of a dots submodule, run `make update` (to update to the
   latest) and `make stow` (to deploy the latest) after the changes —
@@ -162,7 +189,9 @@ Layer contents:
   `restart` — interactive-confirm; non-interactive requires `YES=1`.
   **Never restart user services casually** (kills the WM session).
 - Knobs: `FORCE=1` (redeploy / non-interactive fail-safe), `YES=1`
-  (bypass confirmations), `DRY=1`, `M=` (explicit method).
+  (bypass confirmations), `DRY=1`, `M=` (explicit method),
+  `TIMEOUT=<s>` (caps EACH on-deploy sub-invocation — the agentic-run
+  knob; never the overall recipe).
 
 ## The per-package depends Makefile scheme
 
@@ -303,6 +332,28 @@ them automatically in the background).
   asking for the raw command bypasses the machinery the repo
   documents.
 - TUI/session gates: `make configure` is tty-only without `FORCE=1`.
+
+## The development repo — ~/development (NOT a dots package)
+
+The personal/workspace repo `~/development` (its own git remote,
+`github.com/akinevz2/development`, synced independently) is reachable
+from dots scope via the gitignored `dots/development` symlink. It is
+NOT stowed, NOT tracked by dots git, and never enters any deploy flow
+— its 3.9 GB tree, nested repos, and its own submodule machinery
+(`system/{herbctl,polyframes,herbstutil,on-deploy,polytags}` — the
+same projects dots tracks as submodules, TWO separate checkouts)
+stay out of every dots update/stow walk by design.
+
+- When a dots-scope task points into `~/development`, edit there
+  directly (the opencode permission config allows `~/development/**`)
+  and follow that repo's OWN AGENTS.md for its conventions.
+- The dots submodule sources live under `dots/<pkg>/.local/share/…`,
+  NOT under `~/development/system/…` — never confuse the two checkouts.
+- This machine's working branch: `development` (checked out; the
+  update flow rebases the CURRENT branch onto origin/main whenever it
+  is not main — see USER_BRANCH_FLOW in the Makefile). main stays the
+  user-adoption-friendly line; features mature on development and are
+  cherry-picked to main.
 
 ## Quirks and conventions
 

@@ -123,23 +123,32 @@ herb setenv "PF_MAX_FRAME_${WID}" "$frame"
 herb setenv "PF_MAX_WIN_${WID}" "$win"
 
 herb lock
-herb add "$max_tag" 2>/dev/null || true
+# ONE atomic chain: the whole maximize rides a single herbstclient
+# round trip. The former step-by-step calls each triggered a WM layout
+# apply (hlwm's lock gates OTHER clients, not its own applies), and the
+# window landed on the max tag STILL FLOATING (floating false was the
+# last command) — the compositor painted the old floating geometry
+# over a default vertical layout before the final snap-to-full-frame:
+# the visible jitter. In the chain the un-float happens BEFORE the
+# move, so the window's first paint on the max tag is already tiled,
+# and the intermediate states coalesce in one X flush (same
+# flash-free doctrine as zoom branch (a)'s geometry pre-set).
 # Place the max tag at the base tag's index so index-based ordering
 # (tag_status order, use_index, the bar's prev/next scroll) treats the
 # max tag as occupying the base's slot; the base shifts one to the
 # right and stays reachable by scrolling (ewmh_labels shows it beside
 # the max label only while it is focused).
 base_idx=$(herb attr "tags.by-name.${cur_tag}.index" 2>/dev/null || echo "")
-if [ -n "$base_idx" ]; then
-    herb move_tag "$max_tag" "$base_idx" 2>/dev/null || true
-fi
-herb attr "clients.$WID.minimized" false
-herb move "$max_tag"
-herb use "$max_tag"
-herb set_layout max
-herb jumpto "$WID"
-herb raise "$WID"
-herb attr "clients.$WID.floating" false
+herb chain "." \
+    try add "$max_tag" "." \
+    try move_tag "$max_tag" "$base_idx" "." \
+    set_attr "clients.$WID.minimized" false "." \
+    set_attr "clients.$WID.floating" false "." \
+    move "$max_tag" "." \
+    use "$max_tag" "." \
+    set_layout max "." \
+    jumpto "$WID" "." \
+    raise "$WID" || true
 
 herb unlock
 trap - EXIT
