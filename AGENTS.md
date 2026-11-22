@@ -142,15 +142,14 @@ Layer contents:
 - `make stow-<pkg>` / `unstow-<pkg>` / `depends-<pkg>` — ONE package
   through on-deploy (`depends-<pkg>` honors toolchain checks loudly).
 - `make unstow` / `clean` — drop the WM_PACKAGES links.
-- `make update` — SYNC-AND-DEPLOY (2026-11): fetch, commit any local
-  tree/submodule modifications ONTO THE BRANCH THEY WERE MADE ON (no
-  staging branches — the repo structure stays branch-clean), rebase
-  onto origin/main (conflicts are the volition point: resolve by hand,
-  `git rebase --continue`), then the submodule sync + the FULL
-  build+install run automatically — update alone deploys the latest;
-  chaining `make update install` stays safe (install re-runs
-  idempotently). A no-op update (up to date, clean tree) skips
-  install entirely.
+- `make update` — SYNC-AND-DEPLOY (2026-11): the sync phase DELEGATES
+  to `on-deploy contribute --yes` (the single implementation —
+  `make update` and `make commit` mirror it in parity: fetch, report,
+  commit local work onto its branch, rebase, branch only on conflict,
+  publish). This recipe keeps only the deploy concerns: when the state
+  moved, the submodule sync + the FULL build+install run automatically
+  (chaining `make update install` stays safe; install re-runs
+  idempotently); a no-op update skips install entirely.
 - `make commit` — a thin delegate (`depends/.local/bin/dots-commit` →
   `on-deploy contribute`): the workflow is IMPLEMENTED in on-deploy's
   source (`src/commands/contribute.ts` + the presentation adapter
