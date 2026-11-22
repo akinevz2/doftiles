@@ -510,7 +510,7 @@ PARK_BRANCH := local/parked-$(shell date +%Y%m%d-%H%M%S)
 update:
 	@git fetch origin --prune
 	@set -e; \
-	u=$$(git symbolic-ref --quiet --short HEAD 2>/dev/null); \
+	u=$$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || true; \
 	[ -n "$$u" ] || u=main; \
 	behind=$$(git rev-list --count HEAD..origin/main); \
 	parked=''; \
@@ -585,7 +585,7 @@ update:
 #      branch go public the same way
 commit:
 	@set -e; \
-	u=$$(git symbolic-ref --quiet --short HEAD 2>/dev/null); \
+	u=$$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || true; \
 	[ -n "$$u" ] || u=main; \
 	if [ -n "$(TREE_DIRTY)" ]; then \
 		git add -A; \
@@ -609,7 +609,7 @@ commit:
 	echo "commit: dots $$u pushed"; \
 	for s in $(DEPS_SUBMODULES) on-deploy/.local/share/on-deploy; do \
 		[ -d "$$s" ] || continue; \
-		sb=$$(git -C "$$s" symbolic-ref --quiet --short HEAD 2>/dev/null); \
+		sb=$$(git -C "$$s" symbolic-ref --quiet --short HEAD 2>/dev/null) || true; \
 		[ -n "$$sb" ] || continue; \
 		ahead=$$(git -C "$$s" rev-list --count "origin/$$sb".."$$sb" 2>/dev/null || echo 0); \
 		if [ "$$ahead" -gt 0 ]; then \
