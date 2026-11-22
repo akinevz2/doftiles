@@ -142,10 +142,24 @@ Layer contents:
 - `make stow-<pkg>` / `unstow-<pkg>` / `depends-<pkg>` — ONE package
   through on-deploy (`depends-<pkg>` honors toolchain checks loudly).
 - `make unstow` / `clean` — drop the WM_PACKAGES links.
-- `make update` — SAFE PULL (branch-local): fetch + ff (fallback
-  rebase --autostash), submodule sync + update, on-deploy rebuild.
-  Artifacts untouched; chain `make update install` for
-  pull-with-install (install runs EXACTLY once).
+- `make update` — PARK-AND-PULL (2026-11): fetch, then park any local
+  tree modifications on a timestamped `local/parked-*` branch
+  (committed — nothing is lost), fast-forward origin/main (fallback
+  rebase --autostash), and offer to rebase the parked branch back into
+  the current branch (tty prompt; `YES=1` auto-confirms; conflicts are
+  resolved by hand). Submodule checkouts in the configured scope get
+  the same park+rebase dance. When anything moved (behind origin or
+  parked state), the submodule sync + the FULL build+install run
+  automatically — update alone deploys the latest; chaining
+  `make update install` stays safe (install re-runs idempotently).
+  A no-op update (up to date, clean tree) skips install entirely.
+- `make commit` — the push-side twin: commit local tree modifications
+  (git editor on a tty, recorded message headless/YES=1), fold every
+  `local/parked-*` branch back into the current branch (rebase + ff,
+  deleted after; conflicts resolved by hand, then re-run), push dots,
+  and push configured submodules whose tracked branch is ahead of
+  origin. Together `make update` + `make commit` close the loop:
+  pull+deploy latest, then publish local work.
 - **AGENTS rule — submodule sources**: whenever working with the
   sources of a dots submodule, run `make update` (to update to the
   latest) and `make stow` (to deploy the latest) after the changes —
