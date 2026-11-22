@@ -17,7 +17,10 @@ shell/.cache/
 herbctl/.local/bin/
 polyframes/.local/bin/
 polytags/.local/bin/
-depends/.local/bin/
+depends/.local/bin/*
+!depends/.local/bin/install
+!depends/.local/bin/dots-commit
+!depends/.local/bin/dots-commit-ui
 herbstutil/.local/bin/
 on-deploy/.local/bin/*
 !on-deploy/.local/bin/on-deploy
