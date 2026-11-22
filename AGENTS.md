@@ -153,13 +153,16 @@ Layer contents:
   automatically — update alone deploys the latest; chaining
   `make update install` stays safe (install re-runs idempotently).
   A no-op update (up to date, clean tree) skips install entirely.
-- `make commit` — the push-side twin: commit local tree modifications
-  (git editor on a tty, recorded message headless/YES=1), fold every
-  `local/parked-*` branch back into the current branch (rebase + ff,
-  deleted after; conflicts resolved by hand, then re-run), push dots,
-  and push configured submodules whose tracked branch is ahead of
-  origin. Together `make update` + `make commit` close the loop:
-  pull+deploy latest, then publish local work.
+- `make commit` — the push-side twin, fronted by
+  `depends/.local/bin/dots-commit` (stowed to `~/.local/bin/dots-commit`):
+  on a tty a pure-bash TUI guides through status / commit / review+fold
+  parked branches / push (one confirmed step at a time); headless or
+  `YES=1` falls back to the CLI fail-fast flow — commit (recorded
+  message) -> fold every `local/parked-*` branch (rebase + ff, deleted
+  after) -> push dots -> push ahead submodules — aborting at the first
+  failure. Rebase conflicts are the volition point: the script stops
+  and prints the by-hand recipe. Together `make update` + `make commit`
+  close the loop: pull+deploy latest, then publish local work.
 - **AGENTS rule — submodule sources**: whenever working with the
   sources of a dots submodule, run `make update` (to update to the
   latest) and `make stow` (to deploy the latest) after the changes —
