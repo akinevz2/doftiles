@@ -142,27 +142,29 @@ Layer contents:
 - `make stow-<pkg>` / `unstow-<pkg>` / `depends-<pkg>` — ONE package
   through on-deploy (`depends-<pkg>` honors toolchain checks loudly).
 - `make unstow` / `clean` — drop the WM_PACKAGES links.
-- `make update` — PARK-AND-PULL (2026-11): fetch, then park any local
-  tree modifications on a timestamped `local/parked-*` branch
-  (committed — nothing is lost), fast-forward origin/main (fallback
-  rebase --autostash), and offer to rebase the parked branch back into
-  the current branch (tty prompt; `YES=1` auto-confirms; conflicts are
-  resolved by hand). Submodule checkouts in the configured scope get
-  the same park+rebase dance. When anything moved (behind origin or
-  parked state), the submodule sync + the FULL build+install run
-  automatically — update alone deploys the latest; chaining
-  `make update install` stays safe (install re-runs idempotently).
-  A no-op update (up to date, clean tree) skips install entirely.
-- `make commit` — the push-side twin, fronted by
-  `depends/.local/bin/dots-commit` (stowed to `~/.local/bin/dots-commit`):
-  on a tty a pure-bash TUI guides through status / commit / review+fold
-  parked branches / push (one confirmed step at a time); headless or
-  `YES=1` falls back to the CLI fail-fast flow — commit (recorded
-  message) -> fold every `local/parked-*` branch (rebase + ff, deleted
-  after) -> push dots -> push ahead submodules — aborting at the first
-  failure. Rebase conflicts are the volition point: the script stops
-  and prints the by-hand recipe. Together `make update` + `make commit`
-  close the loop: pull+deploy latest, then publish local work.
+- `make update` — SYNC-AND-DEPLOY (2026-11): fetch, commit any local
+  tree/submodule modifications ONTO THE BRANCH THEY WERE MADE ON (no
+  staging branches — the repo structure stays branch-clean), rebase
+  onto origin/main (conflicts are the volition point: resolve by hand,
+  `git rebase --continue`), then the submodule sync + the FULL
+  build+install run automatically — update alone deploys the latest;
+  chaining `make update install` stays safe (install re-runs
+  idempotently). A no-op update (up to date, clean tree) skips
+  install entirely.
+- `make commit` — a thin delegate (`depends/.local/bin/dots-commit` →
+  `on-deploy contribute`): the workflow is IMPLEMENTED in on-deploy's
+  source (`src/commands/contribute.ts` + the presentation adapter
+  `src/lib/commitUI.ts`) — the bash file holds NO UI (doctrine: the UI
+  is never in a scripting language; adaptor/framework additions go to
+  on-deploy's source repo). Flow: fetch + REPORT (local changes,
+  ahead/behind divergence, submodule state), commit local work onto
+  its own branch, sync with origin (rebase) — BRANCHING IS EXCEPTIONAL:
+  a `contribute/<timestamp>` side branch is created ONLY when the
+  rebase would conflict, the branch syncs clean, and the conflicts are
+  INDICATED for by-hand resolution — then publish (auto on --yes /
+  headless; confirmed on a tty). No park/fold staging branches exist
+  in the repo structure. `--report` shows the state and changes
+  nothing.
 - **AGENTS rule — submodule sources**: whenever working with the
   sources of a dots submodule, run `make update` (to update to the
   latest) and `make stow` (to deploy the latest) after the changes —

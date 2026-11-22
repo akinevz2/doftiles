@@ -237,10 +237,10 @@ help:
 	@echo "  depends-<pkg>  ONE submodule: toolchain check + scoped walk"
 	@echo "  unstow     drop the wm.depends stack's links"
 	@echo "  clean      drop the wm.depends stack's links"
-	@echo "  update     park-and-pull: park local mods on a branch, ff,"
-	@echo "      offer the rebase fold-in, submodule dance, build+install"
-	@echo "  commit     commit local mods, fold the parked branches in,"
-	@echo "      push dots + ahead submodules"
+	@echo "  update     sync-and-deploy: commit local work in place,"
+	@echo "      rebase onto origin, submodule sync, build+install"
+	@echo "  commit     on-deploy contribute: report + sync + publish"
+	@echo "      dots + submodules (branching only on conflicts)"
 	@echo "  force-upgrade  pull + healing clean + the depends re-anchor/rebuild"
 	@echo "      + stow"
 	@echo "  livereload  restow unit pkgs, daemon-reload, per-unit reload"
@@ -484,28 +484,21 @@ DEPS_SUBMODULES := $(shell awk '!/^#/ && NF > 1 { for (i = 2; i <= NF; i++) prin
 TREE_DIRTY := $(shell git status --porcelain --untracked-files=no 2>/dev/null | head -1)
 SUB_DIRTY := $(foreach s,$(DEPS_SUBMODULES) on-deploy/.local/share/on-deploy,$(shell test -d "$(s)" && git -C "$(s)" status --porcelain --untracked-files=no 2>/dev/null | head -1)$(shell test -d "$(s)" && git -C "$(s)" log --branches --not --remotes --oneline 2>/dev/null | head -1))
 
-# update — the PARK-AND-PULL flow (2026-11): fetch, then
-#   1. LOCAL MODIFICATIONS (dots tree): PARKED first — committed onto a
-#      dedicated timestamped branch (nothing is lost) — and the flow
-#      proceeds on a clean tree. On a tty the flow then OFFERS to rebase
-#      the parked branch back into the current branch (YES=1
-#      auto-confirms; a rebase conflict stays the volition point:
-#      resolve by hand, `git rebase --continue`); headless leaves the
-#      branch parked and prints the fold-in command.
-#   2. BEHIND origin: the plain fast-forward (fallback pull --rebase
-#      --autostash for a locally-ahead branch).
-#   3. SUBMODULE checkouts in the configured scope get the same
-#      park+rebase dance (parked onto a branch, rebased onto their
-#      origin tip; depends' branch-reattach then lands the module back
-#      on its tracked branch WITH the parked commits).
-#   4. When anything moved (behind or parked): the submodule sync +
+# update — the SYNC-AND-DEPLOY flow (2026-11): fetch, then
+#   1. LOCAL MODIFICATIONS (dots tree + configured submodules): committed
+#      ONTO THE BRANCH THEY WERE MADE ON (no staging branches — the repo
+#      structure stays branch-clean; branching happens only in the
+#      rebase itself, and only when it would conflict — the volition
+#      point: resolve by hand, `git rebase --continue`).
+#   2. BEHIND origin: rebase onto origin/main (fallback pull --rebase
+#      --autostash).
+#   3. When anything moved (behind or local work): the submodule sync +
 #      the FULL build+install run — update alone deploys the latest
 #      published sources, no chained `make install` required (chaining
 #      it stays safe; install just runs again, idempotently).
 #   Toolchain assurance ONLY when the check says missing: the recipes'
 #   sudo prerequisite is skipped entirely on a healthy machine (a
 #   headless update must not demand a root grant for a no-op).
-PARK_BRANCH := local/parked-$(shell date +%Y%m%d-%H%M%S)
 
 update:
 	@git fetch origin --prune
@@ -513,52 +506,24 @@ update:
 	u=$$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || true; \
 	[ -n "$$u" ] || u=main; \
 	behind=$$(git rev-list --count HEAD..origin/main); \
-	parked=''; \
+	local_work=''; \
 	if [ -n "$(TREE_DIRTY)" ]; then \
-		echo "update: local modifications found — parking on branch '$(PARK_BRANCH)'"; \
-		git checkout -q -b "$(PARK_BRANCH)"; \
+		echo "update: local modifications found — committing onto $$u"; \
 		git add -A; \
 		git add -f -- *.depends 2>/dev/null || true; \
-		git commit -q -m "make update: parked local modifications"; \
-		git checkout -q "$$u"; \
-		parked=1; \
+		git commit -q -m "make update: local modifications"; \
+		local_work=1; \
 	fi; \
-	if [ "$$behind" -gt 0 ]; then \
-		echo "update: behind origin/main by $$behind commit(s) — fast-forwarding"; \
-		git merge --ff-only origin/main || git pull --rebase --autostash; \
+	if [ "$$behind" -gt 0 ] || [ -n "$$local_work" ]; then \
+		echo "update: synchronising $$u with origin/main (a rebase conflict is the volition point: resolve by hand, git rebase --continue)"; \
+		git rebase origin/main || git pull --rebase --autostash; \
 	fi; \
-	if [ -n "$$parked" ]; then \
-		ans=''; \
-		if [ -n "$(YES)" ]; then ans=y; \
-		elif [ -t 0 ]; then \
-			printf "update: rebase the parked branch into %s now? [Y/n] " "$$u"; \
-			read ans < /dev/tty || ans=n; \
-		fi; \
-		if [ "$$ans" = n ] || [ "$$ans" = N ] || [ "$$ans" = no ]; then \
-			echo "update: parked state stays on '$(PARK_BRANCH)' — fold it in later: git rebase $(PARK_BRANCH)"; \
-		elif [ -n "$$ans" ]; then \
-			echo "update: rebasing '$(PARK_BRANCH)' into $$u (a conflict is the volition point: resolve by hand, git rebase --continue)"; \
-			git checkout -q "$(PARK_BRANCH)" \
-				&& git rebase "$$u" \
-				&& git checkout -q "$$u" \
-				&& git merge --ff-only "$(PARK_BRANCH)" \
-				&& git branch -d "$(PARK_BRANCH)"; \
-			echo "update: parked state folded into the mainline"; \
-		else \
-			echo "update: headless — parked state stays on '$(PARK_BRANCH)'"; \
-			echo "update: fold it in on a tty with: git rebase $(PARK_BRANCH)"; \
-		fi; \
-	fi; \
-	if [ "$$behind" -gt 0 ] || [ -n "$$parked" ]; then \
+	if [ "$$behind" -gt 0 ] || [ -n "$$local_work" ]; then \
 		for s in $(DEPS_SUBMODULES) on-deploy/.local/share/on-deploy; do \
-			if [ -d "$$s" ] && [ -n "$$(git -C "$$s" status --porcelain --untracked-files=no 2>/dev/null)" ]; then \
-				sb=local/parked-$$(date +%Y%m%d-%H%M%S); \
-				echo "update: parking submodule $$s on branch '$$sb'"; \
-				git -C "$$s" checkout -q -b "$$sb"; \
+			[ -d "$$s" ] || continue; \
+			if [ -n "$$(git -C "$$s" status --porcelain --untracked-files=no 2>/dev/null)" ]; then \
 				git -C "$$s" add -A; \
-				git -C "$$s" commit -q -m "make update: parked local modifications" || true; \
-				git -C "$$s" rebase origin/main; \
-				echo "update: submodule $$s parked+rebased onto its origin tip — keep it: git -C $$s push -u origin $$sb"; \
+				git -C "$$s" commit -q -m "make update: local modifications" || true; \
 			fi; \
 		done; \
 		$(SELF) depends; \
