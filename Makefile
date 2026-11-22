@@ -510,19 +510,8 @@ update:
 	$(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --bun --check || $(SELF) bun FORCE=$(FORCE); \
 	$(TIMEOUT_CMD) $(ONDEPLOY_BIN) toolchain --rustup --check || $(SELF) rustup FORCE=$(FORCE)
 
-# commit — fold the LOCAL work into the mainline and PUBLISH (2026-11):
-# the push-side twin of the update park-and-pull flow:
-#   1. uncommitted tree modifications are committed (the git editor on
-#      a tty; a recorded default message headless / YES=1)
-#   2. every parked branch (local/parked-*, oldest first) is rebased
-#      into the current branch and deleted — the fold the update flow
-#      offered; a rebase conflict stays the volition point (resolve by
-#      hand, git rebase --continue, then re-run make commit)
-#   3. the current branch is pushed to origin
-#   4. configured submodules (+ the on-deploy checkout) whose tracked
-#      branch is ahead of origin are pushed too — the parked submodule
-#      commits that depends' branch-reattach folded onto the tracked
-#      branch go public the same way
+# commit — the push-side delegate: on-deploy contribute (see the
+# `update` comment; make update and make commit mirror it in parity).
 commit:
 	@$(CURDIR)/depends/.local/bin/dots-commit $(if $(YES),--auto)
 
