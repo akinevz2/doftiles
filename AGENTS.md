@@ -164,6 +164,15 @@ Layer contents:
   headless; confirmed on a tty). No park/fold staging branches exist
   in the repo structure. `--report` shows the state and changes
   nothing.
+- **AGENTS rule — origin-sync routing**: synchronisation with origin
+  goes through `make contribute` ONLY when work was done in the
+  SUBMODULES (herbctl, polyframes, on-deploy, … — the flow reports,
+  commits, rebases, branches on conflict, and publishes every repo in
+  scope). When a change touches the ~/dots REPO ONLY (Makefile,
+  AGENTS.md, package configs, manifests), bare git commands are the
+  sanctioned path: `git add`/`git commit`/`git push` directly —
+  the contribute walk is submodule machinery, not a dots-commit
+  ritual.
 - **AGENTS rule — submodule sources**: whenever working with the
   sources of a dots submodule, run `make update` (to update to the
   latest) and `make stow` (to deploy the latest) after the changes —
