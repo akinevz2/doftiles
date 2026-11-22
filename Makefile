@@ -584,39 +584,7 @@ update:
 #      commits that depends' branch-reattach folded onto the tracked
 #      branch go public the same way
 commit:
-	@set -e; \
-	u=$$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || true; \
-	[ -n "$$u" ] || u=main; \
-	if [ -n "$(TREE_DIRTY)" ]; then \
-		git add -A; \
-		git add -f -- *.depends 2>/dev/null || true; \
-		if [ -t 0 ] && [ -z "$(YES)" ]; then \
-			git commit; \
-		else \
-			git commit -q -m "make commit: local modifications"; \
-		fi; \
-	fi; \
-	for parked in $$(git for-each-ref --format='%(refname:short)' --sort=committerdate 'refs/heads/local/parked-*'); do \
-		echo "commit: folding parked branch '$$parked' into $$u (a conflict is the volition point: resolve by hand, git rebase --continue)"; \
-		git checkout -q "$$parked" \
-			&& git rebase "$$u" \
-			&& git checkout -q "$$u" \
-			&& git merge --ff-only "$$parked" \
-			&& git branch -d "$$parked" \
-			&& echo "commit: '$$parked' folded in and deleted"; \
-	done; \
-	git push origin "$$u"; \
-	echo "commit: dots $$u pushed"; \
-	for s in $(DEPS_SUBMODULES) on-deploy/.local/share/on-deploy; do \
-		[ -d "$$s" ] || continue; \
-		sb=$$(git -C "$$s" symbolic-ref --quiet --short HEAD 2>/dev/null) || true; \
-		[ -n "$$sb" ] || continue; \
-		ahead=$$(git -C "$$s" rev-list --count "origin/$$sb".."$$sb" 2>/dev/null || echo 0); \
-		if [ "$$ahead" -gt 0 ]; then \
-			git -C "$$s" push origin "$$sb"; \
-			echo "commit: submodule $$s ($$sb) pushed ($$ahead commit(s))"; \
-		fi; \
-	done
+	@$(CURDIR)/depends/.local/bin/dots-commit $(if $(YES),--auto)
 
 # force-upgrade — the LAYOUT-HEAL upgrade (2026-11): the full sequence for
 # a machine whose on-disk deployment predates the CURRENT layout (the
