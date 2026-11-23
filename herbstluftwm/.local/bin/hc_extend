@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# hc_extend — move helpers between ~/.local/bin (registered, outside the
+# dots repo) and the dots repo (herbstluftwm package, tracked + stowed).
+#
+#   hc_extend                    print every herbctl-discoverable hc_*
+#                                helper with its origin
+#   hc_extend --with <name>      promote a registered helper INTO the
+#                                dots repo (tracked + stowed — the file
+#                                stays on PATH through the stow link)
+#   hc_extend --without <name>   demote a dots helper back OUT to
+#                                ~/.local/bin (a real file again)
+#   hc_extend --without --force <name>
+#                                remove it from the dots repo AND
+#                                ~/.local/bin entirely
+#
+# Destructive steps confirm on a tty; --yes bypasses.
+
+set -u
+
+DOTS=$(dirname "$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")")
+PKG="$DOTS/herbstluftwm/.local/bin"
+LOCAL="$HOME/.local/bin"
+
+usage() {
+	echo "usage: hc_extend [--with|--without [--force]] <hc_name> | (bare: list)" >&2
+	exit 2
+}
+
+confirm() { # confirm <action description> — 0 = go
+	if [ "${YES:-}" = 1 ]; then return 0; fi
+	printf 'hc_extend: %s? [y/N] ' "$1"
+	read -r answer || return 1
+	case $answer in
+	y | Y | yes) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+notify() {
+	if command -v dunstify >/dev/null 2>&1; then
+		dunstify "hc_extend" "$1" >/dev/null 2>&1 || true
+	elif command -v notify-send >/dev/null 2>&1; then
+		notify-send "hc_extend" "$1" || true
+	fi
+}
+
+origin() { # origin <path> — dots | local | other | none
+	local p=$1
+	if [ -L "$p" ]; then
+		case $(readlink -f "$p" 2>/dev/null) in
+		"$DOTS"/*) echo dots ;;
+		*) echo other ;;
+		esac
+	elif [ -x "$p" ]; then
+		echo local
+	elif [ -e "$p" ]; then
+		echo other
+	else
+		echo none
+	fi
+}
+
+restow() {
+	make -C "$DOTS" stow-herbstluftwm >/dev/null 2>&1 || {
+		echo "hc_extend: restow FAILED — run: make -C $DOTS stow-herbstluftwm" >&2
+		return 1
+	}
+}
+
+list() {
+	# every hc_* first-level entry across PATH (deduped by basename)
+	local -A seen=()
+	local dir base p o
+	IFS=: read -ra dirs <<<"${PATH}"
+	for dir in "${dirs[@]}"; do
+		[ -d "$dir" ] || continue
+		for p in "$dir"/hc_*; do
+			[ -e "$p" ] || continue
+			base=$(basename "$p")
+			[ -n "${seen[$base]:-}" ] && continue
+			seen[$base]=1
+			o=$(origin "$p")
+			printf '%-24s %s\n' "$base" "$o"
+		done
+	done | sort
+}
+
+WITH=0
+WITHOUT=0
+FORCE=0
+name=
+for arg in "$@"; do
+	case $arg in
+	--with) WITH=1 ;;
+	--without) WITHOUT=1 ;;
+	--force) FORCE=1 ;;
+	--yes) YES=1 ;;
+	-*) usage ;;
+	*) name=$arg ;;
+	esac
+done
+
+if [ $WITH -eq 0 ] && [ $WITHOUT -eq 0 ]; then
+	[ -n "$name" ] && usage
+	list
+	exit 0
+fi
+[ $WITH -eq 1 ] && [ $WITHOUT -eq 1 ] && usage
+[ -n "$name" ] || usage
+case $name in
+hc_[a-z0-9_-]*) ;;
+*) usage ;;
+esac
+
+if [ $WITH -eq 1 ]; then
+	o=$(origin "$LOCAL/$name")
+	if [ "$o" != local ]; then
+		echo "hc_extend: $name is not a registered local helper (origin: $o)" >&2
+		exit 1
+	fi
+	confirm "promote $name into the dots repo ($PKG)" || {
+		echo "hc_extend: cancelled" >&2
+		exit 1
+	}
+	mv "$LOCAL/$name" "$PKG/$name"
+	if restow; then
+		echo "hc_extend: $name promoted (dots-tracked; still on PATH via stow)"
+		notify "$name promoted into the dots repo"
+	fi
+	exit 0
+fi
+
+# --without: demote or remove
+o=$(origin "$LOCAL/$name")
+if [ "$o" != dots ]; then
+	echo "hc_extend: $name is not dots-owned (origin: $o)" >&2
+	exit 1
+fi
+if [ $FORCE -eq 1 ]; then
+	confirm "remove $name from the dots repo AND .local/bin" || {
+		echo "hc_extend: cancelled" >&2
+		exit 1
+	}
+	git -C "$DOTS" rm -q --ignore-unmatch "$PKG/$name" 2>/dev/null || true
+	rm -f "$LOCAL/$name"
+	echo "hc_extend: $name removed from the dots repo and .local/bin"
+	notify "$name removed"
+	exit 0
+fi
+confirm "demote $name out of the dots repo into .local/bin" || {
+	echo "hc_extend: cancelled" >&2
+	exit 1
+}
+git -C "$DOTS" rm -q --cached --ignore-unmatch "$PKG/$name" 2>/dev/null || true
+mv "$PKG/$name" "$LOCAL/$name"
+if restow; then
+	echo "hc_extend: $name demoted (a real file in .local/bin again)"
+	notify "$name demoted to .local/bin"
+fi

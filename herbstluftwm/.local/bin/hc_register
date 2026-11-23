@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# hc_register — register a herbctl-discoverable helper: creates (with
+# confirmation) an executable hc_* script in ~/.local/bin — OUTSIDE the
+# dots repo — and opens it in $EDITOR with a dunst notification. The
+# palette discovers it immediately (hc_* on PATH).
+#
+#   hc_register <hc_name> [--yes]
+#
+# The name MUST start with hc_ (the discoverability prefix). Promote the
+# script into the dots repo later with `hc_extend --with <name>`.
+
+set -u
+
+usage() {
+	echo "usage: hc_register <hc_name> [--yes]" >&2
+	exit 2
+}
+
+name=${1:-}
+[ "${2:-}" = "--yes" ] && YES=1 || YES=
+case $name in
+hc_[a-z0-9_-]*) ;;
+*) usage ;;
+esac
+
+target="$HOME/.local/bin/$name"
+if [ -e "$target" ] || [ -L "$target" ]; then
+	echo "hc_register: $target already exists" >&2
+	echo "hc_register: a dots-owned link? inspect: readlink -f $target" >&2
+	exit 1
+fi
+
+if [ -z "${YES:-}" ]; then
+	printf 'hc_register: create %s in .local/bin (outside the dots repo)? [y/N] ' "$name"
+	read -r answer || exit 1
+	case $answer in
+	y | Y | yes) ;;
+	*) echo "hc_register: cancelled" >&2; exit 1 ;;
+	esac
+fi
+
+cat > "$target" <<EOF
+#!/usr/bin/env bash
+# $name — registered helper (herbctl palette-discoverable).
+#
+# Registered via hc_register: this file lives OUTSIDE the dots repo
+# (.local/bin). Promote it into the dots repo with:
+#   hc_extend --with $name
+# Remove it with:
+#   hc_unregister $name
+
+set -eu
+EOF
+chmod +x "$target"
+
+# the dunst callout (dunstify preferred; notify-send the fallback)
+notify() {
+	if command -v dunstify >/dev/null 2>&1; then
+		dunstify "hc_register" "$name registered — opening the editor" >/dev/null 2>&1 || true
+	elif command -v notify-send >/dev/null 2>&1; then
+		notify-send "hc_register" "$name registered — opening the editor" || true
+	fi
+}
+notify
+
+editor=${VISUAL:-${EDITOR:-vi}}
+echo "hc_register: $name registered — opening $editor"
+# $editor may carry flags (e.g. "code --wait") — word-split intentionally
+# shellcheck disable=SC2086
+exec $editor "$target"

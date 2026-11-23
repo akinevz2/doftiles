@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# hc_unregister — remove a registered helper (with confirmation). A REAL
+# file in ~/.local/bin (hc_register's product) is removed; a dots-owned
+# symlink is refused — that is `hc_extend --without <name>`'s job.
+#
+#   hc_unregister <hc_name> [--yes]
+
+set -u
+
+usage() {
+	echo "usage: hc_unregister <hc_name> [--yes]" >&2
+	exit 2
+}
+
+name=${1:-}
+[ "${2:-}" = "--yes" ] && YES=1 || YES=
+case $name in
+hc_[a-z0-9_-]*) ;;
+*) usage ;;
+esac
+
+target="$HOME/.local/bin/$name"
+if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+	echo "hc_unregister: $target does not exist" >&2
+	exit 1
+fi
+
+if [ -L "$target" ]; then
+	real=$(readlink -f "$target" 2>/dev/null || true)
+	case $real in
+	*/dots/*)
+		echo "hc_unregister: $name is dots-owned ($real)" >&2
+		echo "hc_unregister: use: hc_extend --without $name" >&2
+		exit 1
+		;;
+	esac
+fi
+
+if [ -z "${YES:-}" ]; then
+	printf 'hc_unregister: remove %s? [y/N] ' "$name"
+	read -r answer || exit 1
+	case $answer in
+	y | Y | yes) ;;
+	*) echo "hc_unregister: cancelled" >&2; exit 1 ;;
+	esac
+fi
+
+rm -f "$target"
+echo "hc_unregister: $name removed"
+
+if command -v dunstify >/dev/null 2>&1; then
+	dunstify "hc_unregister" "$name removed" >/dev/null 2>&1 || true
+elif command -v notify-send >/dev/null 2>&1; then
+	notify-send "hc_unregister" "$name removed" || true
+fi
