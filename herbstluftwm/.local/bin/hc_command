@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # hc_command — shim: the palette lives in herbctl now (the migrated
-# implementation, `herbctl command`; bare `herbctl` is the same
-# shorthand).
+# implementation, `herbctl run` (the v1.8.0 palette; bare `herbctl` is
+# the same shorthand — the run verb IS the entry verb).
 #
 #   Return              run the selection silently (detached)
 #   Shift-Return        run in a temporary floated terminal

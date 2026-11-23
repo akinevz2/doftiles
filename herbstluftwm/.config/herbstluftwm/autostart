@@ -83,7 +83,7 @@ keyreg $ModCtrl-c spawn ~/.local/bin/herbctl rotate-tree --smart
 # hc_command — the rofi command palette over the helper scripts (the
 # shim remains for script callers; the keybind goes straight to the
 # herbctl verb — bare `herbctl` is the same palette shorthand)
-keyreg $Mod-c       spawn ~/.local/bin/herbctl command
+keyreg $Mod-c       spawn ~/.local/bin/herbctl run
 
 # ==== notifications — dunst ====
 # The old dunst_keybinds fragment is folded here (across 2026 as an
