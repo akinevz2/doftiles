@@ -357,6 +357,17 @@ stay out of every dots update/stow walk by design.
 
 ## Quirks and conventions
 
+0. **opencode-pty daemon leaks zombies** (2026-11-22): the pty daemon
+   behind an opencode session never reaps the children it spawns, so
+   every agent tool call leaves one `[defunct]` process (bash/git/sed
+   … — PPID = the `opencode-pty daemon` PID). Nothing in this repo
+   spawns them (the recurring spawners — `hc_maximize-daemon`,
+   `polywins.sh`, the rofi applet loops — all reap correctly). MONITOR
+   the count across sessions: `ps -eo stat,ppid | awk '$2==<pty-pid>
+   && $1 ~ /Z/' | wc -l`. Harmless but unbounded; a restart of the
+   daemon clears them (it is respawned by `opencode serve`). If the
+   count balloons, file it upstream to opencode.
+
 1. **DISPLAY comes from the manager env** (check-x-server persists
    it). Never hardcode `Environment=DISPLAY=` in a unit. Fallback
    convention when unavoidable: `localhost:0.0` — never
