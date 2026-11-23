@@ -7,7 +7,9 @@ import {
   plain,
   red,
   renderAdded,
+  renderAmend,
   renderConsultation,
+  renderDecodeAmendError,
   renderDecodeError,
   renderDirective,
   renderNoteError,
@@ -80,16 +82,29 @@ describe("renderOverflowLines", () => {
 })
 
 describe("renderConsultation", () => {
+  const note = (text: string, active = true) => ({ text, active })
   test("empty", () => {
     expect(renderConsultation([])).toBe("specification is empty. there is nothing to verify.")
   })
 
   test("two notes, exact wording", () => {
-    const text = renderConsultation(["first note", "second note"])
+    const text = renderConsultation([note("first note"), note("second note")])
     expect(linesOf(text)).toEqual([
-      "specification: 2 note(s). check your draft response against every note before you finish.",
+      "specification: 2 active note(s). check your draft response against every note before you finish.",
       "1. first note",
       "2. second note",
+      "for each note: verify it against the facts of this conversation and the code you have actually read. if a note is not met or cannot be verified, fix the response or say so plainly. never claim a note is satisfied without checking it.",
+    ])
+  })
+
+  test("inactive notes are listed for reference under an overruled header, not numbered", () => {
+    const text = renderConsultation([note("binding note"), note("old fact", false)])
+    expect(linesOf(text)).toEqual([
+      "specification: 1 active note(s). check your draft response against every note before you finish.",
+      "1. binding note",
+      "",
+      "overruled, kept for reference only — not binding (1):",
+      "- old fact",
       "for each note: verify it against the facts of this conversation and the code you have actually read. if a note is not met or cannot be verified, fix the response or say so plainly. never claim a note is satisfied without checking it.",
     ])
   })
@@ -134,12 +149,42 @@ describe("renderDirective", () => {
   })
 })
 
-describe("renderAdded and renderDecodeError", () => {
+describe("renderAdded, renderAmend and decode errors", () => {
   test("exact wording", () => {
-    expect(renderAdded({ added: 2, total: 3 })).toBe("added 2 note(s). specification now holds 3.")
+    expect(renderAdded({ added: 2, total: 3, inactive: 0 })).toBe("added 2 note(s). specification now holds 3.")
+    expect(renderAdded({ added: 1, total: 3, inactive: 1 })).toBe(
+      "added 1 note(s). specification now holds 3 (1 overruled).",
+    )
     expect(renderDecodeError({ tag: "notStringArray" })).toBe(
       'rejected: add-rigorously expects { "notes": string[] }. nothing was added.',
     )
+  })
+
+  test("renderAmend reports each operation and the resulting counts", () => {
+    expect(
+      renderAmend({ dropped: 1, overruled: 2, missing: [], total: 2, inactive: 2 }),
+    ).toEqual(
+      [
+        "dropped 1 note(s) — the text is gone.",
+        "overruled 2 note(s) — kept for reference, now inactive.",
+        "specification now holds 2 (2 overruled).",
+      ].join("\n"),
+    )
+    expect(renderAmend({ dropped: 0, overruled: 0, missing: ["nope"], total: 1, inactive: 0 })).toEqual(
+      [
+        "no note matched: nope. consult-specification lists the exact texts.",
+        "specification now holds 1.",
+      ].join("\n"),
+    )
+  })
+
+  test("renderDecodeAmendError, every line at most 96 characters", () => {
+    const lines = linesOf(renderDecodeAmendError({ tag: "malformed" }))
+    expect(lines).toEqual([
+      "rejected: invalidate-rigorously expects notes, drop or overrule, each string[];",
+      "at least one entry overall. nothing was changed.",
+    ])
+    expect(lines.every((line) => line.length <= maxLineWidth)).toBe(true)
   })
 })
 

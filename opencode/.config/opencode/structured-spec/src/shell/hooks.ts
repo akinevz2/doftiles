@@ -17,7 +17,7 @@ export const registerHooks = async (ctx: Context, store: Store): Promise<void> =
   })
   await ctx.session.hook("context", (event) => {
     const text = renderDirective({
-      notes: store.get(event.sessionID).length,
+      notes: store.get(event.sessionID).filter((note) => note.active).length,
       rejected: store.pending(event.sessionID).length,
     })
     if (text !== undefined) event.system.push({ type: "text", text })

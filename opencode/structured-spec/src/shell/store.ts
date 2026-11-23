@@ -1,5 +1,5 @@
-import { addEach as addEachCore, addNotes, emptyNotes } from "../core/notes.ts"
-import type { NoteError, Notes } from "../core/notes.ts"
+import { addEach as addEachCore, addNotes, dropNotes, emptyNotes, overruleNotes } from "../core/notes.ts"
+import type { DropOutcome, NoteError, Notes, OverruleOutcome } from "../core/notes.ts"
 import type { Result } from "../core/result.ts"
 import { modifyRef, newRef, readRef } from "./ref.ts"
 import type { Ref } from "./ref.ts"
@@ -8,6 +8,8 @@ export type Store = {
   readonly get: (sessionID: string) => Notes
   readonly add: (sessionID: string, raw: readonly string[]) => Result<NoteError, Notes>
   readonly addEach: (sessionID: string, raw: readonly string[]) => readonly NoteError[]
+  readonly drop: (sessionID: string, raw: readonly string[]) => DropOutcome
+  readonly overrule: (sessionID: string, raw: readonly string[]) => OverruleOutcome
   readonly reject: (sessionID: string, lines: readonly string[]) => void
   readonly pending: (sessionID: string) => readonly string[]
   readonly drain: (sessionID: string) => readonly string[]
@@ -40,6 +42,15 @@ const addAllTo =
     return outcome.errors
   }
 
+const amendWith =
+  <O extends { notes: Notes }>(apply: (notes: Notes) => (raw: readonly string[]) => O) =>
+  (ref: Ref<ReadonlyMap<string, Notes>>) =>
+  (sessionID: string, raw: readonly string[]): O => {
+    const outcome = apply(getIn(readRef(ref), sessionID, emptyNotes))(raw)
+    modifyRef(ref)((map) => setIn(map, sessionID, outcome.notes))
+    return outcome
+  }
+
 const appendTo =
   (ref: Ref<ReadonlyMap<string, readonly string[]>>) =>
   (sessionID: string, lines: readonly string[]): void => {
@@ -65,6 +76,8 @@ export const makeStore = (): Store => {
     get: (sessionID) => getIn(readRef(notesRef), sessionID, emptyNotes),
     add: (sessionID, raw) => addTo(notesRef)(sessionID, raw),
     addEach: (sessionID, raw) => addAllTo(notesRef)(sessionID, raw),
+    drop: (sessionID, raw) => amendWith(dropNotes)(notesRef)(sessionID, raw),
+    overrule: (sessionID, raw) => amendWith(overruleNotes)(notesRef)(sessionID, raw),
     reject: (sessionID, lines) => appendTo(rejectedRef)(sessionID, lines),
     pending: (sessionID) => getIn(readRef(rejectedRef), sessionID, emptyLines),
     drain: (sessionID) => drainFrom(rejectedRef)(sessionID),

@@ -10,9 +10,14 @@ writing code. where this file and your habits disagree, this file wins. where
 this file and the installed `@opencode/plugin` types disagree, the installed
 types win (see "verify first") and you report the delta.
 
+> pruned 2026-11-23. lines that diverged from the implemented plugin were
+> removed; what remains is the outline that held true. the invalidation
+> amendment (a third tool) is not described here; the implemented truth is in
+> `src/`.
+
 ## what it does
 
-a per-session list of atomic notes (plain strings). the model is steered to:
+a per-session list of atomic notes. the model is steered to:
 
 1. receive the user's complete request,
 2. call `consult-specification`,
@@ -70,8 +75,8 @@ source: opencode.ai/docs/build/plugins/server and .../migrate-v1.
 5. if any signature in this spec is wrong, adapt the `shell/` layer only (never
    `core/`) and list every deviation in your final report.
 6. check effective tool names with `ctx.tool.list()` in a scratch run. the host
-   rewrites unsupported characters in tool names to `_`. if `add-rigorously`
-   or `consult-specification` are rewritten, change only the two name constants
+   rewrites unsupported characters in tool names to `_`. if a tool name
+   is rewritten, change only the tool-name constants
    in `core/render.ts` and report it.
 
 ## tooling decisions (already made, do not revisit)
@@ -90,8 +95,8 @@ src/
     fn.ts           pipe, absurd
     result.ts       Result, ok, err, fold
     notes.ts        Notes + pure note operations
-    decode.ts       decodeNotesInput (the only place `unknown` is allowed)
-    render.ts       pure text rendering + the two tool-name constants
+    decode.ts       the input decoders (the only place `unknown` is allowed)
+    render.ts       pure text rendering + the tool-name constants
   shell/
     ref.ts          the one mutable cell (IORef analogue)
     store.ts        session store built on ref + core/notes
@@ -177,7 +182,6 @@ export type Result<E, A> =
 ### `core/notes.ts`
 
 ```ts
-export type Notes = readonly string[]
 export const maxNoteLength = 96
 export type NoteError =
   | { readonly tag: "empty" }
@@ -203,10 +207,9 @@ export type NoteError =
 //   exactly 96 characters is valid, 97 is not.
 // addNotes :: Notes -> readonly string[] -> Result NoteError Notes
 //   ATOMIC. validates ALL incoming first; if any fails, returns the FIRST
-//   error and changes nothing. otherwise appends in order, dropping any note
-//   already present (case-sensitive, after normalisation) and any duplicate
-//   within the batch. first-appearance order preserved. idempotent: this is
-//   what makes the prompt hook retry-safe.
+//   error and changes nothing. otherwise appends in order, dropping any
+//   duplicate within the batch. first-appearance order preserved. idempotent:
+//   this is what makes the prompt hook retry-safe.
 // addEach :: Notes -> readonly string[] ->
 //            { notes: Notes; errors: readonly NoteError[] }
 //   NON-ATOMIC. validates each raw note on its own. valid ones are appended as
@@ -244,8 +247,7 @@ continuation lines (no bullet) are ignored
 export type DecodeError = { readonly tag: "notStringArray" }
 // decodeNotesInput :: unknown -> Result DecodeError (readonly string[])
 //   accepts an object whose `notes` property is an array of strings (extra
-//   keys ignored). anything else -> err notStringArray. this is the only
-//   function in the codebase allowed to take `unknown`. no assertions: narrow
+//   keys ignored). anything else -> err notStringArray. no assertions: narrow
 //   with typeof / Array.isArray / small type-predicate helpers.
 ```
 
@@ -260,16 +262,6 @@ export const consultToolName = "consult-specification"
 
 ```ts
 // renderConsultation :: Notes -> string
-```
-
-non-empty (n = length):
-
-```
-specification: <n> note(s). check your draft response against every note before you finish.
-1. <note>
-2. <note>
-...
-for each note: verify it against the facts of this conversation and the code you have actually read. if a note is not met or cannot be verified, fix the response or say so plainly. never claim a note is satisfied without checking it.
 ```
 
 empty:
@@ -346,12 +338,6 @@ the user's notes block had <rejected> note(s) rejected as too wide. call the con
   `<rejected> note(s) from the user's notes block were rejected as too wide; the tool will say which.`
 
 ```ts
-// renderAdded :: { added: number; total: number } -> string
-```
-`added <added> note(s). specification now holds <total>.`
-(`added` = `after.length - before.length`.)
-
-```ts
 // renderDecodeError :: DecodeError -> string
 ```
 `rejected: add-rigorously expects { "notes": string[] }. nothing was added.`
@@ -371,20 +357,6 @@ the only module that assigns to a property.
 ### `shell/store.ts`
 
 ```ts
-export type Store = {
-  readonly get: (sessionID: string) => Notes
-  readonly add: (
-    sessionID: string,
-    raw: readonly string[],
-  ) => Result<NoteError, Notes>
-  readonly addEach: (
-    sessionID: string,
-    raw: readonly string[],
-  ) => readonly NoteError[]
-  readonly reject: (sessionID: string, lines: readonly string[]) => void
-  readonly pending: (sessionID: string) => readonly string[]
-  readonly drain: (sessionID: string) => readonly string[]
-}
 // makeStore :: () -> Store
 ```
 backed by two refs: `Ref<ReadonlyMap<string, Notes>>` for notes and
@@ -412,11 +384,10 @@ channel.
 ```ts
 // registerTools :: (Ctx, Store) -> Promise<void>
 ```
-one `ctx.tool.transform` call, two `editor.add` calls. no `namespace` (a
+one `ctx.tool.transform` call. no `namespace` (a
 namespace would prefix the names).
 
 - `add-rigorously`
-  - description (exact): `add atomic reminders to this session's specification list. each note must be one short, self-contained, checkable statement (at most 96 characters). use when the user asks you to remember, enforce, or keep in mind specific requirements.`
   - input schema:
     `{ type: "object", properties: { notes: { type: "array", items: { type: "string" }, description: "atomic reminders, one statement each" } }, required: ["notes"], additionalProperties: false }`
   - do NOT put `maxLength` in the json schema: the host would reject with its
@@ -446,8 +417,8 @@ namespace would prefix the names).
   block are kept even when a sibling is too wide. never edit `event.prompt`,
   never interrupt the user's prompt. if the installed event does not expose a
   session id, say so in the report and stop; do not invent a workaround.
-- `ctx.session.hook("context", ...)`: `renderDirective({ notes:
-  store.get(id).length, rejected: store.pending(id).length })` with
+- `ctx.session.hook("context", ...)`: `renderDirective` on the session's note
+  and rejection counts with
   `id = event.sessionID`; if `undefined`, do nothing; otherwise
   `event.system.push({ type: "text", text })` exactly once. register for
   `context` ONLY (not compaction, generate, title).
@@ -512,7 +483,7 @@ in order:
    `.opencode/plugins/structured-spec/index.ts` containing exactly
    `export { default } from "<absolute path to this repo>/src/index.ts"`,
    start opencode v2 there and confirm: the plugin appears in the active plugin
-   list with id `structured-spec`; both tools are listed (check effective
+   list with id `structured-spec`; the tools are listed (check effective
    names); a prompt containing a ```notes block makes `consult-specification`
    list those notes; `add-rigorously` with a 100-character note returns the
    exact two-line rejection (overflow line, then the reword line), and the same

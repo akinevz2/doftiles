@@ -1,6 +1,7 @@
-import type { DecodeError } from "./decode.ts"
+import type { DecodeAmendError, DecodeError } from "./decode.ts"
 import type { NoteError, Notes } from "./notes.ts"
 export const addToolName = "add-rigorously"
+export const amendToolName = "invalidate-rigorously"
 export const consultToolName = "consult-specification"
 export const maxLineWidth = 96
 export const overflowPrefix = "overflowing spec: ["
@@ -30,15 +31,30 @@ export const renderOverflowLines = (errors: readonly NoteError[]): readonly stri
   errors.flatMap((error) =>
     error.tag === "tooLong" ? [renderOverflow(plain)(error.overflow)] : [],
   )
+const verifyLine =
+  "for each note: verify it against the facts of this conversation and the code you have actually read. if a note is not met or cannot be verified, fix the response or say so plainly. never claim a note is satisfied without checking it."
+// overruledSuffix :: number -> string
+const overruledSuffix = (inactive: number): string => (inactive > 0 ? ` (${inactive} overruled)` : "")
 // renderConsultation :: Notes -> string
 export const renderConsultation = (notes: Notes): string =>
   notes.length === 0
     ? "specification is empty. there is nothing to verify."
-    : [
-        `specification: ${notes.length} note(s). check your draft response against every note before you finish.`,
-        notes.map((note, index) => `${index + 1}. ${note}`).join("\n"),
-        "for each note: verify it against the facts of this conversation and the code you have actually read. if a note is not met or cannot be verified, fix the response or say so plainly. never claim a note is satisfied without checking it.",
-      ].join("\n")
+    : (() => {
+        const active = notes.filter((note) => note.active)
+        const inactive = notes.filter((note) => !note.active)
+        const lines = [
+          `specification: ${active.length} active note(s). check your draft response against every note before you finish.`,
+          ...active.map((note, index) => `${index + 1}. ${note.text}`),
+        ]
+        if (inactive.length > 0)
+          lines.push(
+            "",
+            `overruled, kept for reference only — not binding (${inactive.length}):`,
+            ...inactive.map((note) => `- ${note.text}`),
+          )
+        lines.push(verifyLine)
+        return lines.join("\n")
+      })()
 const rejectionHeader =
   "rejected from the user's notes block, not added. ask the user to reword each, or suggest one:"
 // renderRejections :: readonly string[] -> string
@@ -58,9 +74,31 @@ const rejectedOnly = (rejected: number): string | undefined =>
     : undefined
 const rejectedTail = (rejected: number): string =>
   `${rejected} note(s) from the user's notes block were rejected as too wide; the tool will say which.`
-// renderAdded :: { added: number; total: number } -> string
-export const renderAdded = (counts: { readonly added: number; readonly total: number }): string =>
-  `added ${counts.added} note(s). specification now holds ${counts.total}.`
+// renderAdded :: { added: number; total: number; inactive: number } -> string
+export const renderAdded = (counts: { readonly added: number; readonly total: number; readonly inactive: number }): string =>
+  `added ${counts.added} note(s). specification now holds ${counts.total}${overruledSuffix(counts.inactive)}.`
+export type AmendCounts = {
+  readonly dropped: number
+  readonly overruled: number
+  readonly missing: readonly string[]
+  readonly total: number
+  readonly inactive: number
+}
+// renderAmend :: AmendCounts -> string
+export const renderAmend = (counts: AmendCounts): string => {
+  const lines: string[] = []
+  if (counts.dropped > 0) lines.push(`dropped ${counts.dropped} note(s) — the text is gone.`)
+  if (counts.overruled > 0) lines.push(`overruled ${counts.overruled} note(s) — kept for reference, now inactive.`)
+  if (counts.missing.length > 0)
+    lines.push(
+      `no note matched: ${counts.missing.join(" | ")}. consult-specification lists the exact texts.`,
+    )
+  lines.push(`specification now holds ${counts.total}${overruledSuffix(counts.inactive)}.`)
+  return lines.join("\n")
+}
 // renderDecodeError :: DecodeError -> string
 export const renderDecodeError = (error: DecodeError): string =>
   `rejected: ${addToolName} expects { "notes": string[] }. nothing was added.`
+// renderDecodeAmendError :: DecodeAmendError -> string
+export const renderDecodeAmendError = (_error: DecodeAmendError): string =>
+  `rejected: ${amendToolName} expects notes, drop or overrule, each string[];\nat least one entry overall. nothing was changed.`

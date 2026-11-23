@@ -31,6 +31,7 @@ Create RIGOR.md, every line <=96 chars:
     ## waived
 
 If tool add-rigorously exists, call it with the invariants.
+If tool invalidate-rigorously exists: drop wrong invariants; overrule superseded ones.
 
 ## 2. analyse (low effort: grep first, read <=10 files)
 Find paired paths and gaps:

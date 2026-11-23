@@ -5,7 +5,7 @@
     "": {
       "name": "structured-spec",
       "dependencies": {
-        "@opencode/plugin": "latest",
+        "@opencode/plugin": "2.3.2",
       },
       "devDependencies": {
         "@types/bun": "latest",

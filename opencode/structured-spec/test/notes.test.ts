@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { addEach, addNotes, emptyNotes, maxNoteLength, normalise, parseBlocks, splitOverflow, validate } from "../src/core/notes.ts"
+import { dropNotes, addEach, addNotes, emptyNotes, maxNoteLength, normalise, overruleNotes, parseBlocks, splitOverflow, validate } from "../src/core/notes.ts"
 import { err, ok } from "../src/core/result.ts"
 import type { Result } from "../src/core/result.ts"
 import { fold } from "../src/core/result.ts"
@@ -60,8 +60,9 @@ describe("validate", () => {
 })
 
 describe("addNotes", () => {
+  const note = (text: string, active = true) => ({ text, active })
   test("appends in order", () => {
-    expect(addNotes(["one"])(["two", "three"])).toEqual(ok(["one", "two", "three"]))
+    expect(addNotes([note("one")])(["two", "three"])).toEqual(ok([note("one"), note("two"), note("three")]))
   })
 
   test("adding the same batch twice equals once", () => {
@@ -73,26 +74,70 @@ describe("addNotes", () => {
   })
 
   test("dedupes within the batch, first appearance order kept", () => {
-    expect(addNotes(emptyNotes)(["b", "a", "b", "a"])).toEqual(ok(["b", "a"]))
+    expect(addNotes(emptyNotes)(["b", "a", "b", "a"])).toEqual(ok([note("b"), note("a")]))
   })
 
   test("one invalid note rejects the whole batch, list unchanged", () => {
     const wide = "x".repeat(97)
-    expect(addNotes(["kept"])(["fine", wide, "more"])).toEqual(err({ tag: "tooLong", note: wide, overflow: wide }))
+    expect(addNotes([note("kept")])(["fine", wide, "more"])).toEqual(err({ tag: "tooLong", note: wide, overflow: wide }))
+  })
+
+  test("re-adding an overruled note re-activates it instead of duplicating", () => {
+    const base = fold<NoteError, Notes, Notes>((): Notes => [])(kept => kept)(addNotes(emptyNotes)(["a", "b"]))
+    const overruled = overruleNotes(base)(["a"])
+    expect(overruled.notes).toEqual([note("a", false), note("b")])
+    expect(addNotes(overruled.notes)(["a"])).toEqual(ok([note("a"), note("b")]))
   })
 })
 
 describe("addEach", () => {
+  const note = (text: string, active = true) => ({ text, active })
   test("valid notes are kept and errors arrive in input order", () => {
     const wide = "x".repeat(97)
     const outcome = addEach(emptyNotes)(["fine", wide, "", "more"])
-    expect(outcome.notes).toEqual(["fine", "more"])
+    expect(outcome.notes).toEqual([note("fine"), note("more")])
     expect(outcome.errors).toEqual([{ tag: "tooLong", note: wide, overflow: wide }, { tag: "empty" }])
   })
 
   test("idempotent", () => {
     const once = addEach(emptyNotes)(["a", "b"])
     expect(addEach(once.notes)(["a", "b"])).toEqual({ notes: once.notes, errors: [] })
+  })
+})
+
+describe("dropNotes", () => {
+  const note = (text: string, active = true) => ({ text, active })
+  test("removes every match regardless of state, reports the new list", () => {
+    const notes = [note("a"), note("b"), note("c", false)]
+    expect(dropNotes(notes)(["a", "c"])).toEqual({ notes: [note("b")], dropped: 2, missing: [] })
+  })
+  test("unmatched queries are reported deduped in input order, list unchanged", () => {
+    const notes = [note("a"), note("b")]
+    expect(dropNotes(notes)(["x", "x", "y"])).toEqual({ notes, dropped: 0, missing: ["x", "y"] })
+  })
+  test("queries are normalised before matching", () => {
+    expect(dropNotes([note("keep it short")])(["  keep   it short "])).toEqual({
+      notes: [],
+      dropped: 1,
+      missing: [],
+    })
+  })
+})
+
+describe("overruleNotes", () => {
+  const note = (text: string, active = true) => ({ text, active })
+  test("deactivates every active match, keeping the text", () => {
+    const notes = [note("a"), note("b"), note("c", false)]
+    const outcome = overruleNotes(notes)(["a", "c"])
+    expect(outcome).toEqual({ notes: [note("a", false), note("b"), note("c", false)], overruled: 1, missing: [] })
+  })
+  test("unmatched queries are reported deduped in input order, list unchanged", () => {
+    const notes = [note("a"), note("b")]
+    expect(overruleNotes(notes)(["x", "x"])).toEqual({ notes, overruled: 0, missing: ["x"] })
+  })
+  test("already-inactive matches are not counted again", () => {
+    const outcome = overruleNotes([note("a", false)])(["a"])
+    expect(outcome).toEqual({ notes: [note("a", false)], overruled: 0, missing: [] })
   })
 })
 
