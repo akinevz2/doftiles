@@ -182,13 +182,13 @@ keyreg $ModCtrl-Up              or . shift --level=frame up . shift --level=all 
 
 keyreg $ModCtrl-Right           or . shift --level=frame right . shift --level=all right
 
-# window cycling was mod-comma/period — now mod-bracketleft/right
-keyreg $Mod-bracketleft     cycle_all --skip-invisible -1
-keyreg $Mod-bracketright    cycle_all --skip-invisible +1
+# tagspace (hlwm tag) cycling — the brackets cycle tagspaces
+keyreg $Mod-bracketleft     use_index -1 --skip-visible
+keyreg $Mod-bracketright    use_index +1 --skip-visible
 
-# workspace (tag) switching — the old mod-brackets — moved to shift
-keyreg $ModShift-bracketleft    use_index -1 --skip-visible
-keyreg $ModShift-bracketright   use_index +1 --skip-visible
+# window cycling — moved to the shifted brackets
+keyreg $ModShift-bracketleft    cycle_all --skip-invisible -1
+keyreg $ModShift-bracketright   cycle_all --skip-invisible +1
 
 # move the focused window to the previous/next tag by index
 # (move_index takes the same -1/+1 relative index as use_index)
