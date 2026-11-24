@@ -173,6 +173,18 @@ Layer contents:
   sanctioned path: `git add`/`git commit`/`git push` directly —
   the contribute walk is submodule machinery, not a dots-commit
   ritual.
+- **AGENTS rule — declarative arguments (herbctl)**: every verb declares
+  its parameters as data at the top of its source file (the ARGS specs —
+  the single source of truth); resolution is the shared layer
+  `lib/args.ts` (pure, string-level, tested). Tail positionals name
+  things, switches select exclusive behavior. An omitted REQUIRED
+  argument prompts — themed rofi input query first (input.rasi), then an
+  urgent focus-stealing terminal; both refused → the command FAILS with
+  `argument <a> is required for <verb subverb>` on stderr and exit 2 —
+  the detectable shape for automation: the orchestrator sets
+  `HERBCTL_NO_PROMPT=1` (or `--no-prompt`) and parses that reason to
+  display the quick documentation. Never hand-parse optional inputs in
+  a verb body.
 - **AGENTS rule — submodule sources**: whenever working with the
   sources of a dots submodule, run `make update` (to update to the
   latest) and `make stow` (to deploy the latest) after the changes —
