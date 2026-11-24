@@ -174,17 +174,16 @@ export default Plugin.define({
             if (add.exitCode !== 0) return { content: `relocate: could not create tagspace '${tagspace}'` }
           }
           const focusBefore = (await read("clients.focus.winid")).replaceAll("\"", "")
-          const mv = Bun.spawnSync(["herbstclient", "move", id, tagspace], { stdout: "ignore", stderr: "ignore" })
+          // hlwm 0.9.5's `move` has NO winid form — it moves the FOCUSED
+          // window. The relocation is therefore the ATOMIC four-step
+          // procedure: focus the window (the view follows), move it,
+          // restore the view, restore the focus — every step
+          // unconditional, so a failure is visible and recoverable.
+          Bun.spawnSync(["herbstclient", "jumpto", id], { stdout: "ignore", stderr: "ignore" })
+          const mv = Bun.spawnSync(["herbstclient", "move", tagspace], { stdout: "ignore", stderr: "ignore" })
           if (mv.exitCode !== 0) return { content: `relocate: herbstclient move failed for ${id} -> ${tagspace}` }
-          // focus-stealing prevention, second line of defense: hlwm's move
-          // should not change the view or the focused client — restore
-          // both when it did anyway.
-          const viewAfter = (await read("tags.focus.name")).replaceAll("\"", "")
-          if (viewAfter !== viewBefore) Bun.spawnSync(["herbstclient", "use", viewBefore], { stdout: "ignore", stderr: "ignore" })
-          const focusAfter = (await read("clients.focus.winid")).replaceAll("\"", "")
-          if (focusBefore && focusAfter !== focusBefore) {
-            Bun.spawnSync(["herbstclient", "jumpto", focusBefore], { stdout: "ignore", stderr: "ignore" })
-          }
+          Bun.spawnSync(["herbstclient", "use", viewBefore], { stdout: "ignore", stderr: "ignore" })
+          if (focusBefore) Bun.spawnSync(["herbstclient", "jumpto", focusBefore], { stdout: "ignore", stderr: "ignore" })
           return { content: `relocated ${id} to tagspace '${tagspace}' (view + focus preserved)` }
         },
       },
