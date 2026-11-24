@@ -1,7 +1,14 @@
-# screencast_scripts
+# opencode-screencast — the "orchestrator"
 
-Infrastructure for recording herbstluftwm screencasts narrated live by an
-OpenCode agent. Plain markdown scripts drive the recording; the agent reads
+The plugin and its operation are referred to as the **orchestrator**: it
+detects and verifies the orchestrator window, relocates it across hlwm
+tagspaces without focus stealing, narrates to the user via dunst, and runs
+a **co-owned terminal** whose assurance surface is the point — every
+command journaled with its exit status, a FIFO input bridge (anything
+written to the pipe is typed into the pane), and one-read session state
+(no polling). The repo name stays `opencode-screencast` for URL stability
+(the personal website links to it); the retired live-recording narration
+window remains available but is no longer the focus.
 prose aloud into a floating narration window and silently performs the
 operations described in code blocks.
 

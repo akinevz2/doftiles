@@ -41,6 +41,10 @@
 #                               (state: absent|running|done|lost)
 #   task-wait [timeout] <s>     poll until the task finishes or the session
 #                               vanishes (default 30s)
+#   journal [session] [N]        the co-owned terminal journal (one read:
+#                                every command + exit status; state line)
+#   fifo    [session]             print the input FIFO path (write a line
+#                                into it — it is typed into the pane)
 #   status                        overview of sessions, panes and log
 #
 # Environment overrides:
@@ -105,27 +109,74 @@ record_pane() {
 pane_title() { tmux display-message -p -t "$(pane_target "$1")" '#{pane_title}' 2>/dev/null || true; }
 
 # ---------------------------------------------------------------------------
+# journal / fifo — the co-owned terminal assurance surface: the agent
+# reads the journal (one file, every command + exit status) and writes
+# the FIFO (typed into the pane like a real keystroke stream). Session
+# state is a one-read file — never polling.
+# ---------------------------------------------------------------------------
+do_journal() {
+  local session
+  session="$(resolve_session "${1:-command}")"
+  local j="$RUNTIME_DIR/$session.journal"
+  if [ ! -r "$j" ]; then
+    echo "orchestrator: no journal for $session yet"
+    exit 0
+  fi
+  if has_session "$session"; then
+    echo "session: running"
+  else
+    echo "session: exited (see the |lost marker)"
+  fi
+  tail -n "${2:-20}" "$j"
+}
+
+do_fifo() {
+  local session
+  session="$(resolve_session "${1:-command}")"
+  local fifo="$RUNTIME_DIR/$session.in"
+  [ -p "$fifo" ] || mkfifo "$fifo"
+  # The bridge (ensure) holds the fifo O_RDWR — writers never block. No
+  # second opener: an extra reader would STEAL fifo lines (the kernel
+  # hands each line to one reader only).
+  echo "$fifo"
+}
+
+
+# ---------------------------------------------------------------------------
 # ensure — create detached sessions without opening any window
 # ---------------------------------------------------------------------------
 write_cmd_rc() {
   local rc="$RUNTIME_DIR/$1.bashrc"
-  cat > "$rc" <<'EOF'
-# screencast delegation shell rc — managed by screencastctl
-__sc_set_title() { printf '\033]2;%s\033\\' "$1"; }
+  local journal="$RUNTIME_DIR/$1.journal"
+  cat > "$rc" <<EOF
+# orchestrator delegation shell rc — managed by screencastctl
+__sc_set_title() { printf '\033]2;%s\033\\\\' "\$1"; }
+__sc_cur=""
 __sc_preexec_invoke() {
-  local c="$BASH_COMMAND"
-  case "$c" in __sc_*|PROMPT_COMMAND*|trap\ *) return ;; esac
+  local c="\$BASH_COMMAND"
+  case "\$c" in __sc_*|PROMPT_COMMAND*|trap\ *|tmux\ pipe-pane*) return ;; esac
   trap - DEBUG
   __sc_set_title running
+  __sc_cur="\$c"
   trap '__sc_preexec_invoke' DEBUG
+}
+
+# The co-owned terminal journal — the assurance surface: EVERY command
+# (agent-sent via the FIFO bridge or typed by the user) and its exit
+# status lands here, one pipe-delimited line each. The agent reads this
+# file once per command — no terminal polling, no screen scraping.
+__sc_journal() {
+  [ -n "\$__sc_cur" ] || return 0
+  printf '%s|cmd|%s|exit:%s\n' "\$(date +%s)" "\$__sc_cur" "\$1" >> "$journal"
+  __sc_cur=""
 }
 
 # User environment first; our prompt and title protocol hooks are armed
 # last so they win and never fire while the rcfile itself is sourced.
-source "$HOME/.bashrc" 2>/dev/null || true
-PS1='\[\e[1;36m\][screencast]\[\e[0m\] \[\e[1;32m\]\w\[\e[0m\] \$ '
+source "\$HOME/.bashrc" 2>/dev/null || true
+PS1='\[\e[1;36m\][orchestrator]\[\e[0m\] \[\e[1;32m\]\w\[\e[0m\] \$ '
 trap '__sc_preexec_invoke' DEBUG
-PROMPT_COMMAND='__sc_set_title idle'
+PROMPT_COMMAND='__sc_journal "\$?"; __sc_set_title idle'
 EOF
   # Advance interception, appended outside the quoted heredoc so the
   # watcher path is baked in literally (safely shell-quoted).
@@ -164,6 +215,30 @@ do_ensure() {
         tmux new-session -d -s "$session" bash --rcfile "$rc"
         record_pane "$session"
       fi
+      # Session state file — one read tells the agent the session is
+      # alive (no polling of tmux/panes).
+      printf '{"session":"%s","state":"running","pid":%s}\n' \
+        "$session" "$$" > "$RUNTIME_DIR/$session.state"
+      # The input FIFO bridge: anything written to the named pipe is
+      # typed into the pane verbatim (so agent- and user-side input both
+      # flow through the shell's own journal). The <>'d fd keeps the
+      # bridge alive across writers.
+      local fifo="$RUNTIME_DIR/$session.in"
+      [ -p "$fifo" ] || mkfifo "$fifo"
+      pkill -f "orchestrator-fifo $fifo" 2>/dev/null || true
+      nohup bash -c '
+          : orchestrator-fifo '"$fifo"'   # pgrep -f marker
+          exec 3<>"'"$fifo"'"
+          pane="$(cat "'"$(dirname "$fifo")"'/'"$session"'.pane")"
+          while :; do
+            IFS= read -r line <&3 || { exec 3<>"'"$fifo"'"; continue; }
+            [ -n "$pane" ] && tmux send-keys -t "$pane" -l -- "$line" && tmux send-keys -t "$pane" Enter
+          done
+        ' >/dev/null 2>&1 & disown
+      # pane-died: the human gets a dunst callout, the journal records
+      # the loss — no polling required to notice a dead terminal.
+      tmux set-hook -t "=$session" pane-died \
+        "run-shell 'printf %s\\n \"\$(date +%s)|lost\" >> $RUNTIME_DIR/$session.journal; dunstify orchestrator \"$session terminal exited\"'" 2>/dev/null || true
       ;;
     *) die "unknown role: $role (use narration|command or a session name)" ;;
   esac
@@ -896,6 +971,8 @@ case "${1:-}" in
   task-status) shift; do_task_status "$@" ;;
   task-wait) shift; do_task_wait "$@" ;;
   status)  do_status ;;
+  journal) shift; do_journal "$@" ;;
+  fifo) shift; do_fifo "$@" ;;
   help|-h|--help) usage ;;
   "")      usage ;;
   *)       die "unknown subcommand: $1 (try: screencastctl help)" ;;

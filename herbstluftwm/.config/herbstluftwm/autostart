@@ -124,23 +124,23 @@ keyreg $ModShift-n spawn ~/.local/bin/hc_dunst-pop-all
 keyreg $ModCtrl-d spawn ~/.local/bin/hc_dismiss-notifs
 
 
-keyreg $Mod-w spawn ~/.local/bin/herbctl-nav-cycle get-forward
-# Mod-w: intra-frame cycle -1 (negative); at the frame's edge (first
-# client, or a single-client frame) it hands off to cycle_frame -1 —
-# focus-only frame cycling, never layout modification
+keyreg $Mod-w spawn ~/.local/bin/herbctl jump forward
+# Mod-w: leave the floating layer, then cycle window/frame upward —
+# focus-only frame cycling, never layout modification (the former
+# herbctl-nav-cycle get-forward register)
 
-# ModShift-w: mirror of Mod-w's cycle -1 register — first tries shifting
-# the window up (#window leaves the frame, --level=all); when there is
+# ModShift-w: mirror of Mod-w's register — the shift-up ladder: first
+# tries shifting the window up (--level=all); when there is
 # nothing above, with >1 window in the focused frame it cycles -1,
 # otherwise it tries cycle_frame, then falls through to rotating the
 # frame tree.
-keyreg $ModShift-w spawn ~/.local/bin/herbctl shift-up
+keyreg $ModShift-w spawn ~/.local/bin/herbctl shift up
 
-keyreg $ModShift-s spawn ~/.local/bin/herbctl shift-down
+keyreg $ModShift-s spawn ~/.local/bin/herbctl shift down
 
-keyreg $ModShift-d spawn ~/.local/bin/herbctl get-dedeck
+keyreg $ModShift-d spawn ~/.local/bin/herbctl jump dedeck
 
-keyreg $Mod-d spawn ~/.local/bin/herbctl get-deck
+keyreg $Mod-d spawn ~/.local/bin/herbctl jump deck
 
 # tag switcher
 keyreg $Mod-t               spawn ~/.local/bin/polyframes tags
@@ -210,28 +210,26 @@ keyreg $ModShift-period     shift right
 # ModShift-w.
 keyreg $ModCtrl-r spawn ~/.local/bin/herbctl rotate-tree
 
-keyreg $Mod-e spawn ~/.local/bin/herbctl-nav-cycle explode-frame
-# Mod-e: intra-frame cycle +1 (positive); at the frame's edge (last
-# client, or a single-client frame) it hands off to cycle_frame +1 —
-# the reverse of Mod-w's frame direction, focus-only
+keyreg $Mod-e spawn ~/.local/bin/herbctl frame explode
+# Mod-e: with >1 frame cycle backwards, else explode the frame and
+# cycle forward (the former herbctl-nav-cycle explode-frame register)
 
-# zoom/peek grid head — focuses the frame below first (urgent jumpto
-# and the float-layer branch are kept); the pseudotile toggle block is
-# replaced by the reverse-of-Mod-w cycling (intra-frame +1, edge →
-# cycle_frame +1), handled by herbctl-nav-cycle get-south
+# the zoom/peek grid (the former herbctl-nav-cycle get-south register):
+# urgent jumpto, frame-down focus, the float-layer branch and the
+# pseudotile toggle, one chained spawn under lock
 # The floating branch: `attr tags.focus.floating_focused true` focuses
 # the floating layer AND doubles as the "are there (non-minimized)
 # floats" conditional — it fails on an empty floating layer, falling
 # through to the alternatives (the failure is quieted in the
 # hc_send-error-daemon's QUIET_MATCH).
-keyreg $Mod-s spawn ~/.local/bin/herbctl-nav-cycle get-south
+keyreg $Mod-s spawn ~/.local/bin/herbctl jump south
 
 # ==== herbst_floating — the float registers (mod-f / mod-x / mod-ctrl-f) ====
 
 # Mod-q: close the focused window (floats close like any other — the
 # un-float check was removed), with a lone-window frame removed
 # afterwards.
-keyreg $Mod-q spawn ~/.local/bin/herbctl close-window
+keyreg $Mod-q spawn ~/.local/bin/herbctl close window
 
 # peek floats; when the floating layer is empty (or every float is
 # hidden), offer the hidden windows via rofi; rofi_hidden exits
@@ -248,14 +246,14 @@ keyreg $ModCtrl-t           spawn ~/.local/bin/polyframes tile
 # pressing again focuses the tiling layer — no un-float (un-float
 # happens from the tiling side: an empty focused frame pulls the
 # first float in)
-# (the full state machine lives in herbctl float-focus — the hc_focus
+# (the full state machine lives in `herbctl float focus` — the hc_focus
 # script stays on disk as a legacy shim, no keybind calls it.
 # Mod-f = the float-session FOCUS manager: no floats -> the max-layout
 # LIFT (the exclusive-foreground add, the algorithm=max tail kept);
 # floats -> focus the layer (the floating layer is NEVER destroyed —
 # no grab); a focused float -> UNFOCUS the layer (the float
 # preserved). The grab-and-unfloat register is Mod-x's)
-keyreg $Mod-f               spawn ~/.local/bin/herbctl float-focus
+keyreg $Mod-f               spawn ~/.local/bin/herbctl float focus
 
 # zoom: the toggle for windows already in the float layer —
 # cornered (a: the tiled press routes through the corner machine —
@@ -266,31 +264,31 @@ keyreg $Mod-f               spawn ~/.local/bin/herbctl float-focus
 # hc_unmaximize helpers, which remain on disk)
 keyreg $ModCtrl-f          spawn ~/.local/bin/herbctl zoom
 
-keyreg $ModShift-f spawn ~/.local/bin/herbctl fullscreen-toggle
+keyreg $ModShift-f spawn ~/.local/bin/herbctl toggle fullscreen
 
 # x-family final layout: Mod-x runs the register — CLOSE OUT of the
-# floating layer / CREATE it (herbctl float-yank): from a focused
+# floating layer / CREATE it (`herbctl float yank`): from a focused
 # float -> UN-FLOAT it (the register chain; the floating_focused off
 # follow-up); from tiling with floats -> focus the float (populated
 # frame) or GRAB it into a stable-empty frame; from tiling without
 # floats -> YANK (the exclusive-foreground add — float + center +
 # take the session) or tidy the empty frame. ModCtrl-x runs the
-# minimize machine (herbctl minimize — the hc_minimize targeting:
+# minimize machine (`herbctl toggle minimize --focused` — the hc_minimize targeting:
 # -c/-f/--wid, empty frame -> close_or_remove). ModShift-x keeps
 # use_previous.
-keyreg $Mod-x               spawn ~/.local/bin/herbctl float-yank
+keyreg $Mod-x               spawn ~/.local/bin/herbctl float yank
 keyreg $ModShift-x          use_previous
-keyreg $ModCtrl-x          spawn ~/.local/bin/herbctl minimize
+keyreg $ModCtrl-x          spawn ~/.local/bin/herbctl toggle minimize --focused
 
 # ModCtrl-z: on an ALREADY-FLOATING window — pin it to the top-left
-# quadrant of the monitor (herbctl corner: the size BECOMES the
+# quadrant of the monitor (`herbctl float corner`: the size BECOMES the
 # quadrant, deco-aware, size-hint reconciled; no un-float, no layer
 # change). From the TILING layer — the companion-float / recall
-# machine (herbctl float-unfocus). The dispatch is the verb's exit
+# machine (`herbctl float unfocus`). The dispatch is the verb's exit
 # status: corner GUARDED (a tiled client throws, exit 1) so the ||
 # falls back — the read happens inside the verb at execution time,
 # no branching script, no compare pre-read.
-keyreg $ModCtrl-z           spawn sh -c "$local/herbctl corner || $local/herbctl float-unfocus"
+keyreg $ModCtrl-z           spawn sh -c "$local/herbctl float corner || $local/herbctl float unfocus"
 
 
 
@@ -303,12 +301,12 @@ APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
 
 # terminal
 keyreg $Mod-Return          spawn $TERMINAL
-keyreg $ModShift-Return     spawn ~/.local/bin/herbctl split-launch $APPLAUNCHER
+keyreg $ModShift-Return     spawn ~/.local/bin/herbctl split launch $APPLAUNCHER
 
 keyreg $ModCtrl-Return      spawn $APPLAUNCHER
 # shift-t opens a second frame only when the focused one already holds
 # a window; an empty frame stays as is and the terminal opens into it
-keyreg $ModShift-t          chain , spawn ~/.local/bin/herbctl new-frame , spawn $TERMINAL
+keyreg $ModShift-t          chain , spawn ~/.local/bin/herbctl new frame , spawn $TERMINAL
 
 # applauncher
 keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 , spawn $APPSWITCHER . close_or_remove         # was Mod-Tab
@@ -316,25 +314,25 @@ keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 ,
 # CLOSE OR QUIT WM
 # ModShift-q: close ONLY on the tiling layer (floats untouched); the
 # frame is never removed.
-keyreg $ModShift-q spawn ~/.local/bin/herbctl close-tiling
+keyreg $ModShift-q spawn ~/.local/bin/herbctl close tiling
 keyreg $ModCtrl-q           or . and , attr clients.focus , spawn xkill . close_and_remove
 keyreg $ModShift-r          reload
 
 # WINDOWING
-keyreg $Mod-a spawn ~/.local/bin/herbctl focus-frame-left
+keyreg $Mod-a spawn ~/.local/bin/herbctl frame left
 keyreg $ModShift-a           or . and , compare tags.focus.curframe_wcount gt 0 , chain ! split left ! focus left . spawn $APPLAUNCHER           # was Mod-Tab
 # ModShift-b: open a split below (unconditional split bottom).
 #
 # ModCtrl-b: focus the frame below; when there is none, split below
 # and call the tile register (herbctl tile).
-keyreg $ModShift-b spawn ~/.local/bin/herbctl split-bottom-focus
-keyreg $ModCtrl-b spawn ~/.local/bin/herbctl shift-down
+keyreg $ModShift-b spawn ~/.local/bin/herbctl frame bottom
+keyreg $ModCtrl-b spawn ~/.local/bin/herbctl shift down
 
-keyreg $ModCtrl-a spawn ~/.local/bin/herbctl shift-left
-keyreg $ModCtrl-e spawn ~/.local/bin/herbctl shift-right
-# split-auto + the tile register: one verb now (herbctl split-new —
-# the former `chain . split auto . spawn hc_tile`, migrated)
-keyreg $ModShift-e           spawn ~/.local/bin/herbctl split-new
+keyreg $ModCtrl-a spawn ~/.local/bin/herbctl shift left
+keyreg $ModCtrl-e spawn ~/.local/bin/herbctl shift right
+# split-auto + the tile register: one verb now (the former
+# `chain . split auto . spawn hc_tile` register)
+keyreg $ModShift-e           spawn ~/.local/bin/herbctl split new
 
 
 
@@ -353,9 +351,9 @@ keyreg $ModShift-e           spawn ~/.local/bin/herbctl split-new
 
 
 # split into direction
-keyreg $Mod-v spawn ~/.local/bin/herbctl split-right-cycle
-keyreg $Mod-b spawn ~/.local/bin/herbctl focus-frame-down
-keyreg $ModCtrl-v spawn ~/.local/bin/herbctl split-right-focus
+keyreg $Mod-v spawn ~/.local/bin/herbctl frame right --cycle
+keyreg $Mod-b spawn ~/.local/bin/herbctl frame down
+keyreg $ModCtrl-v spawn ~/.local/bin/herbctl frame right
 
 
 

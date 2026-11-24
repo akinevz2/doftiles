@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# chrome-quiet — Google Chrome launcher that keeps stderr OUT of the
+# herbst journal. Chrome on X11/WSL logs constant X/GPU warnings to
+# stderr; spawned via the WM, those lines land in the herbst unit's
+# journal and hc_send-error-daemon surfaces each one as a critical
+# notification. This wrapper redirects them to a log file instead.
+#
+# Usage: chrome-quiet [chrome args...]
+#   chrome-quiet                    plain launch
+#   chrome-quiet --remote-debugging-port=9222   for opencode browse
+
+LOG_DIR="$HOME/.local/state/chrome-quiet"
+mkdir -p "$LOG_DIR"
+LOG="$LOG_DIR/chrome.log"
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+unset WAYLAND_DISPLAY
+
+# Rotate so the log cannot grow unbounded.
+if [ -f "$LOG" ] && [ "$(stat -c%s "$LOG" 2>/dev/null || echo 0)" -gt 10485760 ]; then
+    mv -f "$LOG" "$LOG.old"
+fi
+
+exec google-chrome --password-store=basic "$@" >>"$LOG" 2>&1

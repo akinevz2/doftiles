@@ -1,14 +1,17 @@
 /**
- * opencode-screencast — OpenCode plugin for live herbstluftwm screencasts.
+ * opencode-screencast — the ORCHESTRATOR (the name this plugin and its operation go by)
+ * PRIMARY FUNCTIONALITY: orchestrator window detection (assert_orchestrator
+ * — call it first, always), relocating the orchestrator across tagspaces
+ * without focus stealing (relocate), dunst narration (narrate), and the
+ * co-owned terminal: every command journaled with its exit status, a FIFO
+ * input bridge (input IS observable), and one-read session state — no
+ * polling. The long hlwm live-recording sequences remain available (frame
+ * the floating layer, herbst feeds, stage) but they are no longer the
+ * point.
  *
- * Feature 1 (screen interaction): tools that let the agent spawn floating
- * narration/delegation windows, narrate into them, delegate visible shell
- * commands, and drive herbstluftwm silently — all via the `screencastctl`
- * CLI that ships beside this file in bin/.
- *
- * Feature 2 (task pipeline): spawn a terminal window running a single
- * command that may request user input (e.g. sudo). The task session is
- * durably registered at spawn and completion is signaled by an exit
+ * Feature 2 (task pipeline, unchanged): spawn a terminal window running a
+ * single command that may request user input (e.g. sudo). The task session
+ * is durably registered at spawn and completion is signaled by an exit
  * sentinel rather than the transient window title (running -> done:<rc>,
  * or "lost" when the window is closed before the command finishes) so
  * the agent can wait for the task instead of guessing.
@@ -123,7 +126,7 @@ export default Plugin.define({
       {
         name: "narrate",
         description:
-          "Display one narration paragraph in the floating narration window for the audience. Call once per paragraph.",
+          "Narrate one paragraph to the user as a dunst notification (the narrator surface — the narration terminal is retired). Call once per paragraph; keep notifications short.",
         input: {
           type: "object",
           properties: { text: { type: "string" } },
@@ -131,8 +134,58 @@ export default Plugin.define({
           additionalProperties: false,
         },
         execute: async ({ text }: { text: string }) => {
-          await ctl(["say", text])
-          return { content: "narrated" }
+          const proc = Bun.spawnSync(["dunstify", "-a", "opencode-orchestrator", "orchestrator", text], {
+            stdout: "ignore", stderr: "ignore",
+          })
+          if (proc.exitCode !== 0) {
+            Bun.spawnSync(["notify-send", "orchestrator", text], { stdout: "ignore", stderr: "ignore" })
+          }
+          return { content: "narrated (dunst)" }
+        },
+      },
+      {
+        name: "relocate",
+        description:
+          "Relocate a window (default: the orchestrator window) to a tagspace — created when missing — WITHOUT changing focus or the viewed tag (focus-stealing prevented; the procedure from the herbctl/herbstutil allocation surface: herbstclient move <winid> <tagspace>, then the previous focus is restored if hlwm moved it). Use this to quickly move the agent's terminal to a new workspace and keep working where you are.",
+        input: {
+          type: "object",
+          properties: {
+            tagspace: { type: "string", description: "target tagspace (an hlwm tag; created when missing)" },
+            winid: { type: "string", description: "window to move (default: the orchestrator window)" },
+          },
+          required: ["tagspace"],
+          additionalProperties: false,
+        },
+        execute: async ({ tagspace, winid }: { tagspace: string; winid?: string }) => {
+          let orchestrator = winid ?? ""
+          if (!orchestrator) {
+            try { orchestrator = (await readFile(ORCH_FILE, "utf8")).trim() } catch { /* none */ }
+          }
+          if (!orchestrator) return { content: "relocate: no orchestrator window detected — run assert_orchestrator first" }
+          const id = orchestrator
+          const read = async (path: string): Promise<string> => {
+            try { return (await ctl(["attrjson", path])).trim() } catch { return "" }
+          }
+          const viewBefore = (await read("tags.focus.name")).replaceAll("\"", "")
+          // create the tagspace when missing (attrjson fails on absent objects)
+          const exists = (await read(`tags.by-name.${tagspace}`)) !== ""
+          if (!exists) {
+            const add = Bun.spawnSync(["herbstclient", "add", tagspace], { stdout: "ignore", stderr: "ignore" })
+            if (add.exitCode !== 0) return { content: `relocate: could not create tagspace '${tagspace}'` }
+          }
+          const focusBefore = (await read("clients.focus.winid")).replaceAll("\"", "")
+          const mv = Bun.spawnSync(["herbstclient", "move", id, tagspace], { stdout: "ignore", stderr: "ignore" })
+          if (mv.exitCode !== 0) return { content: `relocate: herbstclient move failed for ${id} -> ${tagspace}` }
+          // focus-stealing prevention, second line of defense: hlwm's move
+          // should not change the view or the focused client — restore
+          // both when it did anyway.
+          const viewAfter = (await read("tags.focus.name")).replaceAll("\"", "")
+          if (viewAfter !== viewBefore) Bun.spawnSync(["herbstclient", "use", viewBefore], { stdout: "ignore", stderr: "ignore" })
+          const focusAfter = (await read("clients.focus.winid")).replaceAll("\"", "")
+          if (focusBefore && focusAfter !== focusBefore) {
+            Bun.spawnSync(["herbstclient", "jumpto", focusBefore], { stdout: "ignore", stderr: "ignore" })
+          }
+          return { content: `relocated ${id} to tagspace '${tagspace}' (view + focus preserved)` }
         },
       },
       {
