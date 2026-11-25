@@ -21,6 +21,18 @@ or with a command string:
 
     launch_alacritty --urgent --no-distract -d <dir> "<command>"
 
+Deferred-work sessions (npm version bumps, publishes, debugging the
+user will do later) open on a NAMED tagspace instead of the focused
+tag — the npm-publish convention:
+
+    launch_alacritty --urgent --no-distract -t npm -d <dir>
+
+`-t` creates the tagspace when missing (`herbctl add tagspace` — no
+focus switch) and lands the window in the background there; the
+urgent tag marker surfaces it. Sessions opened this way appear in
+`hc_save-context`'s snapshot (`~/.cache/herbstluftwm/context.tsv`)
+with their owning tag.
+
 The `cd` is part of the tool's interface: `-d <dir>` (a leading ~ is
 expanded) cds into the directory first. With no command string, the
 default command is an interactive login shell (`bash -il`) in that

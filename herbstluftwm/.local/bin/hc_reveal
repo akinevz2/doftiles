@@ -1,6 +1,6 @@
 #!/bin/bash
 # hc_reveal — cycle to the NEXT window (scroll up), skipping invisible
-# ones. Companion of hc_collapse. Not window-scoped: it cycles the
+# ones. Companion of the former hc_collapse window cycler (removed — the name now belongs to the tagspace minimizer). Not window-scoped: it cycles the
 # tag's window stack, so it takes no target options.
 
 case "${1:-}" in

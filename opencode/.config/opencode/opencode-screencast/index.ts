@@ -1300,19 +1300,27 @@ export default Plugin.define({
             const title = String(focus.title ?? "")
             let stored = ""
             try { stored = (await readFile(ORCH_FILE, "utf8")).trim() } catch { /* none */ }
-            const storedAlive = stored !== "" &&
-              (await ctl(["attrjson", `clients.${stored}`, ".attributes.winid"]).then(() => true).catch(() => false))
+            const storedMeta = stored !== ""
+              ? await ctl(["attrjson", `clients.${stored}`, ".attributes | {winid, title}"]).then((r) => JSON.parse(r)).catch(() => null)
+            : null
+            // the stored window must STILL be an OpenCode session: a
+            // recycled winid (a terminal reusing the id) is a stale
+            // recording, not the orchestrator
+            const storedAlive = storedMeta !== null && /^OC /.test(String(storedMeta.title ?? ""))
 
             // Case 1: focus is the persisted, alive orchestrator.
             if (storedAlive && winid === stored) {
               return { content: JSON.stringify({ ok: true, orchestrator: stored, focused: winid, repaired: false, reason: "focus is the persisted orchestrator" }) }
             }
-            // Case 2: focus is an OpenCode window but NOT the persisted one.
-            // With several OpenCode windows open, focus is ambiguous — do NOT
-            // blindly recapture: repair to the persisted id if it is alive.
-            if (/^OC /.test(title) && storedAlive && input.repair !== false) {
-              await ctl(["hlwm", "jumpto", stored])
-              return { content: JSON.stringify({ ok: true, orchestrator: stored, focused: stored, repaired: true, reason: "focus was on another OpenCode window; repaired to the persisted orchestrator" }) }
+            // Case 2: the FOCUSED window is OpenCode-titled → it IS the
+            // current session (the user just typed in it): RECORD it. The
+            // stored id may be stale, recycled, or another session's —
+            // repairing focus to it was the bug that dragged the user to
+            // an inactive terminal.
+            if (/^OC /.test(title)) {
+              await mkdir(RUNTIME_DIR, { recursive: true })
+              await writeFile(ORCH_FILE, winid)
+              return { content: JSON.stringify({ ok: true, orchestrator: winid, focused: winid, repaired: false, reason: "the focused OpenCode window recorded as the orchestrator" }) }
             }
             // Case 3: persisted id is dead (winid churn) — recapture, but only
             // if the identity is unambiguous.

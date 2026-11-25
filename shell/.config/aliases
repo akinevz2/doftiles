@@ -3,6 +3,9 @@
 # Please
 alias please='sudo "$BASH" -c "$(history -p !!)"'
 
+# Bat
+alias bat='batcat'
+
 # Shell  
 alias ls='ls --color=auto'
 alias la='ls -al --color=auto'
@@ -41,6 +44,7 @@ alias df=duf||df
 alias open=xdg-open
 
 # WM Stuff
+alias context="bat $HOME/.cache/herbstluftwm/context.tsv"
 alias config="cd $HOME/.config && ls -l"
 alias theme="$EDITOR $HOME/.local/bin/reload_theme"
 alias autostart="$EDITOR $HOME/.config/herbstluftwm/autostart $HOME/dots; herbstclient reload"

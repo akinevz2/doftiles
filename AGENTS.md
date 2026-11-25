@@ -438,6 +438,13 @@ stay out of every dots update/stow walk by design.
     minor per patch churns releases for nothing (v1.5.0 + v1.6.0 both
     went out on same-day tweaks — kept, not reverted; the doctrine
     applies going forward).
+    **After ANY bugfix/feature in a submodule source** (terminal.ts,
+    verbs, …): open the user a terminal in the submodule directory on
+    the `npm` tagspace — `launch_alacritty --urgent -t npm -d
+    <submodule dir>` (see the spawn-directory skill) — so they can
+    decide the revision/minor bump and run `npm publish` when ready.
+    Never bump or publish on the user's behalf, the decision is
+    theirs.
 15. **`make update` is headless out of the box**; the TUI/session
     gates are the only real tty assumptions. The pull fast-forwards
     mainline (a user branch, when one exists, is rebased onto

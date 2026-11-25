@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# hc_save-context
+# Snapshot the title → tag mapping of every managed client into a
+# ~/.cache file, so the session's layout can be INSPECTED after a WM
+# (or X) restart — winids die with the WM, titles and tags don't.
+#
+# File: $XDG_CACHE_HOME/herbstluftwm/context.tsv (default ~/.cache)
+# Format, one tab-separated row per client (headerless):
+#   tag <TAB> class <TAB> title
+# Tabs/newlines in titles are flattened so the rows stay parseable.
+#
+# Usage:
+#   hc_save-context            save the snapshot (prints the file path)
+#   hc_save-context save       same as above
+#   hc_save-context print      cat the last snapshot
+#   hc_save-context -h/--help  show this help
+#
+# By default only TERMINAL clients are recorded (alacritty/st/xterm/
+# kitty/wezterm); pass --all to record every managed client.
+set -euo pipefail
+
+DISPLAY=${DISPLAY:-localhost:0.0}
+export DISPLAY
+
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/herbstluftwm"
+MAP_FILE="$CACHE_DIR/context.tsv"
+
+# Terminal classes to record by default (matched CASE-INSENSITIVELY
+# against the client's class attribute — e.g. "Alacritty").
+TERMINAL_CLASSES="alacritty st st-256color xterm xterm-256color kitty wezterm"
+
+mode=save
+all=0
+for arg in "$@"; do
+    case "$arg" in
+        save) mode=save ;;
+        print) mode=print ;;
+        --all) all=1 ;;
+        -h|--help)
+            sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0
+            ;;
+        *)
+            echo "hc_save-context: unknown argument: $arg (try -h)" >&2
+            exit 1
+            ;;
+    esac
+done
+
+case "$mode" in
+    print)
+        if [ -f "$MAP_FILE" ]; then
+            cat "$MAP_FILE"
+        else
+            echo "hc_save-context: no snapshot yet at $MAP_FILE" >&2
+            exit 1
+        fi
+        exit 0
+        ;;
+esac
+
+# ---- save ----
+
+mkdir -p "$CACHE_DIR"
+tmp="$MAP_FILE.tmp"
+
+# Enumerate every managed client through the object tree (this hlwm
+# build has no `list_clients --all`); the read-only `tag` attribute on
+# each client names the owning tag directly.
+herbstclient attr clients | grep -E '^  0x' |
+while read -r wid; do
+    wid=${wid%.}
+    [ -z "$wid" ] && continue
+    tag=$(herbstclient attr "clients.$wid.tag" 2>/dev/null) || tag=""
+    [ -n "$tag" ] || continue
+    cls=$(herbstclient attr "clients.$wid.class" 2>/dev/null) || cls=""
+    ttl=$(herbstclient attr "clients.$wid.title" 2>/dev/null) || ttl=""
+    ttl=$(printf "%s" "$ttl" | tr "\t\n" "  ")
+    if [ "$all" -ne 1 ]; then
+        found=""
+        for want in $TERMINAL_CLASSES; do
+            case "$(printf "%s" "$cls" | tr "[:upper:]" "[:lower:]")" in
+                "$want") found=1; break ;;
+            esac
+        done
+        [ -n "$found" ] || continue
+    fi
+    printf "%s\t%s\t%s\n" "$tag" "$cls" "${ttl:-$cls}"
+done > "$tmp"
+
+if [ -s "$tmp" ]; then
+    mv "$tmp" "$MAP_FILE"
+else
+    # Zero clients captured (e.g. autostart raced ahead of the session
+    # restoring, or a WM reboot moment with nothing open yet): keep the
+    # PREVIOUS session's file — an empty roster would destroy exactly
+    # the state this snapshot exists to preserve.
+    rm -f "$tmp"
+    echo "hc_save-context: no clients captured — keeping previous $(basename "$MAP_FILE")" >&2
+fi
+echo "$MAP_FILE"

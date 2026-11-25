@@ -446,6 +446,13 @@ herb unlock
 
 xmodmap -e "keycode 20 = minus underscore backslash bar backslash bar"
 
+# SESSION SNAPSHOT — run on every autostart pass (fresh start AND
+# reload): refresh the title→tag cache. The script keeps the previous
+# session's file when it captures zero clients, so a fresh WM start
+# (empty before clients map back in) never wipes the last session's
+# roster — inspect it after a reboot with `hc_save-context print`.
+"$HOME/.local/bin/hc_save-context" >/dev/null
+
 # RELOAD DETECTION HOOK
 # Check if this is a fresh start or a reload
 # If reload detected, notify user via dunst to show session reloaded
