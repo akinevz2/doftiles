@@ -225,9 +225,16 @@
     #              invoke it. If there are multiple and no default, open the context menu.
     # * close_current: Close current notification.
     # * close_all: Close all notifications.
-    mouse_left_click = context
-    mouse_right_click = close_current
+    mouse_left_click = do_action
+    mouse_right_click = context
     mouse_middle_click = close_all
+
+# The orchestrator tracker's PERSISTENT class (minimized / separation /
+# death): styled by urgency (normal = the regular yellow look, critical
+# = red) but NO timeout — the timeout would destroy the action callback.
+[track-persistent]
+    category = track-persistent
+    timeout = 0
 
 # Experimental features that may or may not work correctly. Do not expect them
 # to have a consistent behaviour across releases.

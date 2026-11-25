@@ -46,8 +46,8 @@ for _nvm_bin in "$HOME"/.config/nvm/versions/node/*/bin; do
         herb setenv PATH "$_nvm_bin:$(herbstclient getenv PATH)"
     fi
 done
-# ~/.local/bin must be in the WM spawn env too: hc_command enumerates
-# the PATH helpers through it, and palette selections run via
+# ~/.local/bin must be in the WM spawn env too: the helper scripts
+# spawn through it, and rofi menu selections run via
 # `setsid bash -c` resolving names through PATH. The systemd default
 # PATH lacks it.
 if ! herbstclient getenv PATH | tr ':' '\n' | grep -qxF "$HOME/.local/bin"; then
@@ -74,16 +74,11 @@ done
 # ==== herbst_nav — navigation keybinds (window/tag focus, cycling, tags) ====
 
 # was $ModAlt-Tab → now Alt+Shift+`
-# ModCtrl-c: the rotate-tree complement (ModCtrl-r) — --smart reverses
+# ModCtrl-c: the rotate complement (ModCtrl-r) — --smart reverses
 # the rotate condition: rotate trees >= 3 frames (the exact complement
 # of the auto-mode <3 threshold), cycle BACKWARDS below it (frames
 # when >1, windows on a single frame). herbctl >= 1.3.0.
-keyreg $ModCtrl-c spawn ~/.local/bin/herbctl rotate-tree --smart
-
-# hc_command — the rofi command palette over the helper scripts (the
-# shim remains for script callers; the keybind goes straight to the
-# herbctl verb — bare `herbctl` is the same palette shorthand)
-keyreg $Mod-c       spawn ~/.local/bin/herbctl run
+keyreg $ModCtrl-c spawn ~/.local/bin/herbctl rotate --smart
 
 # ==== notifications — dunst ====
 # The old dunst_keybinds fragment is folded here (across 2026 as an
@@ -101,27 +96,16 @@ keyreg $ModCtrl-grave   spawn dunstctl context
 keyreg Ctrl-Shift-space spawn dunstctl close-all
 keyreg Ctrl-Shift-grave spawn pause_notification_toggle
 
-# notification helpers live in ~/.local/bin (repo pattern: one hc_*
-# wrapper per dunst verb — keybind registration still goes through
-# hlwm's spawn, which is the only mechanism it offers for externals)
+# mod-period: TRIGGER the current notification's action (the click
+# equivalent — the track notifications' recovery)
+keyreg $Mod-period      spawn dunstctl action
+# mod-comma: dismiss ONE (the current notification)
+keyreg $Mod-comma       spawn dunstctl close
 
-# mod-comma: show the MOST RECENT notification (LIFO walk-back nav)
-keyreg $Mod-comma      spawn ~/.local/bin/hc_dunst-pop
-# mod-period: hide/dismiss the current (top) notification
-keyreg $Mod-period     spawn ~/.local/bin/hc_dunst-dismiss
-
-# mod-n: context menu for the current notification
-keyreg $Mod-n          spawn dunstctl context
-# modctrl-n: trigger the selected notification's action (default action
-# when one exists; the context menu for multiple/none)
-keyreg $ModCtrl-n      spawn ~/.local/bin/hc_dunst-action
-
-# paced pop of the whole history (via dunstctl history, id by id)
-keyreg $ModShift-n spawn ~/.local/bin/hc_dunst-pop-all
-
-# modctrl-d: dismiss ALL notifications (errors et al.) — mod-period is
-# the single-notification dismissal above
-keyreg $ModCtrl-d spawn ~/.local/bin/hc_dismiss-notifs
+# mod-n: re-show one from history (the pop)
+keyreg $Mod-n           spawn dunstctl history-pop
+# mod-m: dismiss ALL
+keyreg $Mod-m           spawn dunstctl close-all
 
 
 keyreg $Mod-w spawn ~/.local/bin/herbctl jump forward
@@ -208,7 +192,7 @@ keyreg $ModShift-period     shift right
 # ModShift-r: rotate the tree (>3 frames) or cycle frames forward; on
 # a single frame it cycles windows in the opposite direction of
 # ModShift-w.
-keyreg $ModCtrl-r spawn ~/.local/bin/herbctl rotate-tree
+keyreg $ModCtrl-r spawn ~/.local/bin/herbctl rotate
 
 keyreg $Mod-e spawn ~/.local/bin/herbctl frame explode
 # Mod-e: with >1 frame cycle backwards, else explode the frame and
@@ -226,34 +210,37 @@ keyreg $Mod-s spawn ~/.local/bin/herbctl jump south
 
 # ==== herbst_floating — the float registers (mod-f / mod-x / mod-ctrl-f) ====
 
-# Mod-q: close the focused window (floats close like any other — the
-# un-float check was removed), with a lone-window frame removed
-# afterwards.
-keyreg $Mod-q spawn ~/.local/bin/herbctl close window
+# Mod-q: the LAYERED removal (herbctl remove --frame): a floating
+# window closes; the frame holds windows -> the frame's window closes;
+# the frame is empty -> the frame removes; the frame AND tag are empty
+# -> use_previous + the tag removes.
+keyreg $Mod-q spawn ~/.local/bin/herbctl remove --frame
 
 # peek floats; when the floating layer is empty (or every float is
-# hidden), offer the hidden windows via rofi; rofi_hidden exits
-# non-zero when nothing is hidden, so fall back to the previous tag.
-# Wrapped in sh -c because "spawn" itself is always truthy — the or
-# chain has to see the script's exit code.
-keyreg $Mod-g               spawn ~/.local/bin/polyframes hidden
+# hidden), offer the hidden windows via rofi. The picker (migrated from
+# polyframes hidden) branches on the hidden count: none -> the
+# all-but-focused windows switcher (polyframes windows, exit status
+# propagated — non-zero on cancel), exactly one -> revealed directly,
+# more -> the hidden-windows menu.
+keyreg $Mod-g               spawn ~/.local/bin/herbctl hidden
 
-# tile helper: (re)tiles the focused frame's clients (polyframes tile)
-keyreg $ModCtrl-t           spawn ~/.local/bin/polyframes tile
+# tile helper: (re)tiles the focused frame's clients (the migrated
+# polyframes tile — the verb lives in herbctl now)
+keyreg $ModCtrl-t           spawn ~/.local/bin/herbctl tile
 
 # quick float toggle for the focused window: floated windows are
 # centered inside their focused frame (visual float indicator);
 # pressing again focuses the tiling layer — no un-float (un-float
 # happens from the tiling side: an empty focused frame pulls the
 # first float in)
-# (the full state machine lives in `herbctl float focus` — the hc_focus
+# (the full state machine lives in `herbctl focus` — the hc_focus
 # script stays on disk as a legacy shim, no keybind calls it.
-# Mod-f = the float-session FOCUS manager: no floats -> the max-layout
-# LIFT (the exclusive-foreground add, the algorithm=max tail kept);
-# floats -> focus the layer (the floating layer is NEVER destroyed —
-# no grab); a focused float -> UNFOCUS the layer (the float
-# preserved). The grab-and-unfloat register is Mod-x's)
-keyreg $Mod-f               spawn ~/.local/bin/herbctl float focus
+# Mod-f = the float TOGGLE: no floats -> the PSEUDO-FULLSCREEN LIFT
+# (float + fill the TAG ROOT geometry, NOT the frame; the pre-lift
+# float geometry is recorded to hlwm env and reverted on the unfloat);
+# a focused float -> UNFLOAT it back to the tiling layer, reverting
+# its floating size to the pre-lift record. Mod-x never un-floats.)
+keyreg $Mod-f               spawn ~/.local/bin/herbctl focus
 
 # zoom: the toggle for windows already in the float layer —
 # cornered (a: the tiled press routes through the corner machine —
@@ -264,31 +251,36 @@ keyreg $Mod-f               spawn ~/.local/bin/herbctl float focus
 # hc_unmaximize helpers, which remain on disk)
 keyreg $ModCtrl-f          spawn ~/.local/bin/herbctl zoom
 
-keyreg $ModShift-f spawn ~/.local/bin/herbctl toggle fullscreen
+keyreg $ModShift-f spawn ~/.local/bin/herbctl fullscreen
 
-# x-family final layout: Mod-x runs the register — CLOSE OUT of the
-# floating layer / CREATE it (`herbctl float yank`): from a focused
-# float -> UN-FLOAT it (the register chain; the floating_focused off
-# follow-up); from tiling with floats -> focus the float (populated
-# frame) or GRAB it into a stable-empty frame; from tiling without
-# floats -> YANK (the exclusive-foreground add — float + center +
-# take the session) or tidy the empty frame. ModCtrl-x runs the
-# minimize machine (`herbctl toggle minimize --focused` — the hc_minimize targeting:
+# x-family final layout: Mod-x runs the register — the STEP-ASIDE
+# machine (`herbctl yank`): a lone-window tag -> use_previous
+# ONLY; a focused float -> QUARTER-SIZE + centered + hand focus to the
+# tiling layer, NEVER un-floating; from tiling with floats -> focus
+# the float layer and UN-FLOAT the first available window; from tiling
+# without floats -> YANK (float + center in root + fit to the parent
+# frame — the pseudo-fullscreen root fill is Mod-f's) or tidy the
+# empty frame. Mod-m runs the
+# minimize machine (`herbctl minimize --focused` — the hc_minimize targeting:
 # -c/-f/--wid, empty frame -> close_or_remove). ModShift-x keeps
 # use_previous.
-keyreg $Mod-x               spawn ~/.local/bin/herbctl float yank
+keyreg $Mod-x               spawn ~/.local/bin/herbctl yank
 keyreg $ModShift-x          use_previous
-keyreg $ModCtrl-x          spawn ~/.local/bin/herbctl toggle minimize --focused
+# ModCtrl-d: the minimize machine (bare `herbctl minimize`): minimize
+# the focused client; an EMPTY focused frame hands off to the mod-g
+# picker (the hidden machine). The close_or_remove-on-empty-frame
+# targeting stays on `minimize --focused` (the hc_minimize idiom).
+keyreg $ModCtrl-d           spawn ~/.local/bin/herbctl minimize
 
 # ModCtrl-z: on an ALREADY-FLOATING window — pin it to the top-left
-# quadrant of the monitor (`herbctl float corner`: the size BECOMES the
+# quadrant of the monitor (`herbctl corner`: the size BECOMES the
 # quadrant, deco-aware, size-hint reconciled; no un-float, no layer
 # change). From the TILING layer — the companion-float / recall
-# machine (`herbctl float unfocus`). The dispatch is the verb's exit
+# machine (`herbctl unfocus`). The dispatch is the verb's exit
 # status: corner GUARDED (a tiled client throws, exit 1) so the ||
 # falls back — the read happens inside the verb at execution time,
 # no branching script, no compare pre-read.
-keyreg $ModCtrl-z           spawn sh -c "$local/herbctl float corner || $local/herbctl float unfocus"
+keyreg $ModCtrl-z           spawn sh -c "$local/herbctl corner || $local/herbctl unfocus"
 
 
 
@@ -299,8 +291,13 @@ APPLAUNCHER="${HOME}/.local/bin/herbctl launch"
 SCREENSHOTTER="scrot"
 APPSWITCHER="rofi -modi windowcd -show windowcd -theme ${ROFITHEME}"
 
-# terminal
-keyreg $Mod-Return          spawn $TERMINAL
+# terminal — `herbctl terminal` is the $TERMINAL launcher; the rofi
+# WM command selector lives on $Mod-c (`herbctl open`)
+keyreg $Mod-Return          spawn ~/.local/bin/herbctl terminal
+
+# the WM command selector (the dynamic rofi palette over the helper
+# scripts + completable herbctl verbs — the former `run` verb)
+keyreg $Mod-c               spawn ~/.local/bin/herbctl open
 keyreg $ModShift-Return     spawn ~/.local/bin/herbctl split launch $APPLAUNCHER
 
 keyreg $ModCtrl-Return      spawn $APPLAUNCHER
@@ -314,8 +311,8 @@ keyreg $ModCtrl-w           or . and , compare tags.focus.curframe_wcount gt 0 ,
 # CLOSE OR QUIT WM
 # ModShift-q: close ONLY on the tiling layer (floats untouched); the
 # frame is never removed.
-keyreg $ModShift-q spawn ~/.local/bin/herbctl close tiling
-keyreg $ModCtrl-q           or . and , attr clients.focus , spawn xkill . close_and_remove
+keyreg $ModShift-q spawn ~/.local/bin/herbctl remove --tiling
+keyreg $ModCtrl-q           spawn ~/.local/bin/herbctl xkill
 keyreg $ModShift-r          reload
 
 # WINDOWING

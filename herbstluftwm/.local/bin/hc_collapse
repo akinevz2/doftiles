@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
-# hc_collapse — free EVERY empty tagspace at once.
+# hc_collapse — free EVERY empty tag at once.
 # Thin wrapper over the herbctl verb, exposed as an hc_* helper so the
 # $Mod-c command palette lists it.
 
 case "${1:-}" in
     -h|--help)
         cat <<'EOF'
-hc_collapse — free EVERY empty tagspace at once.
+hc_collapse — free EVERY empty tag at once.
 
 Usage: hc_collapse
 
 Options:
   -h, --help  show this help and exit
 
-Delegates to `herbctl close tagspace -e` (the verb's semantics:
-clients of an emptied tagspace move to the first other tag; only
-truly empty tagspaces are freed).
+Delegates to `herbctl close tag -e` (the verb's semantics:
+clients of an emptied tag move to the first other tag; only
+truly empty tags are freed).
 EOF
         exit 0
         ;;
 esac
 
-exec herbctl close tagspace -e "$@"
+exec herbctl tag --free --empty "$@"

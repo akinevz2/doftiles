@@ -40,8 +40,8 @@
 #   --urgent       the terminal raises the urgent hint (tag marker)
 #   --no-distract  the terminal does NOT take focus on attach
 #   -t <tag>, --tag <tag>
-#                  attach the terminal on this tagspace, CREATING it
-#                  when missing (`herbctl add tagspace` — allocation
+#                  attach the terminal on this tag, CREATING it
+#                  when missing (`herbctl add tag` — allocation
 #                  never switches focus). Implies focus=off +
 #                  switchtag=off: the window lands in the background
 #                  on <tag>, the WM title/urgent marker surfaces it.
@@ -80,8 +80,8 @@ Options:
   --urgent       raise the urgent hint (tag marker)
   --no-distract  no focus steal on attach
   -t <tag>, --tag <tag>
-                 attach on this tagspace, creating it when missing
-                 (herbctl add tagspace); implies focus=off +
+                 attach on this tag, creating it when missing
+                 (herbctl add tag); implies focus=off +
                  switchtag=off — the window lands in the background
                  on <tag>. The npm-version-bump convention: version
                  bump / publish sessions open on the `npm` tag.
@@ -207,13 +207,13 @@ if [ -n "$NEED_URGENT" ]; then
     ) &
 fi
 
-# -t: allocate the tagspace when missing — `herbctl add tagspace`
+# -t: allocate the tag when missing — `herbctl add tag`
 # allocates WITHOUT switching focus (doctrine: verb-owned allocation).
 # Existence check via tag_status (the one-char markers strip off with
 # cut -c2-); no awk.
 if [ -n "$tag" ]; then
     if ! hc tag_status | tr '\t' '\n' | cut -c2- | grep -Fxq "$tag"; then
-        herbctl add tagspace "$tag" >/dev/null 2>&1 || hc add "$tag"
+        herbctl add tag "$tag" >/dev/null 2>&1 || hc add "$tag"
     fi
 fi
 

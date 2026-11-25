@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# hc_cleanup — remove ALL empty tags at once.
+# Thin alias over the herbctl verb, exposed as an hc_* helper so the
+# $Mod-c command palette lists it.
+
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+hc_cleanup — remove ALL empty tags at once.
+
+Usage: hc_cleanup
+
+Options:
+  -h, --help  show this help and exit
+
+Delegates to `herbctl remove --cleanup` (the verb's semantics: a tag
+is removed only when it holds no clients).
+EOF
+        exit 0
+        ;;
+esac
+
+exec herbctl remove --cleanup "$@"

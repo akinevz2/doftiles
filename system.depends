@@ -6,6 +6,7 @@
 # (bat's bat-src submodule was pruned the same month: pkg-only).
 herbctl herbctl/.local/share/herbctl
 herbstutil herbstutil/.local/share/herbstutil
+opencode opencode/.local/share/opencode-hlwm-orchestrator
 polyframes polyframes/.local/share/polyframes
 get get/.local/share/got-source
 polytags polytags/.local/share/polytags

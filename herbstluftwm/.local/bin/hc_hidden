@@ -1,15 +1,14 @@
 #!/bin/sh
-# hc_hidden — SHIM. The minimized-windows picker moved into the
-# polyframes project (~/development/personal/polyframes, compiled
-# Bun/bunli binary managed there); this shim keeps the palette uniform:
-# hc_command lists every hc_* executable on PATH.
+# hc_hidden — SHIM. The minimized-windows picker moved into the herbctl
+# project (~/dots/herbctl, compiled Bun/bunli binary managed there);
+# kept as a named shim for the $Mod-g keybind (the $Mod-c menu lists
+# every hc_* on PATH).
 #
 # Usage:
-#   hc_hidden [args...]  minimized-windows picker (polyframes hidden
-#                        passthrough); exits non-zero when no window
-#                        is minimized, for shell chaining
+#   hc_hidden [args...]  minimized-windows picker (herbctl hidden
+#                        passthrough); exits non-zero when the windows
+#                        fallback is canceled, for shell chaining
 #
-# Takes no options itself; -h/--help pass through to polyframes'
-# native help (bunli). Keep this shim synced with
-# `polyframes hidden --help`.
-exec "$HOME/.local/bin/polyframes" hidden "$@"
+# Takes no options itself; -h/--help pass through to herbctl's native
+# help (bunli). Keep this shim synced with `herbctl hidden --help`.
+exec "$HOME/.local/bin/herbctl" hidden "$@"

@@ -112,8 +112,8 @@ The geometry state machines have single implementations:
   (`hc_unmaximize` → `hc_tile`, the `hc_maximize`/`hc_unmaximize`
   record-keeping that herbctl zoom delegates to) — no keybind calls
   them; new code uses `herbctl` directly.
-- `spawning` with one-off placement rules is `herbctl spawn --class
-  … --float on|--center` (typed; avoids raw `rule once` strings).
+- `spawning` with one-off placement rules is `herbctl once --class
+  … --floating on|--center` (typed; avoids raw `rule once` strings).
 
 Do not write new inline `floating_geometry` math; the centered logic
 in herbctl's `geometry.ts` is the reference implementation (deco

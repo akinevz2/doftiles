@@ -351,10 +351,16 @@ The personal/workspace repo `~/development` (its own git remote,
 `github.com/akinevz2/development`, synced independently) is reachable
 from dots scope via the gitignored `dots/development` symlink. It is
 NOT stowed, NOT tracked by dots git, and never enters any deploy flow
-— its 3.9 GB tree, nested repos, and its own submodule machinery
-(`system/{herbctl,polyframes,herbstutil,on-deploy,polytags}` — the
-same projects dots tracks as submodules, TWO separate checkouts)
-stay out of every dots update/stow walk by design.
+— its 3.9 GB tree stays out of every dots update/stow walk by design.
+
+- **`system/{herbctl,polyframes,herbstutil,on-deploy,polytags}` are
+  SYMLINKS into the dots submodules**
+  (`~/development/system/<pkg>` → `~/dots/<pkg>/.local/share/<pkg>` —
+  gitignored in depot, whose own submodule gitlinks were retired
+  2026-11). ONE working tree per project: the dots checkout IS the
+  development checkout — edits land in exactly what `make stow`
+  deploys, and `publish-dots.sh`'s review/publish sessions open in it
+  (the npm-tagspace convention). No second checkout exists to diverge.
 
 - When a dots-scope task points into `~/development`, edit there
   directly (the opencode permission config allows `~/development/**`)
@@ -425,7 +431,7 @@ stay out of every dots update/stow walk by design.
     them (`hc_unmaximize` → `hc_tile`; herbctl's zoom delegates the
     maximize/restore record-keeping to `hc_maximize`/`hc_unmaximize`);
     no KEYBIND does — the autostart calls herbctl verbs directly.
-12. **`herbctl spawn` = typed one-shot `hc rule once`**; at least
+12. **`herbctl once` = typed one-shot `hc rule once`**; at least
     one criterion required. bunli parses flag-like tokens even after
     `--` — commands with flags go through `--cmd '<string>'` or a
     wrapper file.
@@ -450,6 +456,52 @@ stay out of every dots update/stow walk by design.
     mainline (a user branch, when one exists, is rebased onto
     origin/main — see Manifests; with manifests on mainline no branch
     is involved).
+16. **herbstutil vs herbstclient — pick by read SHAPE** (2026-11-25):
+    LIST/SUBTREE reads (`attr clients.`, `attr theme.floating.`,
+    dump-style walks where several values come from one node) go
+    through HERBSTUTIL's typed attr tree (herbctl `lib/hc.ts`:
+    `attrTree`/`listClients` — herbstutil's `parseAttr` does the
+    parsing; polyframes `lib/hlwmJson.ts` is the same doctrine).
+    SINGLE-VALUE reads (`attr tags.focus.name`, one leaf) call
+    HERBSTCLIENT directly (`hc("attr", path)` / `attrValue`) — no
+    tree/dump round trips for one number. Never hardcode WM-reported
+    values (theme sizes, geometries) as literals: read the leaf at
+    runtime, fail-soft to 0.
+17. **Live (real-session) tests — the probe-tag pattern** (2026-11-25):
+    tests that exercise real WM positioning/spawning (herbctl
+    `tests/live.test.ts`) are OPTIONAL — skipped unless
+    `HERBCTL_LIVE_TESTS=1`, and never run in the default `bun test`.
+    The doctrine when you add more:
+    - Do the work on a throwaway PROBE TAG (`add` → `use` →
+      `merge_tag` away in afterAll ONLY — on this hlwm build the
+      verb is `merge_tag`, not `merge`, and it REFUSES to merge the
+      VIEWED tag; a merge in an afterEach was the bug that dragged
+      the orchestrator back onto the user's tag every test), with
+      the starting tag name captured first and RESTORED once.
+    - The orchestrator is BROUGHT OVER and FLOATS over the
+      experiment (lib/orchestrate.ts `floatOrchestrator`): no tiling
+      slot → no layout jitter, and clicking it takes the float layer
+      — the user's pause affordance. This hlwm's `jumpto` FOLLOWS a
+      window to its own tag; bringing a window OVER is focus →
+      `move <tag>` → `use` (the `bringToTag` procedure).
+    - LOSS of the orchestrator has FOUR STATES, asserted
+      EVENT-DRIVEN ONLY (the `herbstclient -i` daemon; NO polling,
+      NO periodic staleness checks): STALENESS (the recorded wid's
+      title no longer matches the session's — every tool call
+      REFUSES until a fresh grab), DEATH (window closed → the
+      daemon exits, no lock held past the turn), ABANDONMENT (alive,
+      not on the focused tag), DROP (alive, on tag, unfocused).
+      Each loss opens the TRANSIENT notification (session-keyed
+      replace-id — parallel sessions don't fight); regain dismisses
+      it; the click re-focuses + interrupts (orchestrate reset);
+      the emergency's action respawns the session ONCE via `herbctl
+      terminal` in the directory OPENCODE's API reports. The daemon
+      ARMS ON EVERY USER MESSAGE (the plugin's event hook) — the
+      wid is re-validated every turn; focus is authoritative only
+      on the first tool call of a turn.
+    - MEASURE, don't assume: read back hlwm attrs AND X ground truth
+      (xwininfo) and assert on the numbers (containment, size
+      deltas, rule-fired checks).
 
 ## Quick verification workflow
 

@@ -39,6 +39,14 @@ const CTL = path.join(here, "bin", "screencastctl")
 
 /** Durable runtime state (mirrors screencastctl's RUNTIME_DIR). */
 const RUNTIME_DIR = path.join(process.env.XDG_RUNTIME_DIR || "/tmp/opencode", "screencast")
+
+/** Per-session runtime dir — parallel in-flight sessions must NOT
+ *  share the orchestrator/last-notif slots: B's whisper replaced A's
+ *  notification (the same replace id), and B's rescue jumped to A's
+ *  window. The sessionID comes free on every tool execute context. */
+function sessionRuntimeDir(sessionID?: string): string {
+  return path.join(RUNTIME_DIR, sessionID && sessionID.trim() !== "" ? sessionID : "adhoc")
+}
 const ORCH_FILE = path.join(RUNTIME_DIR, "orchestrator.winid")
 
 // Scenario layer (OOP fluent API) — exported for authoring; no tools yet.
@@ -93,8 +101,10 @@ interface ToolDef {
   description: string
   input: Record<string, unknown>
   /** `never` parameter: each concrete tool narrows the input type; the
-   *  registration site casts through `as never`. */
-  execute: (input: never) => Promise<{ content: string }>
+   *  registration site casts through `as never`. The second argument is
+   *  the tool execution context (its sessionID keys the session's
+   *  runtime state). */
+  execute: (input: never, ctx?: { sessionID: string }) => Promise<{ content: string }>
 }
 
 export default Plugin.define({
@@ -141,50 +151,6 @@ export default Plugin.define({
             Bun.spawnSync(["notify-send", "orchestrator", text], { stdout: "ignore", stderr: "ignore" })
           }
           return { content: "narrated (dunst)" }
-        },
-      },
-      {
-        name: "relocate",
-        description:
-          "Relocate a window (default: the orchestrator window) to a tagspace — created when missing — WITHOUT changing focus or the viewed tag (focus-stealing prevented; the procedure from the herbctl/herbstutil allocation surface: herbstclient move <winid> <tagspace>, then the previous focus is restored if hlwm moved it). Use this to quickly move the agent's terminal to a new workspace and keep working where you are.",
-        input: {
-          type: "object",
-          properties: {
-            tagspace: { type: "string", description: "target tagspace (an hlwm tag; created when missing)" },
-            winid: { type: "string", description: "window to move (default: the orchestrator window)" },
-          },
-          required: ["tagspace"],
-          additionalProperties: false,
-        },
-        execute: async ({ tagspace, winid }: { tagspace: string; winid?: string }) => {
-          let orchestrator = winid ?? ""
-          if (!orchestrator) {
-            try { orchestrator = (await readFile(ORCH_FILE, "utf8")).trim() } catch { /* none */ }
-          }
-          if (!orchestrator) return { content: "relocate: no orchestrator window detected — run assert_orchestrator first" }
-          const id = orchestrator
-          const read = async (path: string): Promise<string> => {
-            try { return (await ctl(["attrjson", path])).trim() } catch { return "" }
-          }
-          const viewBefore = (await read("tags.focus.name")).replaceAll("\"", "")
-          // create the tagspace when missing (attrjson fails on absent objects)
-          const exists = (await read(`tags.by-name.${tagspace}`)) !== ""
-          if (!exists) {
-            const add = Bun.spawnSync(["herbstclient", "add", tagspace], { stdout: "ignore", stderr: "ignore" })
-            if (add.exitCode !== 0) return { content: `relocate: could not create tagspace '${tagspace}'` }
-          }
-          const focusBefore = (await read("clients.focus.winid")).replaceAll("\"", "")
-          // hlwm 0.9.5's `move` has NO winid form — it moves the FOCUSED
-          // window. The relocation is therefore the ATOMIC four-step
-          // procedure: focus the window (the view follows), move it,
-          // restore the view, restore the focus — every step
-          // unconditional, so a failure is visible and recoverable.
-          Bun.spawnSync(["herbstclient", "jumpto", id], { stdout: "ignore", stderr: "ignore" })
-          const mv = Bun.spawnSync(["herbstclient", "move", tagspace], { stdout: "ignore", stderr: "ignore" })
-          if (mv.exitCode !== 0) return { content: `relocate: herbstclient move failed for ${id} -> ${tagspace}` }
-          Bun.spawnSync(["herbstclient", "use", viewBefore], { stdout: "ignore", stderr: "ignore" })
-          if (focusBefore) Bun.spawnSync(["herbstclient", "jumpto", focusBefore], { stdout: "ignore", stderr: "ignore" })
-          return { content: `relocated ${id} to tagspace '${tagspace}' (view + focus preserved)` }
         },
       },
       {
@@ -897,7 +863,10 @@ export default Plugin.define({
       }
 
       /** The orchestrator's winid: persisted at first capture (presentation
-       *  start, when the orchestrator TUI holds focus), or re-captured. */
+       *  start, when the orchestrator TUI holds focus), or re-captured.
+       *  The slot is the SHARED runtime dir — screencastctl's advance
+       *  wiring reads/writes the same single-presentation slot; only the
+       *  whisper's notification id is session-scoped. */
       async function resolveOrchestrator(recapture = false): Promise<string> {
         if (!recapture) {
           try {
@@ -912,11 +881,13 @@ export default Plugin.define({
         return winid
       }
 
-      /** Persistent last-notification id for whisper replace. */
-      const NOTIF_FILE = path.join(RUNTIME_DIR, "last-notif.id")
-      async function lastNotifId(): Promise<string | null> {
+      /** Persistent last-notification id for whisper replace —
+       *  SESSION-scoped: parallel in-flight sessions keep separate
+       *  slots, so B's whisper never replaces A's notification (the
+       *  same-id bug). */
+      async function lastNotifId(dir = RUNTIME_DIR): Promise<string | null> {
         try {
-          const v = (await readFile(NOTIF_FILE, "utf8")).trim()
+          const v = (await readFile(path.join(dir, "last-notif.id"), "utf8")).trim()
           return v !== "" ? v : null
         } catch { return null }
       }
@@ -1210,7 +1181,7 @@ export default Plugin.define({
             type: "object",
             properties: {
               text: { type: "string", description: "Notification body." },
-              title: { type: "string", description: "Notification title (default 'opencode')." },
+              title: { type: "string", description: "Notification title. Default: on rescue whispers, the orchestrator window's live title (so the prompting session is known before clicking); otherwise 'opencode'." },
               urgency: { type: "string", enum: ["low", "normal", "critical"], description: "Default normal." },
               expire_ms: { type: "number", description: "Display duration in ms (0 = never expire; rescue default 30000)." },
               replace: { type: "boolean", description: "Replace the previous whisper instead of stacking a new one." },
@@ -1220,19 +1191,37 @@ export default Plugin.define({
             required: ["text"],
             additionalProperties: false,
           },
-          execute: async (input: { text: string; title?: string; urgency?: string; expire_ms?: number; replace?: boolean; rescue?: boolean; action_label?: string }) => {
+          execute: async (input: { text: string; title?: string; urgency?: string; expire_ms?: number; replace?: boolean; rescue?: boolean; action_label?: string }, ctx?: { sessionID?: string }) => {
+            // The rescue whisper must say WHICH session prompts the
+            // re-focus before the click: with no explicit title, the
+            // orchestrator window's LIVE title ("OC | <subject>") is
+            // the default — parallel sessions' whispers are then
+            // distinguishable at a glance.
+            let orchWinid = ""
+            if (input.rescue === true) orchWinid = await resolveOrchestrator(false)
+            let defaultTitle = "opencode"
+            if (orchWinid !== "") {
+              try {
+                const parsed = JSON.parse(await ctl(["attrjson", `clients.${orchWinid}`, ".attributes.title"]))
+                const t = typeof parsed === "string" ? parsed.trim() : ""
+                if (t !== "") defaultTitle = t
+              } catch { /* window gone between resolve and read */ }
+            }
+            // The replace-id slot is the SESSION's (the execute
+            // context carries the sessionID) — parallel sessions'
+            // whispers never replace each other's notifications.
+            const notifFile = path.join(sessionRuntimeDir(ctx?.sessionID), "last-notif.id")
             const env: Record<string, string> = {
               ...process.env as Record<string, string>,
-              W_TITLE: input.title && input.title.trim() !== "" ? input.title : "opencode",
+              W_TITLE: input.title && input.title.trim() !== "" ? input.title : defaultTitle,
               W_TEXT: input.text,
               W_URGENCY: input.urgency ?? "normal",
               W_EXPIRE: String(typeof input.expire_ms === "number" ? Math.max(0, Math.min(input.expire_ms, 300_000)) : input.rescue === true ? 30_000 : 8000),
               W_LABEL: input.action_label && input.action_label.trim() !== "" ? input.action_label : "RESCUE: go to the OpenCode window",
-              W_ORCH: "",
+              W_ORCH: orchWinid,
             }
-            const replaceId = input.replace === true ? await lastNotifId() : null
+            const replaceId = input.replace === true ? await lastNotifId(sessionRuntimeDir(ctx?.sessionID)) : null
             env.W_REPLACE = replaceId ?? ""
-            if (input.rescue === true) env.W_ORCH = await resolveOrchestrator(false)
             // The handler: dunstify blocks until the notification expires or
             // the user activates the action (dunstify prints the id with -p,
             // then the invoked action key). 'default' fires on click; the
@@ -1242,7 +1231,8 @@ export default Plugin.define({
               "  ${W_REPLACE:+-r \"$W_REPLACE\"} \\",
               "  ${W_ORCH:+-A \"default,$W_LABEL\"} \\",
               "  \"$W_TITLE\" \"$W_TEXT\") || exit 0",
-              `printf '%s' \"$out\" > ${JSON.stringify(NOTIF_FILE)}`,
+              `mkdir -p ${JSON.stringify(path.dirname(notifFile))}`,
+              `printf '%s' \"$out\" > ${JSON.stringify(notifFile)}`,
               "act=$(printf '%s' \"$out\" | tail -n1)",
               'if [ -n "$W_ORCH" ] && { [ "$act" = "default" ] || [ "$act" = "rescue" ]; }; then',
               "  herbstclient jumpto \"$W_ORCH\"",
@@ -1261,7 +1251,7 @@ export default Plugin.define({
               delivered = false
               error = String(err).slice(0, 200)
             }
-            const id = await lastNotifId()
+            const id = await lastNotifId(sessionRuntimeDir(ctx?.sessionID))
             return {
               content: JSON.stringify({
                 delivered, error, id,

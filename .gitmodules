@@ -24,3 +24,6 @@
 [submodule "job-search-mcp"]
 	path = job-search-mcp
 	url = https://github.com/ewanlimr25/job-search-mcp
+[submodule "opencode/.local/share/opencode-hlwm-orchestrator"]
+	path = opencode/.local/share/opencode-hlwm-orchestrator
+	url = https://github.com/akinevz2/opencode-hlwm-orchestrator
