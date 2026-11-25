@@ -13,19 +13,21 @@ set -u
 
 SELF="$(readlink -f "$0" 2>/dev/null || echo "$0")"
 
-# Candidates in order: explicit override, the classic install dir, the
-# Microsoft Store app-execution alias (WindowsApps stub). The alias
-# works through the interop mount even though the real binary lives
-# under WindowsApps\...\<package>\.
-for FFEXE in \
-    "${FIREFOX_WINDOWS_EXE:-}" \
-    "/mnt/c/Program Files/Mozilla Firefox/firefox.exe" \
-    "/mnt/c/Users/*/AppData/Local/Microsoft/WindowsApps/firefox.exe"
-do
-    [ -n "$FFEXE" ] || continue
-    for exe in $FFEXE; do
-        [ -x "$exe" ] && exec "$exe" "$@"
-    done
+# Candidates in order: explicit override, the classic install dirs
+# (both Program Files variants), the Microsoft Store app-execution
+# alias (WindowsApps stub). The alias works through the interop mount
+# even though the real binary lives under WindowsApps\...\<package>\.
+# The array form preserves the SPACES in "Program Files" — the old
+# unquoted word-split loop broke the classic-dir candidate on every
+# machine whose Firefox lives there.
+candidates=(
+    "${FIREFOX_WINDOWS_EXE:-}"
+    "/mnt/c/Program Files/Mozilla Firefox/firefox.exe"
+    "/mnt/c/Program Files (x86)/Mozilla Firefox/firefox.exe"
+    /mnt/c/Users/*/AppData/Local/Microsoft/WindowsApps/firefox.exe
+)
+for exe in "${candidates[@]}"; do
+    [ -n "$exe" ] && [ -x "$exe" ] && exec "$exe" "$@"
 done
 
 for cand in $(which -a firefox 2>/dev/null); do
