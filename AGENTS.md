@@ -82,6 +82,15 @@ Every manifest is ONE file (stows, wm, system, services):
   skip-worktree flags, no stash dances, no phantom dirtiness for the
   reconfigure gate. Push the user branch like any other
   (`git push origin <user>`).
+- **Promotion — how a user branch feeds main**: the branch REBASES
+  onto origin/main (the update flow) and its tip is then PUSHED to
+  main (`make promote`, or `git push origin <branch>:main` by hand).
+  main is a strict-descendant target: it only ever fast-forwards to a
+  promoted user-branch tip — never cherry-picks, never direct
+  commits, never force-pushes. The machine whose personalization is
+  authoritative for mainline is the LEADER; its promote absorbs every
+  related diverging change (main's side arrives via the rebase, the
+  branch's side lands on main via the push).
 - **The update flow**: `make update` / `force-upgrade` fetch, then —
   the CURRENT branch is anything but `main` → REBASE it onto
   origin/main (a rebase CONFLICT is the volition point: resolve by
@@ -383,9 +392,12 @@ NOT stowed, NOT tracked by dots git, and never enters any deploy flow
   NOT under `~/development/system/…` — never confuse the two checkouts.
 - This machine's working branch: `development` (checked out; the
   update flow rebases the CURRENT branch onto origin/main whenever it
-  is not main — see USER_BRANCH_FLOW in the Makefile). main stays the
-  user-adoption-friendly line; features mature on development and are
-  cherry-picked to main.
+  is not main — see USER_BRANCH_FLOW in the Makefile). main absorbs
+  user-branch work by REBASE + PROMOTION — a user branch (the
+  "leader" when its machine's config is authoritative) rebases onto
+  origin/main and its tip is pushed to main (`make promote` /
+  `git push origin <branch>:main`); work is NEVER cherry-picked to
+  main, and `main` itself is never committed to directly here.
 
 ## Quirks and conventions
 
