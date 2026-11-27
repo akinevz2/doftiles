@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # clipboard-in: FILE(S) -> windows clipboard, or clipboard -> stdout when bare.
-#   clipboard-in a.txt b.txt   # copy file contents INTO the clipboard
+#   clipboard-in a.txt b.txt   # copy file contents INTO the clipboard (via to-clipboard)
 #   clipboard-in               # print the current clipboard to stdout
 # CRs are stripped on the read-back path only. Never writes to files.
 set -euo pipefail
@@ -18,8 +18,8 @@ winexe() {
 }
 
 if [ $# -gt 0 ]; then
-  # COPY the given files into the clipboard (clip.exe consumes stdin).
-  cat -- "$@" | "$(winexe clip.exe)"
+  # COPY: concatenate the files and hand them to to-clipboard (utf-8 safe).
+  cat -- "$@" | to-clipboard
 else
   # Bare invocation: print the clipboard to stdout.
   "$(winexe powershell.exe)" -NoProfile -Command \

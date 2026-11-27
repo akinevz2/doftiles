@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # to-clipboard: stdin -> windows clipboard (wsl, no x server involved)
-# CB_UTF8=1 forces the powershell path if clip.exe mangles non-ascii
+# utf-8 safe by default; CB_LEGACY=1 uses clip.exe (faster, ascii only:
+# clip.exe decodes stdin as the OEM codepage and mangles everything else)
 set -euo pipefail
 
 # Resolve a Windows interop binary: PATH first, then the interop mount.
@@ -16,10 +17,10 @@ winexe() {
 }
 
 sink() {
-  if [ -n "${CB_UTF8:-}" ]; then
-    "$(winexe powershell.exe)" -NoProfile -Command '[Console]::InputEncoding=[Text.Encoding]::UTF8; Set-Clipboard -Value ([Console]::In.ReadToEnd())'
-  else
+  if [ -n "${CB_LEGACY:-}" ]; then
     "$(winexe clip.exe)"
+  else
+    "$(winexe powershell.exe)" -NoProfile -Command '[Console]::InputEncoding=[Text.Encoding]::UTF8; Set-Clipboard -Value ([Console]::In.ReadToEnd())'
   fi
 }
 
