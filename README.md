@@ -38,6 +38,32 @@ make install      # configure + preserve (conflict resolver) + per-package rules
 
 ### The `make on-deploy` rule — the binary refresh
 
+### Windows 11 Pro WSL2: VcXsrv prerequisite
+
+For a Windows 11 Pro WSL2 deployment that uses VcXsrv/X11, disable the
+**WSLg** advanced feature in **WSL Settings** before starting the WM. WSLg
+provides its own Wayland/X11 integration and can install a hidden `Weston WM`
+on the X11 root window. That claims the WM redirect and causes
+`herbstluftwm` to fail with:
+
+```text
+herbstluftwm: another window manager is already running
+```
+
+After disabling WSLg, restart the VcXsrv virtual X server and deploy/reload
+the stack through the Makefile:
+
+```bash
+cd ~/dots
+make restart wm livereload YES=1
+```
+
+The `check-x-server.service` probe should then select the local VcXsrv display
+(`DISPLAY=:0` or `localhost:0.0`), enable the service chain, and allow
+herbstluftwm to own the X11 root window. Do not disable
+`check-x-server.service`; it is the display readiness and environment
+propagation step, not the source of the WM conflict.
+
 `make on-deploy` is the belt-and-braces step that guarantees the deployer
 servicing the deployment is the freshest build of its own sources. It runs
 three things in order:

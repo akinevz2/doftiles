@@ -66,7 +66,7 @@ TIMEOUT_CMD := $(if $(TIMEOUT),timeout $(TIMEOUT),)
 RECONFIGURE_REASON := $(shell cd "$(CURDIR)" && \
 	if [ ! -f "$$HOME/.config/doftiles.conf" ]; then \
 		echo clean-install; \
-	elif [ -n "$$(git status --porcelain -- stows.required wm.required system.required services.required depends/.config/doftiles.conf)" ]; then \
+	elif [ -n "$$(git status --porcelain -- stow.depends wm.depends system.depends services.depends depends/.config/doftiles.conf)" ]; then \
 		echo required-files-modified-or-conflicting; \
 	elif [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then \
 		echo rebase-in-progress; \
@@ -249,7 +249,7 @@ help:
 	@echo "  services-check  on-deploy services check"
 	@echo "  services-start  on-deploy services start"
 	@echo "  services-stop  on-deploy services stop"
-	@echo "  restart    on-deploy services restart"
+	@echo "  restart    deploy + enable/start the service chain, then restart it"
 	@echo "  add-packages  the wm.depends binary walk: verify + install the"
 	@echo "      missing (YES=1 headless; sudo grant on a tty)"
 	@echo "knobs:"
@@ -416,8 +416,8 @@ services-start: on-deploy
 services-stop: on-deploy
 	@$(TIMEOUT_CMD) $(ONDEPLOY_BIN) services stop
 
-restart: on-deploy
-	@$(TIMEOUT_CMD) $(ONDEPLOY_BIN) services restart
+restart: wm services-check
+	@$(TIMEOUT_CMD) $(ONDEPLOY_BIN) services restart --yes
 
 # ── reporting / maintenance ───────────────────────────────────────────
 # status — a READ verb: no submodule fetch, no build, no restow. The
@@ -575,7 +575,7 @@ depends-%:
 # NOTE systemd re-reads herbst/dunst ExecReload only after a reload of
 # the unit files — the restow + daemon-reload below happens BEFORE any
 # service reload.
-livereload: on-deploy
+livereload: wm
 	@$(TIMEOUT_CMD) $(ONDEPLOY_RUN) check
 	@units=$$(sed -e 's/#.*//' -e '/^[[:space:]]*$$/d' $(if $(wildcard services.depends),services.depends,services.required) | tr -s ' \t' '\n' | grep -v '^$$'); \
 	pkgs=""; \
@@ -595,6 +595,11 @@ livereload: on-deploy
 	[ -n "$$DISP" ] || DISP=$$($(TIMEOUT_CMD) $(ONDEPLOY_RUN) detect-server --dry-run 2>/dev/null || true); \
 	DISP=$${DISP:-localhost:0.0}; \
 	export DISPLAY=$$DISP; \
+	if ! systemctl --user is-enabled --quiet herbst.service 2>/dev/null || \
+	   ! systemctl --user is-active --quiet herbst.service 2>/dev/null; then \
+		echo "livereload: herbst.service is not enabled and active — priming services"; \
+		$(TIMEOUT_CMD) $(ONDEPLOY_RUN) services check --yes || exit 1; \
+	fi; \
 	for u in $$units; do \
 		case $$u in \
 			herbst) \
