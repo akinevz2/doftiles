@@ -6,10 +6,13 @@ export MOZ_X11_EGL=1
 export LOCAL_BIN=~/.local/bin
 
 # IDE viewing shortcuts 
-export GIT_EDITOR="code --wait"
+export GIT_EDITOR="vim"
 export EDITOR="vim"
-export VIEW="code -r"
-export VISUAL="code --wait"
+export VIEW="vim"
+# VISUAL beats EDITOR for bash's C-x C-e (edit-and-execute-command): the
+# Windows `code` wrapper detaches, so readline would read back an empty
+# buffer instantly. Keep it a blocking terminal editor.
+export VISUAL="vim"
 export NEW_WINDOW="--new-window"
 
 export BUNPATH="${HOME}/.bun/bin"
