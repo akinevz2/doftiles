@@ -1,3 +1,5 @@
+# clipboard: wsl interop clipboard tools (to-clipboard / clipboard-in)
+clipboard
 compton
 depends
 dunst

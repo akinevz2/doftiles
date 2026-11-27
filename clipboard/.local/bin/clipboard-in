@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# clipboard-in: windows clipboard -> stdout, CRs stripped
+set -euo pipefail
+
+winexe() {
+  if command -v "$1" >/dev/null 2>&1; then
+    command -v "$1"
+  elif [ "$1" = powershell.exe ]; then
+    printf '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
+  else
+    printf '/mnt/c/Windows/System32/%s' "$1"
+  fi
+}
+
+"$(winexe powershell.exe)" -NoProfile -Command '[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-Clipboard' | tr -d '\r'

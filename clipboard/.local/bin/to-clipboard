@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# to-clipboard: files or stdin -> windows clipboard (wsl, no x server involved)
+# CB_UTF8=1 forces the powershell path if clip.exe mangles non-ascii
+set -euo pipefail
+
+# Resolve a Windows interop binary: PATH first, then the interop mount.
+# powershell.exe is virtualized away at System32 from WSL; use its real path.
+winexe() {
+  if command -v "$1" >/dev/null 2>&1; then
+    command -v "$1"
+  elif [ "$1" = powershell.exe ]; then
+    printf '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
+  else
+    printf '/mnt/c/Windows/System32/%s' "$1"
+  fi
+}
+
+sink() {
+  if [ -n "${CB_UTF8:-}" ]; then
+    "$(winexe powershell.exe)" -NoProfile -Command '[Console]::InputEncoding=[Text.Encoding]::UTF8; Set-Clipboard -Value ([Console]::In.ReadToEnd())'
+  else
+    "$(winexe clip.exe)"
+  fi
+}
+
+if [ $# -gt 0 ]; then cat -- "$@"; else cat; fi | sink
