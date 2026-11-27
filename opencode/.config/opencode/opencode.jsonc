@@ -6,6 +6,22 @@
     "keep": { "tokens": 8000 }
   },
   "plugins": ["./opencode-screencast", "./structured-spec", "./opencode-hlwm-orchestrator", "@tarquinen/opencode-dcp@3.2.1"],
+  "mcp": {
+    "servers": {
+      "github": {
+        "type": "local",
+        "command": ["/home/kine/.local/bin/github-mcp-wrapper"]
+      },
+      "notion": {
+        "type": "local",
+        "command": ["/home/kine/.local/bin/notion-mcp-wrapper"]
+      },
+      "job-search": {
+        "type": "local",
+        "command": ["/home/kine/.local/bin/job-search-mcp-wrapper"]
+      }
+    }
+  },
   "formatter": true,
   "lsp": true,
   "watcher": {

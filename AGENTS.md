@@ -29,7 +29,7 @@ this repo via the dotfiles feature and runs
 | `shell` | `.bashrcx`, `.profile`, `.aliases`, `.exports`, `.zshrc`, `.shellx.rc` (THE shell extension — see credentials doctrine), `.vim`, `.taskrc`, `.my-credentials`, `Makefile`, `.config/{aliases,exports,mimeapps.list,systemd}` (incl. `check-x-server.service`), `.local/bin/` (install/ hooks, `check-wsl`, `got`, `green`, `yellow`), `.local/share/applications/` |
 | `wsl` | WSL-interop metapackage: `.local/bin/firefox` — the runtime-conditional browser launcher (Windows Firefox via the interop mount when present, native fallback otherwise; decides at INVOCATION, no stow-time conditionals) — and `.config/exports.d/wsl.sh`, the opt-in WSL env fragment. **NOT in the stows manifest: machines opt in with `make stow-wsl` and configure per machine** (the generic repo auto-installs nothing WSL) |
 | `agents` | `.local/bin/{github-mcp-wrapper,opencode-remote,opencode-remote-add}` (manual user tools) |
-| `opencode` | `.config/opencode` — OpenCode config (the `opencode-screencast` plugin is vendored as plain files; `opencode.jsonc` loads it via the relative path `./opencode-screencast` — moving it breaks plugin loading. The plugin and its operation are referred to as the **orchestrator**; the repo/dir name stays for URL stability). REGISTRY METApackage: `@opencode/cli` deploys through the bun global (`.local/share/depends/opencode/Makefile`) |
+| `opencode` | `.config/opencode` — OpenCode config (the `opencode-screencast` plugin is vendored as plain files; `opencode.jsonc` loads it via the relative path `./opencode-screencast` — moving it breaks plugin loading. The plugin and its operation are referred to as the **orchestrator**; the repo/dir name stays for URL stability). REGISTRY METApackage: `@opencode/cli` deploys through the bun global (`.local/share/depends/opencode/Makefile`). PROJECT-LEVEL CONFIGS in use (2026-11): the MCP servers migrated OUT of the global `opencode.jsonc` into `~/development/opencode.json` — the adapter's `project-config` rung maintains it (see The development repo) |
 | `poolside` | `.config/poolside` — poolside assistant config (connectors, credentials, skills) |
 | `depends` | deploy machinery remnants ONLY: `.local/bin/install/{ubuntu.deploy,manjaro.deploy}` — the `<target>.deploy` scripts are LIVE machinery (stow-folds into `~/.local/bin/install/`; on-deploy's check/install/pkg/toolchain resolve every binary through them), `.config/doftiles.conf` (deploy-method state). Hosts the on-deploy bootstrap build |
 | `on-deploy` | submodule checkout `.local/share/on-deploy` + the built binary artifact `.local/bin/on-deploy` |
@@ -361,6 +361,20 @@ NOT stowed, NOT tracked by dots git, and never enters any deploy flow
   development checkout — edits land in exactly what `make stow`
   deploys, and `publish-dots.sh`'s review/publish sessions open in it
   (the npm-tagspace convention). No second checkout exists to diverge.
+
+- **Project-level opencode config** (2026-11): the MCP servers live in
+  `~/development/opencode.json` — PROJECT scope, migrated OUT of the
+  global `~/.config/opencode/opencode.jsonc` (which now holds NO `mcp`
+  section). The servers reference dots-deployed wrapper binaries
+  (`~/.local/bin/{github,notion,job-search}-mcp-wrapper`), so the DOTS
+  side owns the wiring: the canonical copy is tracked at
+  `dots/opencode/.local/share/depends/opencode/opencode-project.json`,
+  and the opencode adapter's `project-config` rung (a prerequisite of
+  `install`) stamps it idempotently into the dev repo — one-way
+  (dots → development), fail-soft when `~/development` is absent.
+  NEVER hand-edit `~/development/opencode.json` expecting it to stick:
+  edit the canonical copy and re-run the rule (or `make install`). The
+  dev repo tracks the file in ITS own history — dots only stamps it.
 
 - When a dots-scope task points into `~/development`, edit there
   directly (the opencode permission config allows `~/development/**`)

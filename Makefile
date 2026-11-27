@@ -78,7 +78,7 @@ DEPS_MAKEFILE = -C $(CURDIR)/$(1) --no-print-directory -f \
 	.local/share/depends/$(1)/Makefile
 
 .PHONY: depends bootstrap trust toolchain submodules bun rustup force-upgrade configure livereload \
-	depends-% \
+	depends-% pins \
 	on-deploy \
 	install all stow wm bashrc \
 	restow unstow clean status services-check services-start \
@@ -124,6 +124,49 @@ depends:
 	# make and every checkout silently fell back to main.
 	git submodule foreach --quiet 'case " $(DEPS_SUBMODULES) " in *" $$sm_path "*) b=$$(git config -f .gitmodules --get submodule."$$displaypath".branch 2>/dev/null); [ -n "$$b" ] || b=main; git checkout -q -B "$$b" 2>/dev/null; true;; esac'
 	@$(SELF) on-deploy
+
+# pins — bump EVERY first-level submodule pin to the LATEST of its
+# branch tip, local or origin (2026-11): fetch, then per submodule
+# compare HEAD's branch tip against the origin tip — ancestry decides:
+# origin ahead → the checkout moves FORWARD onto origin (a plain
+# fast-forward checkout, never a backward drag); local ahead → the
+# checkout already IS the latest, only the PIN moves (this is the
+# complement of the SUB_DIRTY guard: instead of skipping the dance and
+# leaving a stale gitlink that later `submodule update` walks try to
+# "restore" backward — the get/got-source hook.sh failure — the pin is
+# raised to the local tip so the recorded state and the deployed
+# checkout agree). Diverged (neither contains the other) is skipped
+# LOUDLY — that needs a human merge, no automation guesses. Pin bumps
+# are staged and committed inline so `make update`'s install walk and
+# every later `make wm` restow rely on pins that match the checkouts.
+pins:
+	@git fetch --all --quiet 2>/dev/null || true; \
+	pins_changed=; \
+	git config -f .gitmodules --list | grep -F '.path=' | cut -d= -f2 | while read -r p; do \
+		[ -d "$$p" ] || continue; \
+		b=$$(git config -f .gitmodules --get submodule."$$p".branch 2>/dev/null); \
+		[ -n "$$b" ] || b=$$(git -C "$$p" rev-parse --abbrev-ref HEAD 2>/dev/null); \
+		[ -n "$$b" ] && [ "$$b" != "HEAD" ] || b=main; \
+		git -C "$$p" fetch --quiet origin 2>/dev/null || true; \
+		local=$$(git -C "$$p" rev-parse "refs/heads/$$b" 2>/dev/null) || continue; \
+		origin=$$(git -C "$$p" rev-parse "refs/remotes/origin/$$b" 2>/dev/null) || true; \
+		[ -n "$$origin" ] || { echo "pins: $$p — no origin/$$b, left at $$local"; continue; }; \
+		if git -C "$$p" merge-base --is-ancestor "$$origin" "$$local"; then target=$$local; \
+		elif git -C "$$p" merge-base --is-ancestor "$$local" "$$origin"; then target=$$origin; \
+		else echo "pins: $$p — DIVERGED from origin/$$b (local $$local, origin $$origin) — SKIPPED, merge by hand"; continue; fi; \
+		if [ "$$target" != "$$local" ]; then \
+			git -C "$$p" checkout -q -B "$$b" "origin/$$b" || { echo "pins: $$p — checkout refused (uncommitted state?) — left as-is"; continue; }; \
+			echo "pins: $$p — checkout advanced to origin/$$b ($$target)"; \
+		elif [ "$$target" != "$$(git rev-parse -q --verify "HEAD:$$p" 2>/dev/null)" ]; then \
+			echo "pins: $$p — pin raised to the LOCAL tip ($$target)"; \
+		else continue; fi; \
+		git add "$$p" && pins_changed=1; \
+	done; \
+	if git diff --cached --name-only -- $(PINS_PATHS) 2>/dev/null | grep -q .; then \
+		git commit -q -m "pins: bump submodules to the latest tips (local or origin)" && echo "pins: pin bumps committed"; \
+	else \
+		echo "pins: every submodule pin already at the latest (local or origin)"; \
+	fi
 
 # sudo — the pre-flight grant: the root-check lives here (recipes that
 # need root depend on this target). As root we just proceed; otherwise
@@ -470,6 +513,10 @@ endef
 # machine flow (its checkout stays as-is on disk, untouched)
 DEPS_SUBMODULES := $(shell awk '!/^#/ && NF > 1 { for (i = 2; i <= NF; i++) print $$i }' $(CURDIR)/system.depends 2>/dev/null)
 
+# ALL first-level submodule paths (from .gitmodules): the pins walk's
+# scope — broader than DEPS_SUBMODULES (which is system.depends only).
+PINS_PATHS := $(shell git config --file $(CURDIR)/.gitmodules --list 2>/dev/null | grep -F '.path=' | cut -d= -f2)
+
 # TREE_DIRTY / SUB_DIRTY — the LOCAL state that must stay deployable
 # WITHOUT committing. TREE_DIRTY: uncommitted changes in the dots tree
 # itself (a rebase cannot proceed over them). SUB_DIRTY: a submodule
@@ -499,6 +546,7 @@ SUB_DIRTY := $(foreach s,$(DEPS_SUBMODULES) on-deploy/.local/share/on-deploy,$(s
 update:
 	@head_before=$$(git rev-parse HEAD); \
 	$(ONDEPLOY_BIN) contribute --yes; \
+	$(SELF) pins; \
 	if [ "$$(git rev-parse HEAD)" != "$$head_before" ]; then \
 		echo "update: state moved — submodule sync + rebuild/redeploy"; \
 		$(SELF) depends; \
@@ -513,7 +561,7 @@ update:
 # commit — the push-side delegate: on-deploy contribute (see the
 # `update` comment; make update and make commit mirror it in parity).
 commit:
-	@$(CURDIR)/depends/.local/bin/dots-commit $(if $(YES),--auto)
+	@$(CURDIR)/depends/.local/bin/dots-commit $(if $(YES),--auto) $(if $(MESSAGE),--message=$(MESSAGE))
 
 # force-upgrade — the LAYOUT-HEAL upgrade (2026-11): the full sequence for
 # a machine whose on-disk deployment predates the CURRENT layout (the

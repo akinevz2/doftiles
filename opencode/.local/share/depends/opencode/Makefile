@@ -11,9 +11,24 @@
 #
 # Method format: opencode=# pkg (doftiles.conf). No submodule: no
 # source route — pkg (bun) is the only valid method.
+#
+# Project-level configs (2026-11): the MCP servers migrated OUT of the
+# global opencode.jsonc into PROJECT-LEVEL configs — this package owns
+# the wiring (the servers are dots-deployed wrapper binaries). The
+# canonical project config is tracked IN the adapter
+# (opencode-project.json) and stamped into ~/development/opencode.json
+# by the `project-config` rung — a prerequisite of install, so every
+# deploy walk maintains the dev repo's project config.
 
 SYSBIN  := $(HOME)/.local/bin
 ONDEPLOY := $(SYSBIN)/on-deploy
+
+# the project-level config target: the dev repo is NOT a dots package
+# (its own git remote, synced independently) — the adapter only STAMPS
+# the dots-owned wiring into it, never the reverse
+PROJECT_DIR := $(HOME)/development
+PROJECT_CFG := $(PROJECT_DIR)/opencode.json
+PROJECT_SRC := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/opencode-project.json)
 
 FORCE ?=
 DRY   ?=
@@ -21,7 +36,7 @@ M     ?=
 export FORCE DRY M
 
 .DEFAULT_GOAL := install
-.PHONY: build install-source install uninstall status trust
+.PHONY: build install-source install uninstall status trust project-config
 
 # build rung — the top-level `make stow/build` walk greps `^build:`;
 # a registry metapackage has nothing to compile
@@ -30,7 +45,7 @@ build:
 
 # ── install: the pkg route straight through on-deploy (bun is the only
 # variant; the metadata contract drives the transport choice) ───────────
-install install-source:
+install install-source: project-config
 	@$(ONDEPLOY) managed opencode install --method=pkg --force=$(FORCE) --dry-run=$(DRY)
 
 # post-install trust (bun's policy may block @opencode/cli's
@@ -40,6 +55,24 @@ trust:
 	@bun pm trust -g "@opencode/cli" >/dev/null 2>&1 \
 		&& echo "opencode: trusted -g @opencode/cli" \
 		|| echo "opencode: -g trust nothing to grant"
+
+# project-config — maintain the dev repo's project-level opencode
+# config (the MCP servers; the global config holds none since the
+# 2026-11 migration). Idempotent: stamps only on drift. Fail-soft when
+# ~/development is absent (machines without the dev repo) — the walk
+# must not break, but the skip is loud.
+project-config:
+	@if [ ! -d "$(PROJECT_DIR)" ]; then \
+		echo "opencode: $(PROJECT_DIR) missing — project config not stamped" >&2; \
+	else \
+		mkdir -p "$(PROJECT_DIR)"; \
+		if ! cmp -s "$(PROJECT_SRC)" "$(PROJECT_CFG)"; then \
+			cp -f "$(PROJECT_SRC)" "$(PROJECT_CFG)"; \
+			echo "opencode: project config stamped -> $(PROJECT_CFG)"; \
+		else \
+			echo "opencode: project config up to date ($(PROJECT_CFG))"; \
+		fi; \
+	fi
 
 # ── uninstall/status: deferrals (no branching here) ────────────────────
 uninstall:
