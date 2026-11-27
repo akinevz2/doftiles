@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
-# clipboard-in: windows clipboard -> stdout, CRs stripped
+# clipboard-in: windows clipboard -> file (or stdout when no operand).
+# `clipboard-in <file>` OVERWRITES <file> with the clipboard contents
+# (brings the clipboard in); `clipboard-in` just prints it, CRs stripped.
 set -euo pipefail
+
+if [ $# -gt 1 ]; then
+  printf 'usage: clipboard-in [file]  (pastes clipboard into file, or stdout)\n' >&2
+  exit 2
+fi
 
 winexe() {
   if command -v "$1" >/dev/null 2>&1; then
@@ -12,4 +19,17 @@ winexe() {
   fi
 }
 
-"$(winexe powershell.exe)" -NoProfile -Command '[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-Clipboard' | tr -d '\r'
+# Buffer the clipboard FIRST; only touch the target once content is real
+# (never truncate on an empty clipboard or a powershell failure).
+tmp=$(mktemp "${TMPDIR:-/tmp}/clipboard-in.XXXXXX") || exit 1
+trap 'rm -f "$tmp"' EXIT
+
+"$(winexe powershell.exe)" -NoProfile -Command '[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-Clipboard' \
+  | tr -d '\r' > "$tmp" || exit 1
+
+if ! grep -q . "$tmp"; then
+  printf 'clipboard-in: clipboard is empty; nothing pasted.\n' >&2
+  exit 1
+fi
+
+cat "$tmp" > "${1:-/dev/stdout}"

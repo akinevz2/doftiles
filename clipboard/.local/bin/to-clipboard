@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# to-clipboard: files or stdin -> windows clipboard (wsl, no x server involved)
+# to-clipboard: stdin -> windows clipboard (wsl, no x server involved)
 # CB_UTF8=1 forces the powershell path if clip.exe mangles non-ascii
 set -euo pipefail
 
@@ -23,4 +23,9 @@ sink() {
   fi
 }
 
-if [ $# -gt 0 ]; then cat -- "$@"; else cat; fi | sink
+if [ $# -gt 0 ]; then
+  printf 'usage: to-clipboard  (reads stdin; no arguments)\n' >&2
+  exit 2
+fi
+
+sink
