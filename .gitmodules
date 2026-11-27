@@ -27,3 +27,7 @@
 [submodule "opencode/.local/share/opencode-hlwm-orchestrator"]
 	path = opencode/.local/share/opencode-hlwm-orchestrator
 	url = https://github.com/akinevz2/opencode-hlwm-orchestrator
+[submodule "blitch/.local/share/blitch"]
+	path = blitch/.local/share/blitch
+	url = https://github.com/akinevz2/blitch.git
+	branch = main

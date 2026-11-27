@@ -5,6 +5,7 @@
 # 2026-11: each bun.ts submodule hosts ITS OWN artifact package
 # (bat's bat-src submodule was pruned the same month: pkg-only).
 herbctl herbctl/.local/share/herbctl
+blitch blitch/.local/share/blitch
 herbstutil herbstutil/.local/share/herbstutil
 opencode opencode/.local/share/opencode-hlwm-orchestrator
 polyframes polyframes/.local/share/polyframes

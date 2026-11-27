@@ -5,7 +5,7 @@
     "buffer": 6000,
     "keep": { "tokens": 8000 }
   },
-  "plugins": ["./opencode-screencast", "./structured-spec", "./opencode-hlwm-orchestrator"],
+  "plugins": ["./opencode-screencast", "./structured-spec", "./opencode-hlwm-orchestrator", "@tarquinen/opencode-dcp@3.2.1"],
   "formatter": true,
   "lsp": true,
   "watcher": {

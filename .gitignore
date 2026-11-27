@@ -17,6 +17,7 @@ shell/.cache/
 herbctl/.local/bin/
 polyframes/.local/bin/
 polytags/.local/bin/
+blitch/.local/bin/
 depends/.local/bin/*
 !depends/.local/bin/install
 !depends/.local/bin/dots-commit
@@ -31,6 +32,7 @@ herbctl/node_modules/
 depends/node_modules/
 herbstutil/node_modules/
 polytags/node_modules/
+blitch/node_modules/
 **/.on-deploy-release/
 vim/.vim/bundle/
 vim/.vim/.netrwhist
@@ -53,7 +55,11 @@ notifs.d/
 # the get package: the got artifact + the deployed get.sh staging
 get/.local/bin/
 get/.local/share/got/
+
+# opencode runtime-managed state (opencode's own plugin/config managers
+# write these through the stow fold — machine-tunable, never tracked)
 opencode/.config/opencode/service.json
+opencode/.config/opencode/dcp.jsonc
 
 # the himalaya package: the release-fetch artifact (the account
 # secrets file credentials.env is covered by **/*.env above)

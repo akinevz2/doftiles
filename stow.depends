@@ -1,4 +1,5 @@
 # clipboard: wsl interop clipboard tools (to-clipboard / clipboard-in)
+blitch
 clipboard
 compton
 depends
