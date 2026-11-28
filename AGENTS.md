@@ -82,20 +82,17 @@ Every manifest is ONE file (stows, wm, system, services):
   skip-worktree flags, no stash dances, no phantom dirtiness for the
   reconfigure gate. Push the user branch like any other
   (`git push origin <user>`).
-- **Promotion — how a user branch feeds main**: the branch REBASES
-  onto origin/main (the update flow) and its tip is then PUSHED to
-  main (`make promote`, or `git push origin <branch>:main` by hand).
-  main is a strict-descendant target: it only ever fast-forwards to a
-  promoted user-branch tip — never cherry-picks, never direct
-  commits, never force-pushes. The machine whose personalization is
-  authoritative for mainline is the LEADER; its promote absorbs every
-  related diverging change (main's side arrives via the rebase, the
-  branch's side lands on main via the push).
+- **Publishing — lockstep/partwise (2026-11-28)**: every repo — dots
+  and each submodule — advances its OWN `main` directly: work lands by
+  plain merge/fast-forward and `git push`, part by part, repo by repo.
+  There is no promote step and no leader machine. Working branches are
+  SHORT-LIVED: once their content is merged into main they are deleted.
+  The `make promote` recipe is gone (pruned 2026-11-28).
 - **The update flow**: `make update` / `force-upgrade` fetch, then —
-  the CURRENT branch is anything but `main` → REBASE it onto
-  origin/main (a rebase CONFLICT is the volition point: resolve by
-  hand, `git rebase --continue`); on main → the plain mainline
-  fast-forward (fallback rebase --autostash).
+  on `main` the plain mainline fast-forward; on a leftover working
+  branch a rebase onto origin/main (a rebase CONFLICT is the volition
+  point: resolve by hand, `git rebase --continue`), or simply switch
+  to main and fast-forward — lockstep doctrine keeps machines on main.
 
 Layer contents:
 - stows — the stow package list (space-separated lines, `#` comments);
@@ -173,15 +170,14 @@ Layer contents:
   headless; confirmed on a tty). No park/fold staging branches exist
   in the repo structure. `--report` shows the state and changes
   nothing.
-- **AGENTS rule — origin-sync routing**: synchronisation with origin
-  goes through `make contribute` ONLY when work was done in the
-  SUBMODULES (herbctl, polyframes, on-deploy, … — the flow reports,
-  commits, rebases, branches on conflict, and publishes every repo in
-  scope). When a change touches the ~/dots REPO ONLY (Makefile,
-  AGENTS.md, package configs, manifests), bare git commands are the
-  sanctioned path: `git add`/`git commit`/`git push` directly —
-  the contribute walk is submodule machinery, not a dots-commit
-  ritual.
+- **AGENTS rule — origin-sync routing (2026-11-28)**: synchronisation
+  with origin is PLAIN GIT everywhere — `git add`/`git commit`/`git
+  push`/`git pull` against each repo's `main`, dots and submodules
+  alike, in lockstep/partwise. The `make commit` / on-deploy
+  contribute walk is DEPRECATED (it parked divergent work on
+  contribute/<ts> side branches and left repos unreconciled); a
+  replacement automatic contributing workflow is planned — until it
+  exists, do not route through it.
 - **AGENTS rule — declarative arguments (herbctl)**: every verb declares
   its parameters as data at the top of its source file (the ARGS specs —
   the single source of truth); resolution is the shared layer
@@ -392,14 +388,9 @@ NOT stowed, NOT tracked by dots git, and never enters any deploy flow
   and follow that repo's OWN AGENTS.md for its conventions.
 - The dots submodule sources live under `dots/<pkg>/.local/share/…`,
   NOT under `~/development/system/…` — never confuse the two checkouts.
-- This machine's working branch: `development` (checked out; the
-  update flow rebases the CURRENT branch onto origin/main whenever it
-  is not main — see USER_BRANCH_FLOW in the Makefile). main absorbs
-  user-branch work by REBASE + PROMOTION — a user branch (the
-  "leader" when its machine's config is authoritative) rebases onto
-  origin/main and its tip is pushed to main (`make promote` /
-  `git push origin <branch>:main`); work is NEVER cherry-picked to
-  main, and `main` itself is never committed to directly here.
+- Working branch: `main` (2026-11-28, lockstep doctrine — machines
+  commit to main directly and push; no promote step, no leader
+  machine, no per-machine working branches).
 
 ## Quirks and conventions
 

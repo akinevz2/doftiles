@@ -504,15 +504,12 @@ MANIFESTS := stow.depends wm.depends system.depends services.depends
 
 # USER_BRANCH_FLOW — the shared pull body of update / force-upgrade:
 # fetch, then rebase the CURRENT working branch onto origin/main when
-# it is anything but main (the machine's dev branch — e.g. development
-# — is recognized by being checked out, not by name), else fast-forward
-# main (fallback rebase --autostash for a dirty mainline tree).
-# Direction of travel is ONE-WAY into main: the user branch absorbs
-# main via this rebase, then PROMOTES its tip to main (the `promote`
-# recipe) — main is never committed to directly and work is never
-# cherry-picked onto it. The branch whose config is authoritative for
-# mainline is the LEADER; its promote absorbs every related diverging
-# change by rebasing the branch first.
+# it is anything but main (a leftover working branch is recognized by
+# being checked out, not by name), else fast-forward main (fallback
+# rebase --autostash for a dirty mainline tree). DOCTRINE (2026-11-28,
+# lockstep/partwise): work lands on each repo's main DIRECTLY — plain
+# merge/fast-forward + push, dots and submodules alike; main is not a
+# promote-only target and working branches are short-lived.
 define USER_BRANCH_FLOW
 	git fetch origin; \
 	u=$$(git symbolic-ref --quiet --short HEAD 2>/dev/null); \
@@ -562,24 +559,6 @@ SUB_DIRTY := $(foreach s,$(DEPS_SUBMODULES) on-deploy/.local/share/on-deploy,$(s
 # local work existed), toolchain assurance only when a check says
 # missing (a headless update must not demand a root grant for a no-op).
 #
-# promote — REBASE + PROMOTE (the leader's terminal path into main):
-# fetch + rebase the current user branch onto origin/main (USER_BRANCH_FLOW
-# semantics, done manually here so a conflict surfaces before the push),
-# then push the branch tip to main. Requires the rebase to leave main a
-# strict ancestor (fast-forward promote — main never force-updates and
-# never receives cherry-picks or direct commits). The leader machine
-# runs this to absorb every related diverging change into mainline.
-
-promote:
-	@git fetch origin --prune; \
-	u=$$(git symbolic-ref --quiet --short HEAD 2>/dev/null); \
-	if [ -z "$$u" ] || [ "$$u" = "main" ]; then \
-		echo "promote: checkout the leader user branch first (not '$${u:-detached HEAD}')"; exit 2; \
-	fi; \
-	git rebase origin/main || { echo "promote: resolve the rebase conflict by hand, then re-run"; exit 1; }; \
-	git push origin "$$u:main" || { echo "promote: main is NOT a strict ancestor — never force; reconcile by hand"; exit 1; }; \
-	echo "promote: $$u promoted to main ($$(git rev-parse --short HEAD))"
-
 update:
 	@head_before=$$(git rev-parse HEAD); \
 	$(ONDEPLOY_BIN) contribute --yes; \
