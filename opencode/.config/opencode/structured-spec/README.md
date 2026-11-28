@@ -35,8 +35,16 @@ every note before finishing.
 
 ## status
 
-specification only. there is no implementation in this folder on purpose.
-hand the agent files to your local agent in this order:
+implemented and live (2026-11-28):
+
+- the plugin is wired into the `plugins` array of `opencode.jsonc` — its tools
+  (`add-rigorously`, `invalidate-rigorously`, `consult-specification`,
+  `sync-specification`) load in every opencode session.
+- `bun run check` passes: `tsc --noEmit` clean + `bun test` 24/24
+  (`test/absorb.test.ts`, `test/decode.test.ts`, `test/section.test.ts`).
+- step 2 is done as well: `skill/rigorize/SKILL.md` is installed globally
+  (the `rigorize` skill).
+- the agent files below remain as the implementation record:
 
 1. `agent/01-plugin.md`  (implement the plugin)
 2. `agent/02-global-skill.md`  (install `skill/rigorize/SKILL.md` globally, verbatim)
