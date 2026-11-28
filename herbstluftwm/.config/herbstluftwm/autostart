@@ -166,9 +166,13 @@ keyreg $ModCtrl-Up              or . shift --level=frame up . shift --level=all 
 
 keyreg $ModCtrl-Right           or . shift --level=frame right . shift --level=all right
 
-# tagspace (hlwm tag) cycling — the brackets cycle tagspaces
-keyreg $Mod-bracketleft     use_index -1 --skip-visible
-keyreg $Mod-bracketright    use_index +1 --skip-visible
+# tagspace (hlwm tag) cycling — the brackets hop to the next/prev
+# POPULATED tag (empty tags are skipped; tags visible on another
+# monitor stay skipped, the old --skip-visible semantics). The walker
+# is `herbctl jump prev|next` (the hc_tag-cycle reference
+# implementation, ported); use_index would step through empty tags too.
+keyreg $Mod-bracketleft     spawn ~/.local/bin/herbctl jump prev
+keyreg $Mod-bracketright    spawn ~/.local/bin/herbctl jump next
 
 # window cycling — moved to the shifted brackets
 keyreg $ModShift-bracketleft    cycle_all --skip-invisible -1
@@ -298,9 +302,9 @@ keyreg $Mod-Return          spawn ~/.local/bin/herbctl terminal
 # the WM command selector (the dynamic rofi palette over the helper
 # scripts + completable herbctl verbs — the former `run` verb)
 keyreg $Mod-c               spawn ~/.local/bin/herbctl open
-keyreg $ModShift-Return     spawn ~/.local/bin/herbctl split launch $APPLAUNCHER
+keyreg $ModCtrl-Return     spawn ~/.local/bin/herbctl split launch $APPLAUNCHER
 
-keyreg $ModCtrl-Return      spawn $APPLAUNCHER
+keyreg $ModShift-Return      spawn $APPLAUNCHER
 # shift-t opens a second frame only when the focused one already holds
 # a window; an empty frame stays as is and the terminal opens into it
 keyreg $ModShift-t          chain , spawn ~/.local/bin/herbctl new frame , spawn $TERMINAL
