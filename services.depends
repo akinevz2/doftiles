@@ -9,4 +9,4 @@
 # Alias=x-server.service — enable exactly ONE, the enabled one claims
 # the alias (herbst claims Alias=x-window-manager.service).
 #xvfb x11vnc herbst novnc dunst compton
-check-x-server herbst dunst compton hc_send-error-daemon
+check-x-server herbst dunst compton hc_send-error-daemon polkit-agent

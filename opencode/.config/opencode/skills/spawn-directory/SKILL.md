@@ -8,22 +8,27 @@ description: Spawns an interactive, urgent terminal window in a project director
 ## Purpose
 
 Open an interactive bash login shell in a project directory inside a
-spawned alacritty window, without stealing focus from the chat. Use
-this whenever the user needs to run interactive commands (e.g.
-`npm publish`, manual debugging, authentication prompts) in a specific
-directory while the agent session continues.
+spawned alacritty window, WITH the user's focus bound to it
+immediately. Use this whenever the user needs to run interactive
+commands (e.g. `npm publish`, manual debugging, authentication
+prompts, sudo grants) in a specific directory while the agent session
+continues.
 
 ## Usage
 
     launch_alacritty -d <dir>
 
-or with a command string:
+or with a command string — URGENT + BIND is the canonical shape: the
+window carries the urgent hint AND `--bind` chains it with an
+`hc bring` the moment it attaches, so the user's focus lands in the
+terminal immediately (no hunting for the window, no relying on the
+notification):
 
-    launch_alacritty --urgent --no-distract -d <dir> "<command>"
+    launch_alacritty --urgent --bind -d <dir> "<command>"
 
-Deferred-work sessions (npm version bumps, publishes, debugging the
-user will do later) open on a NAMED tagspace instead of the focused
-tag — the npm-publish convention:
+Deferred-work sessions the user will visit LATER (npm version bumps,
+batch publishes on a named workspace) are the exception — those stay
+in the background on their tagspace:
 
     launch_alacritty --urgent --no-distract -t npm -d <dir>
 
@@ -51,11 +56,14 @@ in the directory, just omit the command string.
 ## Spawn loop for several directories
 
 Spawn windows for multiple modules in one backgrounded loop, waiting
-for the WM rule machinery between spawns:
+for the WM rule machinery between spawns. Bind focus on the LAST one
+only (the one the user acts on first); earlier windows stay urgent:
 
-    for m in polyframes herbstutil herbctl; do
+    for m in polyframes herbstutil; do
         launch_alacritty --urgent --no-distract -d ~/dots/$m/.local/share/$m &
-    done; wait
+    done
+    launch_alacritty --urgent --bind -d ~/dots/herbctl/.local/share/herbctl
+    wait
 
 ## Gotchas
 
@@ -63,6 +71,12 @@ for the WM rule machinery between spawns:
   single argument.
 - `-d <dir>` is verified to exist before spawning; the path is
   %q-quoted so it survives spaces.
+- `--bind` deliberately OVERRIDES the focus=off that `--urgent` arms:
+  the window still floats with the urgent marker, but the post-attach
+  watcher `herbstclient bring`s it (focus + raise + move to the viewed
+  tag). The same machinery lives in the verb as
+  `herbctl terminal --urgent --bind` — prefer launch_alacritty from
+  skills (it adds the directory verification and the park contract).
 - A command string that exits immediately (like a lone `exec bash -l`)
   closes the window after the park phase — the wrapper parks for one
   key press ("press any key to close"), then exits.

@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# gdebi-gtk — pkexec-safe launcher (dots/polkit).
+#
+# WHEN YOU SEE THIS FILE ON PATH it shadows /usr/bin/gdebi-gtk on
+# purpose. gdebi's Install flow re-execs itself via
+# `pkexec gdebi-gtk --non-interactive <deb>`; polkit 127 no longer
+# retains DISPLAY/XAUTHORITY for the allow_gui annotation (the
+# upstream doc still promises it — the retention is dead), so the
+# root-side gdebi launched with NO display connection and died with
+# "Can't create a GtkStyleContext without a display connection"
+# (SIGABRT — the dead click on Install).
+#
+# Non-root (the user instance sff/xdg-open launches): pass straight
+# through — nothing to recover.
+#
+# Root side: DISPLAY is scrubbed by pkexec; recover it from the WM's
+# live process environment (root reads /proc — herbstluftwm inherits
+# the check-x-server-persisted DISPLAY; no hardcoded value except the
+# repo fallback convention localhost:0.0, never 127.0.0.1:0).
+
+if [ "$(id -u)" != "0" ]; then
+    exec /usr/bin/gdebi-gtk "$@"
+fi
+
+if [ -z "$DISPLAY" ]; then
+    wm_pid=$(pidof herbstluftwm | cut -d' ' -f1)
+    if [ -n "$wm_pid" ]; then
+        recovered=$(tr '\0' '\n' < "/proc/$wm_pid/environ" 2>/dev/null \
+            | grep '^DISPLAY=' | cut -d= -f2- | head -1)
+        DISPLAY=${recovered%%[[:cntrl:]]}
+    fi
+    DISPLAY=${DISPLAY:-localhost:0.0}
+    export DISPLAY
+fi
+export XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority}
+
+exec /usr/bin/gdebi-gtk "$@"

@@ -23,6 +23,12 @@ fi
 case "$BINARY_NAME" in
     rg) BINARY_NAME="ripgrep" ;;
     herbstclient) BINARY_NAME="herbstluftwm" ;;
+    # pfs-utils ships the binary 'pfs-open' (the search never returns
+    # it — no package name contains the binary name's substrings)
+    pfs-open) BINARY_NAME="pfs-utils" ;;
+    # pulseaudio-utils ships 'paplay' (the notification player behind
+    # dunst-sound; the search never returns it — same reason)
+    paplay) BINARY_NAME="pulseaudio-utils" ;;
 esac
 
 # b) Find the package that contains the binary using apt-cache

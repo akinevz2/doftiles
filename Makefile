@@ -295,10 +295,23 @@ help:
 	@echo "  restart    deploy + enable/start the service chain, then restart it"
 	@echo "  add-packages  the wm.depends binary walk: verify + install the"
 	@echo "      missing (YES=1 headless; sudo grant on a tty)"
+	@echo "  rigor  maintenance guard: sweep checks, package versioning,"
+	@echo "      stow-fold drift, automation-commit advisories"
+	@echo "      (binary: depends/.local/bin/rigor, PATH-deployed)"
 	@echo "knobs:"
 	@echo "  FORCE=1    the non-interactive + fail-safe knob (retry after unstow)"
 	@echo "  YES=1      bypass confirmations (headless)"
 	@echo "  TIMEOUT=<s>  cap EACH on-deploy sub-invocation (agentic deploys)"
+
+# rigor — the maintenance guard: scripts/rigor is NOT used; the guard
+# lives in depends/.local/bin/rigor (PATH-deployed through the depends
+# stow package — maintenance scripts are deployed first, then used).
+# Sweep (C1), package-versioning (R19), stow-fold drift (R18) FAILs
+# plus advisory WARNs on generic automation commits (C3/C4). Exits
+# non-zero on FAIL. Depends on the depends package being stowed.
+rigor:
+	@$(if $(wildcard depends/.local/bin/rigor),,echo "rigor: depends/.local/bin/rigor missing — run 'make stow-depends' first" >&2; exit 1)
+	@sh depends/.local/bin/rigor
 
 # add-packages — the wm.depends requirement walk: verify every binary,
 # install the MISSING ones through the <target>.deploy protocol (the

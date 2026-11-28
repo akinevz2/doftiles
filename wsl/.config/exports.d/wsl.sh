@@ -24,4 +24,16 @@ if [ -x "$HOME/.local/bin/check-wsl" ] && "$HOME/.local/bin/check-wsl"; then
     export BROWSER="firefox"
     # Allows VS Code usage within the X11
     export DONT_PROMPT_WSL_INSTALL=true
+    # X-Generic: keep xdg-open OFF its WSL branch. With
+    # XDG_CURRENT_DESKTOP empty, xdg-open (xdg-utils >= 1.2) detects
+    # the WSL kernel (/proc/version microsoft) + explorer.exe on PATH
+    # and routes EVERY open through `explorer.exe <wslpath>` — the
+    # Windows side, which knows nothing of the FreeDesktop mime
+    # associations (a .deb opened by sff/xdg-open never reached
+    # gdebi). X-Generic is the menu-spec-recognized value that maps
+    # to xdg-open's `generic` DE — the mimeapps.list-correct path
+    # (verified live: sff -> xdg-open -> gdebi.desktop -> gdebi-gtk).
+    # This is a REAL Linux GUI session (herbstluftwm on VcXsrv); the
+    # Windows interop stays available through BROWSER's wrapper.
+    export XDG_CURRENT_DESKTOP=X-Generic
 fi

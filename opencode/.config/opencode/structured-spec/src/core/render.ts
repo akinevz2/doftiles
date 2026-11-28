@@ -1,8 +1,9 @@
-import type { DecodeAmendError, DecodeError } from "./decode.ts"
+import type { DecodeAmendError, DecodeError, DecodeSyncError } from "./decode.ts"
 import type { NoteError, Notes } from "./notes.ts"
 export const addToolName = "add-rigorously"
 export const amendToolName = "invalidate-rigorously"
 export const consultToolName = "consult-specification"
+export const syncToolName = "sync-specification"
 export const maxLineWidth = 96
 export const overflowPrefix = "overflowing spec: ["
 export const overflowSuffix = "] is too damn wide"
@@ -84,6 +85,10 @@ export type AmendCounts = {
   readonly total: number
   readonly inactive: number
 }
+// renderTotals :: number -> number -> string
+//   the closing counts line shared by the amend and sync reports
+export const renderTotals = (total: number) => (inactive: number): string =>
+  `specification now holds ${total}${overruledSuffix(inactive)}.`
 // renderAmend :: AmendCounts -> string
 export const renderAmend = (counts: AmendCounts): string => {
   const lines: string[] = []
@@ -93,7 +98,7 @@ export const renderAmend = (counts: AmendCounts): string => {
     lines.push(
       `no note matched: ${counts.missing.join(" | ")}. consult-specification lists the exact texts.`,
     )
-  lines.push(`specification now holds ${counts.total}${overruledSuffix(counts.inactive)}.`)
+  lines.push(renderTotals(counts.total)(counts.inactive))
   return lines.join("\n")
 }
 // renderDecodeError :: DecodeError -> string
@@ -102,3 +107,6 @@ export const renderDecodeError = (error: DecodeError): string =>
 // renderDecodeAmendError :: DecodeAmendError -> string
 export const renderDecodeAmendError = (_error: DecodeAmendError): string =>
   `rejected: ${amendToolName} expects notes, drop or overrule, each string[];\nat least one entry overall. nothing was changed.`
+// renderDecodeSyncError :: DecodeSyncError -> string
+export const renderDecodeSyncError = (_error: DecodeSyncError): string =>
+  `rejected: ${syncToolName} expects { "direction": "push" | "pull" }. nothing was synced.`

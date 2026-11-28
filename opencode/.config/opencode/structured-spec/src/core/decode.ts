@@ -38,3 +38,13 @@ export const decodeAmendInput = (input: unknown): Result<DecodeAmendError, Amend
   const empty = notes.length === 0 && drop.length === 0 && overrule.length === 0
   return empty ? err({ tag: "malformed" }) : ok({ notes, drop, overrule })
 }
+
+export type SyncDirection = "push" | "pull"
+export type DecodeSyncError = { readonly tag: "badDirection" }
+
+// decodeSyncInput :: unknown -> Result DecodeSyncError SyncDirection
+//   accepts { direction: "push" | "pull" }; extra keys ignored
+export const decodeSyncInput = (input: unknown): Result<DecodeSyncError, SyncDirection> => {
+  const direction = isRecord(input) ? input["direction"] : undefined
+  return direction === "push" || direction === "pull" ? ok(direction) : err({ tag: "badDirection" })
+}

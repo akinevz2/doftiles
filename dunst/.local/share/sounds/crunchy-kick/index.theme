@@ -1,0 +1,14 @@
+# The notification sound theme: EVERY standard event sound resolves to
+# crunchy_kick.ogg (the .oga copies are the event names of the freedesktop
+# sound naming spec; stow deploys this theme to ~/.local/share/sounds, the
+# first XDG lookup dir). Selected via
+# `gsettings set org.gnome.desktop.sound theme-name 'crunchy-kick'`
+# so GTK/libcanberra apps use it exclusively. dunst itself plays the sound
+# through the dunst-sound script (dunstrc [sound-all]).
+[Sound Theme]
+Name=crunchy-kick
+Comment=All notification-style events: crunchy_kick.ogg
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo

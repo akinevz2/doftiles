@@ -10,7 +10,7 @@
 # Nothing lingers; while parked, the WM title reads
 # "paused-for-dismiss_idle <program that was run>".
 #
-# Usage: launch_alacritty [--floating] [--urgent] [--no-distract] [-d <dir>] [-t <tag>] "<command>"
+# Usage: launch_alacritty [--floating] [--urgent] [--no-distract] [--bind] [-d <dir>] [-t <tag>] "<command>"
 #   TERMINAL overrides the terminal (default: alacritty).
 #
 #   -d <dir>, --directory <dir>
@@ -39,6 +39,10 @@
 #                  caller's current window instead)
 #   --urgent       the terminal raises the urgent hint (tag marker)
 #   --no-distract  the terminal does NOT take focus on attach
+#   --bind         bind focus post-attach: `herbstclient bring` the new
+#                  client the moment it attaches (focus + raise + move
+#                  to the viewed tag) — the urgent-spawn-and-focus
+#                  shape; overrides the focus=off of --urgent/--tag
 #   -t <tag>, --tag <tag>
 #                  attach the terminal on this tag, CREATING it
 #                  when missing (`herbctl add tag` — allocation
@@ -78,7 +82,11 @@ Usage: launch_alacritty [--floating] [--urgent] [--no-distract] [-d <dir>] [-t <
 Options:
   --floating     float the terminal once it attaches (rule-owned)
   --urgent       raise the urgent hint (tag marker)
-  --no-distract  no focus steal on attach
+  --bind         bind focus post-attach: `herbstclient bring` the new
+                 client the moment it attaches — focus + raise +
+                 move to the viewed tag. The urgent-spawn-and-focus
+                 shape (deliberately overrides the focus=off that
+                 --urgent/--tag arm). Uses herbctl terminal --bind.
   -t <tag>, --tag <tag>
                  attach on this tag, creating it when missing
                  (herbctl add tag); implies focus=off +
@@ -105,11 +113,13 @@ dir=
 tag=
 prev_focus=
 NEED_URGENT=
+NEED_BIND=
 while [ $# -gt 0 ]; do
     case $1 in
         --floating)    rule+=(floating=on) ;;
         --urgent)      rule+=(floating=on); rule+=(focus=off); NEED_URGENT=1 ;;
         --no-distract) rule+=(focus=off) ;;
+        --bind)        NEED_BIND=1 ;;
         -t|--tag)
             [ $# -ge 2 ] || { echo "launch_alacritty: -t requires a tag name" >&2; exit 1; }
             tag=$2; shift
@@ -193,13 +203,18 @@ INNER="paused-for-dismiss_idle $QUOTED"
 # the watcher polls for the NEW client (max 3s) and sets
 # clients.<winid>.urgent=true. focus=off on the same rule means the
 # urgent flag never steals focus — the window stays in the background.
-if [ -n "$NEED_URGENT" ]; then
+# --bind chains the SAME watcher with `herbstclient bring`: the new
+# client is brought (focus + raise + move to the viewed tag) the
+# moment it attaches — the user's focus BOUND to the urgent terminal
+# immediately (the deliberate override of the focus=off above).
+if [ -n "$NEED_URGENT" ] || [ -n "$NEED_BIND" ]; then
     pre_wins=$(herbstutil attr clients. 2>/dev/null | grep -oE '0x[0-9a-f]+' | sort -u || true)
     (
         for _ in $(seq 1 30); do
             neww=$({ herbstutil attr clients. 2>/dev/null | grep -oE '0x[0-9a-f]+' | sort -u || true; } | comm -23 - <(printf '%s\n' "$pre_wins") | head -1)
             if [ -n "$neww" ]; then
-                hc set_attr clients.${neww%.}.urgent true
+                [ -n "$NEED_URGENT" ] && hc set_attr clients.${neww%.}.urgent true
+                [ -n "$NEED_BIND" ] && hc bring "$neww"
                 exit 0
             fi
             sleep 0.1

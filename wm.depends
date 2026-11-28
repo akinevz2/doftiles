@@ -1,3 +1,8 @@
-herbstluftwm herbstclient compton polyframes polybar rofi hsetroot xset dunst notify-send jq rg fzf gh qutebrowser batcat btop mutt
+herbstluftwm herbstclient compton polyframes polybar rofi hsetroot xset dunst notify-send jq rg fzf gh qutebrowser batcat btop mutt sff pfs-open gdebi paplay
+# sff -> apt sff; pfs-open -> apt pfs-utils (ubuntu.deploy alias);
+# paplay -> apt pulseaudio-utils (ubuntu.deploy alias) — the notification
+# player behind dunst-sound (the dunstrc [sound-all] rule).
+# gdebi -> apt gdebi + gdebi-core (the GUI depends on gdebi-core).
+# pfs-common has NO binary — the desktop-environment adapter owns it.
 wsl-systemd
 ubuntu

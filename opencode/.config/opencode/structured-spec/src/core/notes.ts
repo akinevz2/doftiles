@@ -108,6 +108,22 @@ export const overruleNotes =
     const missing = queries.filter((query) => !notes.some((note) => note.text === query))
     return { notes: next, overruled, missing }
   }
+// countActive :: Notes -> number
+export const countActive = (notes: Notes): number => notes.filter((note) => note.active).length
+// countInactive :: Notes -> number
+export const countInactive = (notes: Notes): number => notes.length - countActive(notes)
+// absorbNotes :: Notes -> Notes -> Notes
+//   merges the durable store into the session list (file first): a text present
+//   in both takes the FILE's active flag; session-only and file-only texts keep
+//   their own flag; order is session order then unseen file order.
+export const absorbNotes = (file: Notes) => (session: Notes): Notes => {
+  const stored = (note: Note): Note => {
+    const match = file.find((other) => other.text === note.text)
+    return match === undefined ? note : { text: note.text, active: match.active }
+  }
+  const unseen = file.filter((note) => !session.some((other) => other.text === note.text))
+  return [...session.map(stored), ...unseen]
+}
 const blockPattern = /```notes[ \t]*\n([\s\S]*?)```/g
 const bulletPattern = /^[ \t]*[-*][ \t](.*)$/gm
 // parseBlocks :: string -> readonly string[]

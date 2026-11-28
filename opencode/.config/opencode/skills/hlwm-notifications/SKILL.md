@@ -46,10 +46,12 @@ work phases). Do not `jumpto` here — only record.
 ## Rule 2 — capture the spawned terminal's winid
 
 When using `launch_alacritty` (the spawn-directory skill), the spawned
-window takes focus. Immediately after spawning, record it:
+window takes focus (the canonical shape is `--urgent --bind` — the
+post-attach `hc bring` binds the user's focus to the terminal
+immediately). After the spawn, record it:
 
 ```bash
-launch_alacritty -d ~/some/project
+launch_alacritty --urgent --bind -d ~/some/project
 sleep 0.3   # let the WM rule machinery register the window
 herbstclient attr clients.focus.winid > "$TERM_WIN"
 ```

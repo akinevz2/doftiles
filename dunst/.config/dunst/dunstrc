@@ -226,8 +226,15 @@
     # * close_current: Close current notification.
     # * close_all: Close all notifications.
     mouse_left_click = do_action
-    mouse_right_click = context
+    mouse_right_click = close_current
     mouse_middle_click = close_all
+
+# THE notification sound: no filters -> matches EVERY notification (dunst
+# rules match all when they define no filters; always_run_script=true above
+# keeps it running even for suppressed ones). dunst resolves the bare name
+# through PATH — the script is dots/dunst/.local/bin/dunst-sound.
+[sound-all]
+    script = dunst-sound
 
 # The orchestrator tracker's PERSISTENT class (minimized / separation /
 # death): styled by urgency (normal = the regular yellow look, critical

@@ -5,3 +5,6 @@ text/html=firefox.desktop
 x-scheme-handler/about=firefox.desktop
 x-scheme-handler/unknown=firefox.desktop
 x-scheme-handler/vscode=code_code-url-handler.desktop
+# .deb packages open in gdebi (its desktop entry declares the MIME type;
+# gdebi resolves dependencies through apt, elevating via pkexec)
+application/vnd.debian.binary-package=gdebi.desktop

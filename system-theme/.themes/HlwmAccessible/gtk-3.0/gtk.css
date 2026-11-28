@@ -1,0 +1,367 @@
+/* HlwmAccessible — GTK 3 theme derived from the herbstluftwm theme
+ * (dots/herbstluftwm/.config/herbstluftwm/theme + theme.d/titles.theme).
+ *
+ * Palette doctrine (2026-11-28 warm-only rewrite):
+ *   #333333  theme.active.inner_color  -> PRIMARY dark background (bg_color,
+ *                                         headerbar, secondary surfaces)
+ *   #FEEF69  theme.active.outer_color  -> hlwm GOLD: THE highlight —
+ *                                         selection, focus outlines, accents,
+ *                                         urgency/warning (hlwm urgency family)
+ *   #2C001E  reload_theme BACKGROUND_HEX -> SECONDARY color: aubergine fills
+ *                                         (hover-active states, checked
+ *                                         switches, deep text surfaces)
+ *   #EEEEEE  theme.title_color         -> PRIMARY text (all primary text)
+ *   #EB4D4B  theme.urgent.title_color  -> error_color (destructive)
+ *   COLD COLORS ARE OUT: no blue, no purple, no green anywhere. Neutrals
+ *   (grays) and the warm family above are the only survivors; success
+ *   collapses onto the gold for lack of a warm counterpart.
+ *
+ * Accessibility doctrine (utmost importance — keyboard-first):
+ *   - every interactive widget gets a 3px #FEEF69 :focus outline
+ *     (10.69:1 on #333333 — far beyond the 3:1 UI contrast rule), so
+ *     keyboard focus is ALWAYS unmistakable;
+ *   - touch/keyboard targets sized for alacritty's 16.0 pt font
+ *     (~21 px line height): buttons/entries min-height 36px,
+ *     menu rows 32px, all paddings generous;
+ *   - every text/background pair >= 4.5:1, borders >= 3:1 (README table).
+ * Keep gtk-4.0/gtk.css in sync — this file is the canonical copy.
+ */
+
+/* GTK3 loads a custom theme's gtk.css INSTEAD of the default theme:
+ * without this import every widget we don't style falls back to the
+ * bare-bones GTK defaults (zero padding, zero min-height). Layer this
+ * palette ON TOP of the Adwaita dark base instead. */
+@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained-dark.css");
+
+@define-color bg_color #333333;             /* primary dark background */
+@define-color fg_color #EEEEEE;
+@define-color base_color #2B2B2B;           /* entries/views: deeper than bg */
+@define-color text_color #EEEEEE;
+@define-color selected_bg_color #FEEF69;    /* hlwm gold: THE highlight */
+@define-color selected_fg_color #1A1A1A;    /* ink on gold (14.72:1) */
+@define-color secondary_bg_color #2C001E;   /* hlwm aubergine: secondary fill */
+@define-color accent_color #FEEF69;         /* hlwm gold: accents + urgency */
+@define-color urgency_color #FEEF69;        /* hlwm gold: urgency */
+@define-color headerbar_bg_color #333333;
+@define-color headerbar_fg_color #EEEEEE;
+@define-color borders_color #8A8A8A;        /* neutral (3.66:1 vs bg) */
+@define-color error_color #FF7B79;  /* text on #333333 = 5.03:1; destructive bg stays #EB4D4B */
+@define-color warning_color #FEEF69;        /* urgency token */
+@define-color success_color #FEEF69;        /* warm-only: collapses onto gold */
+@define-color unfocused_bg_color #333333;
+@define-color unfocused_fg_color #B8B8B8;   /* 6.37:1 on #333333 */
+@define-color tooltip_bg_color #2B2B2B;
+@define-color tooltip_fg_color #EEEEEE;
+@define-color outline_color @selected_bg_color;
+
+/*= ADWAITA BASE TOKEN OVERRIDES — the imported base css styles tab =*/
+/*= underlines, scrollbar hovers, tree selections and links through =*/
+/*= these tokens; re-point every one at the warm family so no cold  =*/
+/*= (blue/green) accent survives anywhere.                          =*/
+@define-color theme_bg_color @bg_color;
+@define-color theme_fg_color @fg_color;
+@define-color theme_base_color @base_color;
+@define-color theme_text_color @text_color;
+@define-color theme_selected_bg_color @selected_bg_color;
+@define-color theme_selected_fg_color @selected_fg_color;
+@define-color theme_unfocused_bg_color @unfocused_bg_color;
+@define-color theme_unfocused_fg_color @unfocused_fg_color;
+@define-color theme_unfocused_base_color @base_color;
+@define-color theme_unfocused_text_color @text_color;
+@define-color theme_unfocused_selected_bg_color rgba(254, 239, 105, 0.55);
+@define-color theme_unfocused_selected_fg_color @selected_fg_color;
+@define-color insensitive_bg_color #2A2A2A;
+@define-color insensitive_fg_color #909090;
+@define-color insensitive_base_color @base_color;
+@define-color unfocused_insensitive_color #6E6E6E;
+@define-color borders @borders_color;
+@define-color unfocused_borders #808080;
+@define-color wm_title @fg_color;
+@define-color wm_unfocused_title @unfocused_fg_color;
+@define-color content_view_bg @base_color;
+@define-color text_view_bg #241119;         /* deep aubergine (derived) */
+
+/*= KEYBOARD FOCUS — the primary accessibility contract =*/
+/* 3px gold outline, offset so it never overlaps the widget fill;
+ * dashed for GTK3 widgets that ignore :focus-visible distinction. */
+* {
+  outline-color: @selected_bg_color;
+  outline-style: solid;
+  outline-width: 3px;
+  outline-offset: 2px;
+  -gtk-outline-radius: 3px;
+}
+
+/*= WINDOW =*/
+window {
+  background-color: @bg_color;
+  color: @fg_color;
+}
+
+/*= HEADERBAR (the GTK analogue of the hlwm title strip) =*/
+headerbar,
+.titlebar {
+  background-color: @headerbar_bg_color;
+  color: @headerbar_fg_color;
+  border-bottom: 2px solid @selected_bg_color; /* gold default highlight */
+  min-height: 38px;
+  padding: 0 6px;
+}
+headerbar:backdrop {
+  color: @unfocused_fg_color;
+  border-bottom-color: @borders_color;
+}
+headerbar entry,
+headerbar button {
+  margin: 3px 2px;
+}
+
+/*= BUTTON =*/
+button {
+  background-color: @bg_color;
+  color: @fg_color;
+  border: 1px solid @borders_color;
+  border-radius: 4px;
+  padding: 7px 14px;
+  min-height: 22px;      /* + padding = 36px target height */
+  min-width: 20px;
+  font-weight: 500;
+}
+button:hover {
+  border-color: @selected_bg_color;
+  background-color: #404040;
+}
+button:active {
+  background-color: @secondary_bg_color;   /* aubergine secondary background */
+  color: @fg_color;                        /* 16.08:1 on #2C001E */
+  border-color: @borders_color;
+}
+button:disabled {
+  color: #B8B8B8;
+  border-color: #555555;
+  background-color: #2B2B2B;
+}
+button:focus,
+button:focus-visible {
+  outline: 3px solid @selected_bg_color;
+  outline-offset: 2px;
+}
+button.suggested-action {
+  background-color: @selected_bg_color;
+  color: @selected_fg_color;
+  border-color: @selected_bg_color;
+}
+button.destructive-action {
+  background-color: #EB4D4B; /* hlwm urgent title red */
+  color: #1A1A1A;  /* 4.72:1 on #EB4D4B; white would only reach 3.69:1 */
+  border-color: @error_color;
+}
+button.flat,
+button.image-button {
+  background: none;
+  border-color: transparent;
+}
+button.flat:hover,
+button.image-button:hover {
+  background-color: #404040;
+  border-color: @borders_color;
+}
+/* Image buttons stay square enough to hit comfortably */
+button.image-button {
+  padding: 7px;
+}
+
+/*= ENTRY =*/
+entry {
+  background-color: @base_color;
+  color: @text_color;
+  border: 1px solid @borders_color;
+  border-radius: 4px;
+  padding: 7px 10px;
+  min-height: 22px;      /* 36px total */
+  caret-color: @fg_color;
+}
+entry:focus,
+entry:focus-within {
+  border-color: @selected_bg_color;
+  outline: 3px solid @selected_bg_color;
+  outline-offset: 1px;
+}
+entry:disabled {
+  color: #B8B8B8;
+  background-color: #2B2B2B;
+}
+entry selection {
+  background-color: @selected_bg_color;
+  color: @selected_fg_color;
+}
+entry image {
+  margin: 0 3px;
+}
+
+/*= COMBOBOX =*/
+combobox button {
+  padding: 7px 10px;
+  min-height: 22px;
+}
+combobox menu,
+combobox popover {
+  background-color: @bg_color;
+  color: @fg_color;
+}
+
+/*= MENUS =*/
+menu,
+.menu {
+  background-color: @bg_color;
+  color: @fg_color;
+  border: 1px solid @borders_color;
+  padding: 3px;
+}
+menu item,
+.menuitem {
+  padding: 7px 12px;
+  min-height: 18px;      /* 32px row */
+  color: @fg_color;
+}
+menu item:hover,
+menu item:active {
+  background-color: @selected_bg_color;   /* gold default highlight */
+  color: @selected_fg_color;
+}
+menu item:disabled {
+  color: #B8B8B8;
+}
+
+/*= SCROLLBAR =*/
+scrollbar {
+  background-color: @bg_color;
+}
+scrollbar slider {
+  background-color: #8A8A8A;  /* neutral, 3.66:1 vs bg — clears the 3:1 UI rule */
+  border: 1px solid @borders_color;
+  border-radius: 4px;
+  min-width: 12px;       /* wide, visible targets */
+  min-height: 28px;
+}
+scrollbar slider:hover {
+  background-color: @selected_bg_color;
+}
+scrollbar slider:active {
+  background-color: @secondary_bg_color;
+  border-color: @accent_color;   /* gold ring keeps the press visible */
+}
+
+/*= CHECK / RADIO =*/
+checkbutton,
+radiobutton {
+  color: @fg_color;
+  padding: 4px;
+}
+checkbutton label,
+radiobutton label {
+  padding: 0 4px;
+}
+checkbutton:focus,
+radiobutton:focus {
+  outline: 3px solid @selected_bg_color;
+  outline-offset: 2px;
+}
+check,
+radio {
+  background-color: @base_color;
+  color: @fg_color;
+  border: 1px solid @borders_color;
+  min-width: 18px;
+  min-height: 18px;
+}
+check:focus,
+radio:focus {
+  outline: 3px solid @selected_bg_color;
+  outline-offset: 1px;
+}
+check:checked,
+radio:checked {
+  background-color: @selected_bg_color;
+  color: @selected_fg_color;
+  border-color: @selected_bg_color;
+}
+
+/*= PROGRESSBAR =*/
+progressbar trough {
+  background-color: @base_color;
+  border: 1px solid @borders_color;
+  border-radius: 3px;
+  min-height: 10px;
+}
+progressbar progress {
+  background-color: @selected_bg_color;  /* gold fill = the highlight */
+  border-radius: 2px;
+}
+
+/*= SWITCH =*/
+switch {
+  min-width: 48px;
+  min-height: 26px;
+  background-color: @base_color;
+  border: 1px solid @borders_color;
+}
+switch:checked {
+  background-color: @secondary_bg_color;  /* aubergine track */
+  border-color: @selected_bg_color;       /* gold accent ring */
+}
+switch slider {
+  background-color: @selected_bg_color;   /* gold knob */
+  color: @selected_fg_color;
+  margin: 2px;
+}
+
+/*= DIALOGS / ACTION AREAS =*/
+dialog,
+.dialog {
+  background-color: @bg_color;
+  color: @fg_color;
+}
+dialog .dialog-action-area button,
+.dialog-action-box button {
+  padding: 8px 16px;
+  min-height: 26px;      /* 42px dialog action buttons */
+}
+
+/*= TOOLTIP =*/
+tooltip {
+  background-color: @tooltip_bg_color;
+  color: @tooltip_fg_color;
+  border: 1px solid @accent_color;        /* gold border accent */
+  border-radius: 4px;
+  padding: 5px 8px;
+}
+
+/*= SELECTION EVERYWHERE ELSE =*/
+selection {
+  background-color: @selected_bg_color;
+  color: @selected_fg_color;
+}
+
+/*= LABEL STATES =*/
+label.error {
+  color: @error_color;
+}
+label.warning {
+  color: @warning_color;   /* hlwm gold = urgency */
+}
+label.success {
+  color: @success_color;   /* warm-only: shares the gold */
+}
+
+/*= URGENT / ATTENTION widgets (hlwm urgency is GOLD) =*/
+.urgent,
+.urgency,
+headerbar button.titlebutton.urgent {
+  border-color: @urgency_color;
+  color: @urgency_color;
+}
+window.urgent,
+window.urgency {
+  border: 2px solid @urgency_color;
+}

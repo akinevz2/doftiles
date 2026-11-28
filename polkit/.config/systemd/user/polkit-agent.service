@@ -1,0 +1,25 @@
+# ~/.config/systemd/user/polkit-agent.service
+# The polkit authentication agent for the herbst session (the root
+# dialog pkexec raises — gdebi's apt step depends on it). The distro
+# package's XDG autostart entry is OnlyShowIn=XFCE;Unity;X-Cinnamon,
+# so a herbstluftwm session needs this dots-owned unit instead.
+[Unit]
+Description=polkit GNOME authentication agent (inside VcXsrv)
+After=check-x-server.service herbst.service
+Requires=check-x-server.service
+
+[Service]
+Type=simple
+# DISPLAY is inherited from the user manager environment, set by
+# check-x-server — no hardcoded display here. X11 forced like every
+# session unit (WSLg would otherwise offer a Wayland socket).
+Environment=XDG_SESSION_TYPE=x11
+UnsetEnvironment=WAYLAND_DISPLAY
+# Not session-critical: a crash restarts, but nothing is BindsTo the
+# WM — the agent outlives a herbst reload by design.
+Restart=on-failure
+RestartSec=1
+ExecStart=/usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1
+
+[Install]
+WantedBy=default.target

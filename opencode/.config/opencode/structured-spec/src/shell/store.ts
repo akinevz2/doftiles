@@ -1,3 +1,4 @@
+import { absorbNotes } from "../core/notes.ts"
 import { addEach as addEachCore, addNotes, dropNotes, emptyNotes, overruleNotes } from "../core/notes.ts"
 import type { DropOutcome, NoteError, Notes, OverruleOutcome } from "../core/notes.ts"
 import type { Result } from "../core/result.ts"
@@ -10,6 +11,7 @@ export type Store = {
   readonly addEach: (sessionID: string, raw: readonly string[]) => readonly NoteError[]
   readonly drop: (sessionID: string, raw: readonly string[]) => DropOutcome
   readonly overrule: (sessionID: string, raw: readonly string[]) => OverruleOutcome
+  readonly restore: (sessionID: string, file: Notes) => Notes
   readonly reject: (sessionID: string, lines: readonly string[]) => void
   readonly pending: (sessionID: string) => readonly string[]
   readonly drain: (sessionID: string) => readonly string[]
@@ -51,6 +53,14 @@ const amendWith =
     return outcome
   }
 
+const restoreTo =
+  (ref: Ref<ReadonlyMap<string, Notes>>) =>
+  (sessionID: string, file: Notes): Notes => {
+    const merged = absorbNotes(file)(getIn(readRef(ref), sessionID, emptyNotes))
+    modifyRef(ref)((map) => setIn(map, sessionID, merged))
+    return merged
+  }
+
 const appendTo =
   (ref: Ref<ReadonlyMap<string, readonly string[]>>) =>
   (sessionID: string, lines: readonly string[]): void => {
@@ -78,6 +88,7 @@ export const makeStore = (): Store => {
     addEach: (sessionID, raw) => addAllTo(notesRef)(sessionID, raw),
     drop: (sessionID, raw) => amendWith(dropNotes)(notesRef)(sessionID, raw),
     overrule: (sessionID, raw) => amendWith(overruleNotes)(notesRef)(sessionID, raw),
+    restore: (sessionID, file) => restoreTo(notesRef)(sessionID, file),
     reject: (sessionID, lines) => appendTo(rejectedRef)(sessionID, lines),
     pending: (sessionID) => getIn(readRef(rejectedRef), sessionID, emptyLines),
     drain: (sessionID) => drainFrom(rejectedRef)(sessionID),

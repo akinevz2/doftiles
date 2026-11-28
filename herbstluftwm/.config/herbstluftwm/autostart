@@ -109,9 +109,10 @@ keyreg $Mod-m           spawn dunstctl close-all
 
 
 keyreg $Mod-w spawn ~/.local/bin/herbctl jump forward
-# Mod-w: leave the floating layer, then cycle window/frame upward —
-# focus-only frame cycling, never layout modification (the former
-# herbctl-nav-cycle get-forward register)
+# Mod-w: the PRIME jump-forward machine — leave the floating layer,
+# then intra-frame cycle +1, inter-frame navigation (frame up), the
+# bare cycle_frame fallback last. Focus-only, never layout
+# modification.
 
 # ModShift-w: mirror of Mod-w's register — the shift-up ladder: first
 # tries shifting the window up (--level=all); when there is
@@ -198,13 +199,15 @@ keyreg $ModShift-period     shift right
 # ModShift-w.
 keyreg $ModCtrl-r spawn ~/.local/bin/herbctl rotate
 
-keyreg $Mod-e spawn ~/.local/bin/herbctl frame explode
-# Mod-e: with >1 frame cycle backwards, else explode the frame and
-# cycle forward (the former herbctl-nav-cycle explode-frame register)
+keyreg $Mod-e spawn ~/.local/bin/herbctl jump backward
+# Mod-e: the OVERLOADED explode — explodeFrame's prime implementation
+# on non-max frames; on a max frame, frame traversal (cycle_frame -1).
 
-# the zoom/peek grid (the former herbctl-nav-cycle get-south register):
-# urgent jumpto, frame-down focus, the float-layer branch and the
-# pseudotile toggle, one chained spawn under lock
+# the corrected-invariant backward cycle (the former herbctl-nav-cycle
+# get-south register): a single root child or a max frame PREFERS
+# cycle over cycle_frame (the backward layered machine); multiple
+# root children on a non-max frame PREFERS cycle_frame over cycle.
+# (The explode machine was overloaded into Mod-e.)
 # The floating branch: `attr tags.focus.floating_focused true` focuses
 # the floating layer AND doubles as the "are there (non-minimized)
 # floats" conditional — it fails on an empty floating layer, falling

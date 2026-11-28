@@ -343,13 +343,15 @@ them automatically in the background).
   sudo or an interactive TTY — inherent, fails loudly, never hangs.
 - **Interactive sudo from the agent**: when a step needs root and the
   session is headless, spawn an interactive terminal in the repo
-  (`launch_alacritty --urgent --no-distract "cd ~/dots && exec bash
-  -l"`; see the spawn-directory skill) and ask the user to run the
-  MAKE RECIPE that implements the step — `sudo make <recipe>` (e.g.
-  `sudo make bootstrap` for missing toolchains, `make add-packages`
-  for missing wm-manifest binaries) — NEVER the raw system-level
-  command. The recipe owns the flow (pre-flight grant, package
-  resolution through the `<target>.deploy` protocol, verification);
+  (`launch_alacritty --urgent --bind -d ~/dots`;
+  see the spawn-directory skill — `--bind` chains an `hc bring` so
+  the user's focus lands in the terminal immediately) and ask the
+  user to run the MAKE RECIPE that implements the step — `sudo make
+  <recipe>` (e.g. `sudo make bootstrap` for missing toolchains, `make
+  add-packages` for missing wm-manifest binaries) — NEVER the raw
+  system-level command. The recipe owns the flow (pre-flight grant,
+  package resolution through the `<target>.deploy` protocol,
+  verification);
   asking for the raw command bypasses the machinery the repo
   documents.
 - TUI/session gates: `make configure` is tty-only without `FORCE=1`.
@@ -528,6 +530,26 @@ NOT stowed, NOT tracked by dots git, and never enters any deploy flow
     - MEASURE, don't assume: read back hlwm attrs AND X ground truth
       (xwininfo) and assert on the numbers (containment, size
       deltas, rule-fired checks).
+18. **Never `rm -rf` a stow-folded path — resolve the symlink FIRST**
+    (2026-11-28): before deleting or overwriting anything under
+    `~/.themes`, `~/.config`, `~/.local`, check whether the path (or
+    an ANCESTOR of it) is a stow fold-symlink into the repo
+    (`readlink -f` on the path AND on each parent component). A
+    `rm -rf` through a fold deletes the REPO-SIDE source, not a
+    deployed copy. To "nuke and redeploy" a package: use the stow
+    machinery itself — `make unstow-<pkg>` (drops the links), remove
+    leftovers IN THE REPO, then `make stow-<pkg>`. Same discipline
+    for any destructive verb on a `$HOME` path: the resolution rule
+    in "How stow linking works" cuts BOTH ways — edits and deletions
+    land in the repo, too.
+19. **New packages must be committed the moment they deploy**
+    (2026-11-28): a stow package with no git history (e.g.
+    `system-theme`, lost and only recoverable via the opencode
+    snapshot cache) is a deploy of unversioned data. After creating
+    a package's files — and again after any material edit — commit
+    them (force-add where the pattern is gitignored, like the
+    manifests). Do not consider a package "installed" until `git
+    status` is clean with respect to it.
 
 ## Quick verification workflow
 

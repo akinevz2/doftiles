@@ -1,0 +1,30 @@
+#!/bin/sh
+# dunst-sound — the notification sound machine (dunstrc [sound-all] rule).
+# Plays crunchy_kick.ogg for EVERY notification dunst displays; the player
+# is resolved at INVOCATION (paplay -> ogg123 -> ffplay), no stow-time
+# conditionals. With no player (or no sound server) this is a silent no-op —
+# notifications must never break on hosts without audio.
+#
+# One play at a time: the flock lives on fd 9 and is held by the exec'd
+# player, so plays arriving while one is running are dropped (no overlap
+# spam for stacked/burst notifications).
+
+set -u
+
+SOUND="${HOME}/.local/share/sounds/crunchy-kick/stereo/crunchy_kick.ogg"
+[ -r "$SOUND" ] || exit 0
+
+LOCK="${XDG_RUNTIME_DIR:-/tmp}/dunst-sound.lock"
+exec 9>"$LOCK"
+flock -n 9 || exit 0
+
+if command -v paplay >/dev/null 2>&1; then
+    exec paplay "$SOUND"
+fi
+if command -v ogg123 >/dev/null 2>&1; then
+    exec ogg123 -q "$SOUND"
+fi
+if command -v ffplay >/dev/null 2>&1; then
+    exec ffplay -nodisp -autoexit -loglevel quiet "$SOUND"
+fi
+exit 0

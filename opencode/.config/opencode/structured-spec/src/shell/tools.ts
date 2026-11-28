@@ -1,6 +1,7 @@
 import type { Context } from "@opencode/plugin/promise/plugin"
 import { decodeAmendInput, decodeNotesInput } from "../core/decode.ts"
 import type { DecodeAmendError, DecodeError } from "../core/decode.ts"
+import { countActive, countInactive } from "../core/notes.ts"
 import type { NoteError, Notes } from "../core/notes.ts"
 import { fold } from "../core/result.ts"
 import {
@@ -17,9 +18,6 @@ import {
 } from "../core/render.ts"
 import { reportErrors } from "./report.ts"
 import type { Store } from "./store.ts"
-
-const activeCount = (notes: Notes): number => notes.filter((note) => note.active).length
-const inactiveCount = (notes: Notes): number => notes.length - activeCount(notes)
 
 // registerTools :: (Ctx, Store) -> Promise<void>
 //   one transform, three tools; no namespace (one would prefix the names)
@@ -95,7 +93,7 @@ const addContent =
   (store: Store) =>
   (sessionID: string) =>
   (raw: readonly string[]): string => {
-    const before = activeCount(store.get(sessionID))
+    const before = countActive(store.get(sessionID))
     return fold<NoteError, Notes, string>((error: NoteError): string => {
       reportErrors([error])
       return renderNoteError(error)
@@ -103,7 +101,7 @@ const addContent =
   }
 
 const addedContent = (sessionID: string, before: number, kept: Notes): string =>
-  `${renderAdded({ added: activeCount(kept) - before, total: activeCount(kept), inactive: inactiveCount(kept) })}\n${renderConsultation(kept)}`
+  `${renderAdded({ added: countActive(kept) - before, total: countActive(kept), inactive: countInactive(kept) })}\n${renderConsultation(kept)}`
 
 const amendContent =
   (store: Store) =>
@@ -121,7 +119,7 @@ const amendContent =
       dropped: dropped?.dropped ?? 0,
       overruled: overruled?.overruled ?? 0,
       missing: [...(overruled?.missing ?? []), ...(dropped?.missing ?? [])],
-      total: activeCount(current),
-      inactive: inactiveCount(current),
+      total: countActive(current),
+      inactive: countInactive(current),
     })}\n${renderConsultation(current)}`
   }

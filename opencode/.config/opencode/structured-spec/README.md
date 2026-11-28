@@ -4,7 +4,8 @@ opencode **v2** plugin (`@opencode/plugin`, `@opencode/cli` 2.x). keeps a per-se
 the list after receiving a complete user request and verify its response against
 every note before finishing.
 
-- tools: `add-rigorously`, `invalidate-rigorously`, `consult-specification`
+- tools: `add-rigorously`, `invalidate-rigorously`, `consult-specification`,
+  `sync-specification`
 - notes can also arrive in the user's message as a fenced block:
 
       ```notes
@@ -18,6 +19,18 @@ every note before finishing.
   `notes` adds replacements in the same call. matching is by the exact note
   text as `consult-specification` shows it. re-adding an overruled note's
   text re-activates it.
+- `sync-specification` synchronises the session list with the active
+  project's `AGENTS.md` store (resolved once at setup from the plugin
+  context's project directory). `direction: "push"` serialises the list
+  into the file's marked section (an exact mirror; refused while the list
+  is empty so the store cannot be wiped); `direction: "pull"` deserialises
+  the section into the list (for texts present in both, the file's
+  active/overruled state wins; notes only the file has are added). the
+  section is delimited by `<!-- structured-spec:start -->` /
+  `<!-- structured-spec:end -->` markers; a note line is `- [ ] text`
+  (active) or `- [x] text` (overruled), and a bare `- text` bullet is read
+  as active, so hand edits survive. a missing `AGENTS.md` or section is an
+  empty store, not an error.
 - tooling: bun (runtime, test runner) + tsc (typecheck only). no build step.
 
 ## status
